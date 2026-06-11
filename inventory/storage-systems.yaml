@@ -1,0 +1,140 @@
+# Systèmes de stockage de données — inventaire 2026-06
+# status: confirmé (vu dans l'IaC interne et le code) | non confirmé | décommissionné
+# Le détail d'exploitation (adresses, ports, montages, supervision) est tenu en interne.
+version: 1
+systems:
+  - id: mariadb-prod
+    type: mariadb
+    host: ct-mariadb-1
+    databases:
+      - V5
+      - V5_apprendre
+      - V5_cartic
+      - V5_chroniques
+      - V5_climato
+      - V5_communaute
+      - V5_data_anomalies
+      - V5_data_mf
+      - V5_data_params
+      - "V5_data_{AAAA}"
+      - V5_mail
+      - V5_photolive
+      - V5_prevs
+      - V5_rencontres
+      - V5_stations
+      - V5_videolive
+      - alerte
+      - asso
+      - concoursprevi
+      - data_cartes
+      - data_geo
+      - dico
+      - forums
+      - forums2
+      - mantis
+      - meteo_a_l_ecole
+      - proftpd
+      - reseau
+    status: confirmé
+    notes: >-
+      Base relationnelle principale du monolithe (alias logique mariadb-master),
+      avec une réplique. 28 bases extraites de tables.yaml.
+
+  - id: timescaledb-prod
+    type: timescaledb
+    host: ct-timescale
+    databases:
+      - postgres
+    status: confirmé
+    notes: >-
+      Connexion pgsql:// via site-infoclimat:include/MeteoFrance/db/pdo.php (config .env.ini,
+      DATABASE='postgres'). **Base physique = `postgres`** (schéma `public`) — l'ancien label
+      « infoclimat » était fictif, corrigé le 2026-06-09 (aucune base `infoclimat` n'existe).
+      Introspection du 2026-06-09 : 780,8 GiB, 4 hypertables + 25 tables + 12 matviews + ~30 vues.
+      Socle dataclimat géré par l'infra interne, alimenté hors monolithe (ingestion MF/stations),
+      matviews rafraîchies par Kestra. Le projet DataForGood
+      `dataforgoodfr/14_ValorisationDonneeMeteo` en est un **client** (consommateur en lecture,
+      pas la source) — pressenti comme l'un des premiers à migrer vers la future data-platform.
+
+  - id: datastore
+    type: nfs
+    host: datastore
+    status: confirmé
+    notes: >-
+      Stockage fichiers partagé — c'est le namespace lineage `file://datastore/...`
+      (tuiles, exports opendata, archives…). Lu par les frontaux et mapserver,
+      écrit par les workers data ; sert aussi des vhosts d'archives.
+
+  - id: minio-datastore
+    type: minio
+    host: datastore
+    status: confirmé
+    notes: >-
+      Passerelle objet (S3 compatible) interne adossée au nœud datastore, exposée
+      via des vhosts dédiés. Usage data encore marginal dans les pipelines inventoriés.
+
+  - id: s3-scaleway
+    type: s3
+    host: "s3.fr-par.scw.cloud"
+    status: non confirmé
+    notes: >-
+      Alias S3 externe présent dans la configuration cliente, credentials optionnels
+      (vides par défaut). Aucun script dans les clones ne le référence explicitement ;
+      aucune confirmation d'usage actif — à vérifier lors d'une prochaine introspection.
+
+  - id: modeles-nfs
+    type: nfs
+    host: srx-modeles-2
+    status: confirmé
+    notes: >-
+      Stockage local des sorties modèles NWP de srx-modeles-2 (namespace lineage
+      `file://srx-modeles-2/modeles/...`), exposé en lecture aux frontaux et à
+      mapserver via une vue NFS (namespace `file://modeles`). La bascule du point
+      d'accès legacy (front2) vers cette vue est en cours.
+
+  - id: sphinx-index
+    type: sphinx
+    host: vm-middleware
+    status: confirmé
+    notes: >-
+      Moteur de recherche plein-texte du site (site-infoclimat:recherche/).
+      18 index inventoriés (tables.yaml sphinx://*), construits depuis la base
+      MariaDB principale par l'indexer dédié.
+
+  - id: memory-tables
+    type: mariadb-memory
+    host: ct-mariadb-1
+    status: confirmé
+    notes: >-
+      Table ENGINE=MEMORY V5.connectes (tables.yaml mariadb://V5/connectes,
+      engine_hint=MEMORY). Contient des traces IP/URL/session des visiteurs actifs
+      (fenêtre 5 min) — personal_data. Sur le même hôte que mariadb-prod.
+
+  - id: memcached-prod
+    type: memcached
+    host: front2
+    status: confirmé
+    notes: >-
+      Cache applicatif du site (sessions d'inscription, caches de pages stations,
+      protections applicatives). Hébergé sur un hôte legacy en cours de remplacement.
+
+  - id: shm-cache
+    type: tmpfs
+    host: "vm-backend (php_hosts) + front2 + nginx2"
+    mountpoint: /dev/shm
+    status: confirmé
+    notes: >-
+      Caches éphémères en mémoire partagée : cache modèles, tuiles MeteoAlerte,
+      compteurs de messages privés, images radar intermédiaires, runs GFS
+      (cf. file-datasets.yaml). Fichiers perdus au reboot.
+
+  - id: mariadb-dev
+    type: mariadb
+    env: dev
+    host: "localhost (docker)"
+    databases:
+      - V5
+    status: confirmé
+    notes: >-
+      Service MariaDB de l'environnement de développement local (dev-env),
+      initialisé via dev-env/mariadb/init.sql. Pas de production.

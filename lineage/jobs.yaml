@@ -1,0 +1,970 @@
+# Mapping pipelines inventoriés → jobs OpenLineage (prépare l'instrumentation du lineage)
+# job_namespace + job_name = identité OpenLineage ; pipeline = id dans inventory/pipelines.yaml
+# Généré par script Python depuis pipelines.yaml le 2026-06-05.
+# Seuls les pipelines status:actif (231) sont inclus.
+version: 1
+jobs:
+  - pipeline: kestra.system.failure-alert-discord
+    job_namespace: "kestra://infoclimat"
+    job_name: kestra.system.failure-alert-discord
+    priority_t2: basse
+  - pipeline: kestra.system.start-alert-discord
+    job_namespace: "kestra://infoclimat"
+    job_name: kestra.system.start-alert-discord
+    priority_t2: basse
+  - pipeline: kestra.system.success-alert-discord
+    job_namespace: "kestra://infoclimat"
+    job_name: kestra.system.success-alert-discord
+    priority_t2: basse
+  - pipeline: kestra.system.purge
+    job_namespace: "kestra://infoclimat"
+    job_name: kestra.system.purge
+    priority_t2: basse
+  - pipeline: kestra.infoclimat.backups.tiles-backup
+    job_namespace: "kestra://infoclimat"
+    job_name: backups.tiles-backup
+    priority_t2: basse
+  - pipeline: kestra.infoclimat.backups.site-assets-backup
+    job_namespace: "kestra://infoclimat"
+    job_name: backups.site-assets-backup
+    priority_t2: basse
+  - pipeline: kestra.infoclimat.backups.forum-backup
+    job_namespace: "kestra://infoclimat"
+    job_name: backups.forum-backup
+    priority_t2: basse
+  - pipeline: kestra.infoclimat.backups.gitlab-backup
+    job_namespace: "kestra://infoclimat"
+    job_name: backups.gitlab-backup
+    priority_t2: basse
+  - pipeline: kestra.infoclimat.admin.sphinx-indexer
+    job_namespace: "kestra://infoclimat"
+    job_name: admin.sphinx-indexer
+    priority_t2: normale
+  - pipeline: kestra.infoclimat.analytics.realtime.compute-indicateur-realtime
+    job_namespace: "kestra://infoclimat"
+    job_name: analytics.realtime.compute-indicateur-realtime
+    priority_t2: haute
+  - pipeline: kestra.infoclimat.analytics.yearly.compute-yearly-acc
+    job_namespace: "kestra://infoclimat"
+    job_name: analytics.yearly.compute-yearly-acc
+    priority_t2: haute
+  - pipeline: kestra.infoclimat.appli.notif.notif-foudre
+    job_namespace: "kestra://infoclimat"
+    job_name: appli.notif.notif-foudre
+    priority_t2: haute
+  - pipeline: kestra.infoclimat.appli.notif.notif-obs
+    job_namespace: "kestra://infoclimat"
+    job_name: appli.notif.notif-obs
+    priority_t2: normale
+  - pipeline: kestra.infoclimat.appli.notif.notif-previ
+    job_namespace: "kestra://infoclimat"
+    job_name: appli.notif.notif-previ
+    priority_t2: normale
+  - pipeline: kestra.infoclimat.appli.notif.notif-queue
+    job_namespace: "kestra://infoclimat"
+    job_name: appli.notif.notif-queue
+    priority_t2: normale
+  - pipeline: kestra.infoclimat.appli.notif.notif-radar
+    job_namespace: "kestra://infoclimat"
+    job_name: appli.notif.notif-radar
+    priority_t2: haute
+  - pipeline: kestra.infoclimat.data.arpa.liguria
+    job_namespace: "kestra://infoclimat"
+    job_name: data.arpa.liguria
+    priority_t2: haute
+  - pipeline: kestra.infoclimat.data.arpa.piemonte
+    job_namespace: "kestra://infoclimat"
+    job_name: data.arpa.piemonte
+    priority_t2: haute
+  - pipeline: kestra.infoclimat.data.cleanup
+    job_namespace: "kestra://infoclimat"
+    job_name: data.cleanup
+    priority_t2: basse
+  - pipeline: kestra.infoclimat.data.climatologie.climato-annuelle
+    job_namespace: "kestra://infoclimat"
+    job_name: data.climatologie.climato-annuelle
+    priority_t2: haute
+  - pipeline: kestra.infoclimat.data.climatologie.climato-annuelle-current
+    job_namespace: "kestra://infoclimat"
+    job_name: data.climatologie.climato-annuelle-current
+    priority_t2: haute
+  - pipeline: kestra.infoclimat.data.filtrage-static
+    job_namespace: "kestra://infoclimat"
+    job_name: data.filtrage-static
+    priority_t2: haute
+  - pipeline: kestra.infoclimat.data.meteoalerte.cache
+    job_namespace: "kestra://infoclimat"
+    job_name: data.meteoalerte.cache
+    priority_t2: normale
+  - pipeline: kestra.infoclimat.data.meteoalerte.stats-ma
+    job_namespace: "kestra://infoclimat"
+    job_name: data.meteoalerte.stats-ma
+    priority_t2: normale
+  - pipeline: kestra.infoclimat.data.meteoalerte.synchro-ma
+    job_namespace: "kestra://infoclimat"
+    job_name: data.meteoalerte.synchro-ma
+    priority_t2: haute
+  - pipeline: kestra.infoclimat.data.meteofrance.climatologie-meteo-data-gouv.daily
+    job_namespace: "kestra://infoclimat"
+    job_name: data.meteofrance.climatologie-meteo-data-gouv.daily
+    priority_t2: haute
+  - pipeline: kestra.infoclimat.data.meteofrance.climatologie-meteo-data-gouv.monthly
+    job_namespace: "kestra://infoclimat"
+    job_name: data.meteofrance.climatologie-meteo-data-gouv.monthly
+    priority_t2: haute
+  - pipeline: kestra.infoclimat.data.meteofrance.climatologie-portail-api.infrahoraires
+    job_namespace: "kestra://infoclimat"
+    job_name: data.meteofrance.climatologie-portail-api.infrahoraires
+    priority_t2: haute
+  - pipeline: kestra.infoclimat.data.meteofrance.climatologie-portail-api.horaires
+    job_namespace: "kestra://infoclimat"
+    job_name: data.meteofrance.climatologie-portail-api.horaires
+    priority_t2: haute
+  - pipeline: kestra.infoclimat.data.meteofrance.vigilance
+    job_namespace: "kestra://infoclimat"
+    job_name: data.meteofrance.vigilance
+    priority_t2: haute
+  - pipeline: kestra.infoclimat.data.meteorology.download-and-convert-radar
+    job_namespace: "kestra://infoclimat"
+    job_name: data.meteorology.download-and-convert-radar
+    priority_t2: haute
+  - pipeline: kestra.infoclimat.data.oceanic.compute-sea-surface-temperature-podaac
+    job_namespace: "kestra://infoclimat"
+    job_name: data.oceanic.compute-sea-surface-temperature-podaac
+    priority_t2: haute
+  - pipeline: kestra.infoclimat.data.recuperation.bufr
+    job_namespace: "kestra://infoclimat"
+    job_name: data.recuperation.bufr
+    priority_t2: haute
+  - pipeline: kestra.infoclimat.data.sat-knmi
+    job_namespace: "kestra://infoclimat"
+    job_name: data.sat-knmi
+    priority_t2: normale
+  - pipeline: kestra.infoclimat.data.static-posteriori
+    job_namespace: "kestra://infoclimat"
+    job_name: data.static-posteriori
+    priority_t2: haute
+  - pipeline: kestra.infoclimat.data.stations-meteo.mc-process
+    job_namespace: "kestra://infoclimat"
+    job_name: data.stations-meteo.mc-process
+    priority_t2: haute
+  - pipeline: kestra.infoclimat.data.vigicrues
+    job_namespace: "kestra://infoclimat"
+    job_name: data.vigicrues
+    priority_t2: haute
+  - pipeline: kestra.infoclimat.db.dataclimat.refresh-materialized-views
+    job_namespace: "kestra://infoclimat"
+    job_name: db.dataclimat.refresh-materialized-views
+    priority_t2: haute
+  - pipeline: kestra.infoclimat.db.dataclimat.refresh-mv-records-battus
+    job_namespace: "kestra://infoclimat"
+    job_name: db.dataclimat.refresh-mv-records-battus
+    priority_t2: haute
+  - pipeline: kestra.infoclimat.front.cron.adhesion-annuelle
+    job_namespace: "kestra://infoclimat"
+    job_name: front.cron.adhesion-annuelle
+    priority_t2: normale
+  - pipeline: kestra.infoclimat.front.cron.carte-dyn-ma
+    job_namespace: "kestra://infoclimat"
+    job_name: front.cron.carte-dyn-ma
+    priority_t2: normale
+  - pipeline: kestra.infoclimat.front.cron.clean-bs-cache-resize
+    job_namespace: "kestra://infoclimat"
+    job_name: front.cron.clean-bs-cache-resize
+    priority_t2: basse
+  - pipeline: kestra.infoclimat.front.cron.clean-imageserver-tmp
+    job_namespace: "kestra://infoclimat"
+    job_name: front.cron.clean-imageserver-tmp
+    priority_t2: basse
+  - pipeline: kestra.infoclimat.front.cron.concours
+    job_namespace: "kestra://infoclimat"
+    job_name: front.cron.concours
+    priority_t2: normale
+  - pipeline: kestra.infoclimat.front.cron.helloasso-sync
+    job_namespace: "kestra://infoclimat"
+    job_name: front.cron.helloasso-sync
+    priority_t2: normale
+  - pipeline: kestra.infoclimat.front.cron.maj-accueil
+    job_namespace: "kestra://infoclimat"
+    job_name: front.cron.maj-accueil
+    priority_t2: normale
+  - pipeline: kestra.infoclimat.front.cron.maj-historic
+    job_namespace: "kestra://infoclimat"
+    job_name: front.cron.maj-historic
+    priority_t2: haute
+  - pipeline: kestra.infoclimat.front.cron.modeles-cache
+    job_namespace: "kestra://infoclimat"
+    job_name: front.cron.modeles-cache
+    priority_t2: normale
+  - pipeline: kestra.infoclimat.front.cron.radio-map
+    job_namespace: "kestra://infoclimat"
+    job_name: front.cron.radio-map
+    priority_t2: normale
+  - pipeline: kestra.infoclimat.front.cron.sat-modis-new
+    job_namespace: "kestra://infoclimat"
+    job_name: front.cron.sat-modis-new
+    priority_t2: haute
+  - pipeline: kestra.infoclimat.front.cron.sat-modis
+    job_namespace: "kestra://infoclimat"
+    job_name: front.cron.sat-modis
+    priority_t2: haute
+  - pipeline: kestra.infoclimat.front.cron.update-vignettes
+    job_namespace: "kestra://infoclimat"
+    job_name: front.cron.update-vignettes
+    priority_t2: normale
+  - pipeline: kestra.infoclimat.front.cron.webcam-ddu
+    job_namespace: "kestra://infoclimat"
+    job_name: front.cron.webcam-ddu
+    priority_t2: normale
+  - pipeline: kestra.infoclimat.modeles.cache
+    job_namespace: "kestra://infoclimat"
+    job_name: modeles.cache
+    priority_t2: normale
+  - pipeline: cron.meteoalerte-mise_en_cache-legacy
+    job_namespace: "cron://infoclimat"
+    job_name: cron.meteoalerte-mise_en_cache-legacy
+    priority_t2: normale
+  - pipeline: cron.radar
+    job_namespace: "cron://infoclimat"
+    job_name: cron.radar
+    priority_t2: haute
+  - pipeline: cron.image
+    job_namespace: "cron://infoclimat"
+    job_name: cron.image
+    priority_t2: normale
+  - pipeline: cron.colorise
+    job_namespace: "cron://infoclimat"
+    job_name: cron.colorise
+    priority_t2: normale
+  - pipeline: cron.meteoalerte-mise_en_cache-v5
+    job_namespace: "cron://infoclimat"
+    job_name: cron.meteoalerte-mise_en_cache-v5
+    priority_t2: normale
+  - pipeline: cron.sat_modis
+    job_namespace: "cron://infoclimat"
+    job_name: cron.sat_modis
+    priority_t2: normale
+  - pipeline: cron.climatic
+    job_namespace: "cron://infoclimat"
+    job_name: cron.climatic
+    priority_t2: haute
+  - pipeline: cron.archivage_webcams
+    job_namespace: "cron://infoclimat"
+    job_name: cron.archivage_webcams
+    priority_t2: normale
+  - pipeline: cron.radioMap
+    job_namespace: "cron://infoclimat"
+    job_name: cron.radioMap
+    priority_t2: normale
+  - pipeline: cron.historic
+    job_namespace: "cron://infoclimat"
+    job_name: cron.historic
+    priority_t2: haute
+  - pipeline: cron.clean-shm-grd
+    job_namespace: "cron://infoclimat"
+    job_name: cron.clean-shm-grd
+    priority_t2: basse
+  - pipeline: cron.clean-shm-tif
+    job_namespace: "cron://infoclimat"
+    job_name: cron.clean-shm-tif
+    priority_t2: basse
+  - pipeline: cron.sync-linutop-date
+    job_namespace: "cron://infoclimat"
+    job_name: cron.sync-linutop-date
+    priority_t2: basse
+  - pipeline: cron.crons-v5-data
+    job_namespace: "cron://infoclimat"
+    job_name: cron.crons-v5-data
+    priority_t2: haute
+  - pipeline: cron.clean-shm-xyz
+    job_namespace: "cron://infoclimat"
+    job_name: cron.clean-shm-xyz
+    priority_t2: basse
+  - pipeline: cron.clean-shm-ps
+    job_namespace: "cron://infoclimat"
+    job_name: cron.clean-shm-ps
+    priority_t2: basse
+  - pipeline: cron.clean-shm-png
+    job_namespace: "cron://infoclimat"
+    job_name: cron.clean-shm-png
+    priority_t2: basse
+  - pipeline: cron.clean-shm-grd-old
+    job_namespace: "cron://infoclimat"
+    job_name: cron.clean-shm-grd-old
+    priority_t2: basse
+  - pipeline: cron.clean-shm-sqlite
+    job_namespace: "cron://infoclimat"
+    job_name: cron.clean-shm-sqlite
+    priority_t2: basse
+  - pipeline: cron.recup-ukmet
+    job_namespace: "cron://infoclimat"
+    job_name: cron.recup-ukmet
+    priority_t2: haute
+  - pipeline: cron.climato.mensuelle
+    job_namespace: "cron://infoclimat"
+    job_name: cron.climato.mensuelle
+    priority_t2: haute
+    # Pilote itération 1 — datasets déclarés depuis le code (à valider contre les DDL)
+    inputs:
+      - namespace: "mariadb://V5_climato"
+        name: normales
+      - namespace: "mariadb://V5_climato"
+        name: releves
+      - namespace: "mariadb://V5_climato"
+        name: climato_mensuelle_auto
+      - namespace: "api://meteofrance"
+        name: donnees-climatologiques
+    outputs:
+      - namespace: "file://datastore"
+        name: "tempsreel.infoclimat.net/tiles/{AAAA}/{MM}/99/climm_{param}_99_v0.tif"
+  - pipeline: cron.climato.mensuelle-current
+    job_namespace: "cron://infoclimat"
+    job_name: cron.climato.mensuelle-current
+    priority_t2: haute
+  - pipeline: cron.generer-hier
+    job_namespace: "cron://infoclimat"
+    job_name: cron.generer-hier
+    priority_t2: normale
+  - pipeline: cron.ifremer-dl
+    job_namespace: "cron://infoclimat"
+    job_name: cron.ifremer-dl
+    priority_t2: normale
+  - pipeline: cron.med-bra-dl
+    job_namespace: "cron://infoclimat"
+    job_name: cron.med-bra-dl
+    priority_t2: normale
+  - pipeline: cron.med-gbr-dl
+    job_namespace: "cron://infoclimat"
+    job_name: cron.med-gbr-dl
+    priority_t2: normale
+  - pipeline: cron.med-glob-dl
+    job_namespace: "cron://infoclimat"
+    job_name: cron.med-glob-dl
+    priority_t2: normale
+  - pipeline: cron.med-saf-dl
+    job_namespace: "cron://infoclimat"
+    job_name: cron.med-saf-dl
+    priority_t2: normale
+  - pipeline: cron.radarmf
+    job_namespace: "cron://infoclimat"
+    job_name: cron.radarmf
+    priority_t2: haute
+    # Pilote itération 1 — datasets déclarés depuis le code (à valider contre les DDL)
+    inputs:
+      - namespace: "api://meteofrance"
+        name: donnees-libres-radar
+    outputs:
+      - namespace: "file://datastore"
+        name: "tempsreel.infoclimat.net/tiles/{AAAA}/{MM}/{DD}/MF_raw_{DDHHii}.png"
+      - namespace: "file://datastore"
+        name: "tempsreel.infoclimat.net/tiles/{AAAA}/{MM}/{DD}/radarmf_{HH}_v{ii}.tif"
+  - pipeline: cron.foudre
+    job_namespace: "cron://infoclimat"
+    job_name: cron.foudre
+    priority_t2: haute
+    # Pilote itération 1 — datasets déclarés depuis le code (à valider contre les DDL)
+    inputs:
+      - namespace: "api://infoclimat"
+        name: ic-meteonet-extract-foudre
+    outputs:
+      - namespace: "file://datastore"
+        name: "tempsreel.infoclimat.net/tiles/{AAAA}/{MM}/{DD}/foudre_{HH}_v{ii}.shp"
+      - namespace: "file://datastore"
+        name: tempsreel.infoclimat.net/tiles/last.sqlite.json
+  - pipeline: cron.estofex
+    job_namespace: "cron://infoclimat"
+    job_name: cron.estofex
+    priority_t2: normale
+  - pipeline: cron.nexrad
+    job_namespace: "cron://infoclimat"
+    job_name: cron.nexrad
+    priority_t2: haute
+  - pipeline: cron.goes-ir4
+    job_namespace: "cron://infoclimat"
+    job_name: cron.goes-ir4
+    priority_t2: normale
+  - pipeline: cron.goes-vis
+    job_namespace: "cron://infoclimat"
+    job_name: cron.goes-vis
+    priority_t2: normale
+  - pipeline: cron.goes-ir-new
+    job_namespace: "cron://infoclimat"
+    job_name: cron.goes-ir-new
+    priority_t2: normale
+  - pipeline: cron.goes-vis-new
+    job_namespace: "cron://infoclimat"
+    job_name: cron.goes-vis-new
+    priority_t2: normale
+  - pipeline: cron.knmi
+    job_namespace: "cron://infoclimat"
+    job_name: cron.knmi
+    priority_t2: normale
+  - pipeline: cron.eumetsat
+    job_namespace: "cron://infoclimat"
+    job_name: cron.eumetsat
+    priority_t2: normale
+  - pipeline: cron.launch-data-recup
+    job_namespace: "cron://infoclimat"
+    job_name: cron.launch-data-recup
+    priority_t2: haute
+    # Pilote itération 1 — datasets déclarés depuis le code (à valider contre les DDL)
+    inputs:
+      - namespace: "mariadb://V5_data_params"
+        name: sources
+    outputs:
+      - namespace: "mariadb://V5_data_{AAAA}"
+        name: "static_{MM}_d{1-3}"
+      - namespace: "mariadb://V5_data_{AAAA}"
+        name: "synop_{MM}_d{1-3}"
+  - pipeline: cron.image-mf
+    job_namespace: "cron://infoclimat"
+    job_name: cron.image-mf
+    priority_t2: haute
+  - pipeline: cron.anim-foudre
+    job_namespace: "cron://infoclimat"
+    job_name: cron.anim-foudre
+    priority_t2: haute
+  - pipeline: cron.archivage-webcams
+    job_namespace: "cron://infoclimat"
+    job_name: cron.archivage-webcams
+    priority_t2: normale
+  - pipeline: cron.webcams-renommer-last
+    job_namespace: "cron://infoclimat"
+    job_name: cron.webcams-renommer-last
+    priority_t2: normale
+  - pipeline: cron.colorise.srx-data-2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.colorise.srx-data-2
+    priority_t2: normale
+  - pipeline: cron.sat24
+    job_namespace: "cron://infoclimat"
+    job_name: cron.sat24
+    priority_t2: normale
+  - pipeline: cron.compo-new
+    job_namespace: "cron://infoclimat"
+    job_name: cron.compo-new
+    priority_t2: haute
+  - pipeline: cron.compo-new-1
+    job_namespace: "cron://infoclimat"
+    job_name: cron.compo-new-1
+    priority_t2: haute
+  - pipeline: cron.recup-blitzortung
+    job_namespace: "cron://infoclimat"
+    job_name: cron.recup-blitzortung
+    priority_t2: haute
+  - pipeline: cron.climatic.srx-data-2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.climatic.srx-data-2
+    priority_t2: haute
+  - pipeline: cron.mail-alert-radar
+    job_namespace: "cron://infoclimat"
+    job_name: cron.mail-alert-radar
+    priority_t2: haute
+  - pipeline: cron.posteriori-static-2019
+    job_namespace: "cron://infoclimat"
+    job_name: cron.posteriori-static-2019
+    priority_t2: haute
+  - pipeline: cron.climato-normales.mois-01
+    job_namespace: "cron://infoclimat"
+    job_name: cron.climato-normales.mois-01
+    priority_t2: haute
+  - pipeline: cron.climato-normales.mois-02
+    job_namespace: "cron://infoclimat"
+    job_name: cron.climato-normales.mois-02
+    priority_t2: haute
+  - pipeline: cron.climato-normales.mois-03
+    job_namespace: "cron://infoclimat"
+    job_name: cron.climato-normales.mois-03
+    priority_t2: haute
+  - pipeline: cron.climato-normales.mois-04
+    job_namespace: "cron://infoclimat"
+    job_name: cron.climato-normales.mois-04
+    priority_t2: haute
+  - pipeline: cron.climato-normales.mois-05
+    job_namespace: "cron://infoclimat"
+    job_name: cron.climato-normales.mois-05
+    priority_t2: haute
+  - pipeline: cron.climato-normales.mois-06
+    job_namespace: "cron://infoclimat"
+    job_name: cron.climato-normales.mois-06
+    priority_t2: haute
+  - pipeline: cron.climato-normales.mois-07
+    job_namespace: "cron://infoclimat"
+    job_name: cron.climato-normales.mois-07
+    priority_t2: haute
+  - pipeline: cron.climato-normales.mois-08
+    job_namespace: "cron://infoclimat"
+    job_name: cron.climato-normales.mois-08
+    priority_t2: haute
+  - pipeline: cron.climato-normales.mois-09
+    job_namespace: "cron://infoclimat"
+    job_name: cron.climato-normales.mois-09
+    priority_t2: haute
+  - pipeline: cron.climato-normales.mois-10
+    job_namespace: "cron://infoclimat"
+    job_name: cron.climato-normales.mois-10
+    priority_t2: haute
+  - pipeline: cron.climato-normales.mois-11
+    job_namespace: "cron://infoclimat"
+    job_name: cron.climato-normales.mois-11
+    priority_t2: haute
+  - pipeline: cron.climato-normales.mois-12
+    job_namespace: "cron://infoclimat"
+    job_name: cron.climato-normales.mois-12
+    priority_t2: haute
+  - pipeline: cron.himawari
+    job_namespace: "cron://infoclimat"
+    job_name: cron.himawari
+    priority_t2: normale
+  - pipeline: cron.aemet-climato
+    job_namespace: "cron://infoclimat"
+    job_name: cron.aemet-climato
+    priority_t2: haute
+  - pipeline: cron.mf-bouees
+    job_namespace: "cron://infoclimat"
+    job_name: cron.mf-bouees
+    priority_t2: haute
+  - pipeline: cron.update-carte-dyn-ma
+    job_namespace: "cron://infoclimat"
+    job_name: cron.update-carte-dyn-ma
+    priority_t2: normale
+  - pipeline: cron.wlklive-posteriori
+    job_namespace: "cron://infoclimat"
+    job_name: cron.wlklive-posteriori
+    priority_t2: haute
+  - pipeline: cron.indicateur-national-arpege-pe
+    job_namespace: "cron://infoclimat"
+    job_name: cron.indicateur-national-arpege-pe
+    priority_t2: normale
+  - pipeline: cron.indicateur-national
+    job_namespace: "cron://infoclimat"
+    job_name: cron.indicateur-national
+    priority_t2: haute
+  - pipeline: cron.generation-cartes-24h
+    job_namespace: "cron://infoclimat"
+    job_name: cron.generation-cartes-24h
+    priority_t2: normale
+  - pipeline: cron.recup-donneespub-mf-enneigement
+    job_namespace: "cron://infoclimat"
+    job_name: cron.recup-donneespub-mf-enneigement
+    priority_t2: haute
+  - pipeline: cron.meteosuisse-recup-live
+    job_namespace: "cron://infoclimat"
+    job_name: cron.meteosuisse-recup-live
+    priority_t2: haute
+  - pipeline: cron.recup-ffvl
+    job_namespace: "cron://infoclimat"
+    job_name: cron.recup-ffvl
+    priority_t2: haute
+  - pipeline: cron.recup-jma
+    job_namespace: "cron://infoclimat"
+    job_name: cron.recup-jma
+    priority_t2: haute
+  - pipeline: cron.recup-jma-tntx
+    job_namespace: "cron://infoclimat"
+    job_name: cron.recup-jma-tntx
+    priority_t2: haute
+  - pipeline: cron.metno-recup
+    job_namespace: "cron://infoclimat"
+    job_name: cron.metno-recup
+    priority_t2: haute
+  - pipeline: cron.msgcpp-ensoleillement
+    job_namespace: "cron://infoclimat"
+    job_name: cron.msgcpp-ensoleillement
+    priority_t2: normale
+  - pipeline: cron.eaufrance-data
+    job_namespace: "cron://infoclimat"
+    job_name: cron.eaufrance-data
+    priority_t2: haute
+  - pipeline: cron.nivose-mc
+    job_namespace: "cron://infoclimat"
+    job_name: cron.nivose-mc
+    priority_t2: haute
+  - pipeline: cron.vignettes.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.vignettes.front2
+    priority_t2: normale
+  - pipeline: cron.transfert-ma.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.transfert-ma.front2
+    priority_t2: normale
+  - pipeline: cron.stats-ma.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.stats-ma.front2
+    priority_t2: normale
+  - pipeline: cron.vigilance-meteofrance.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.vigilance-meteofrance.front2
+    priority_t2: haute
+  - pipeline: cron.vigicrues.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.vigicrues.front2
+    priority_t2: haute
+  - pipeline: cron.meteoalerte-cache.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.meteoalerte-cache.front2
+    priority_t2: normale
+  - pipeline: cron.sat-modis.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.sat-modis.front2
+    priority_t2: haute
+  - pipeline: cron.sat-modis-new.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.sat-modis-new.front2
+    priority_t2: haute
+  - pipeline: cron.radiomap.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.radiomap.front2
+    priority_t2: normale
+  - pipeline: cron.maj-accueil.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.maj-accueil.front2
+    priority_t2: normale
+  - pipeline: cron.maj-historic.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.maj-historic.front2
+    priority_t2: haute
+  - pipeline: cron.adhesion-annuelle.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.adhesion-annuelle.front2
+    priority_t2: normale
+  - pipeline: cron.static-posteriori.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.static-posteriori.front2
+    priority_t2: haute
+  - pipeline: cron.filtrage-static.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.filtrage-static.front2
+    priority_t2: haute
+  - pipeline: cron.modeles-cache.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.modeles-cache.front2
+    priority_t2: normale
+  - pipeline: cron.climato-annuelle-current.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.climato-annuelle-current.front2
+    priority_t2: haute
+  - pipeline: cron.climato-annuelle.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.climato-annuelle.front2
+    priority_t2: haute
+  - pipeline: cron.concours.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.concours.front2
+    priority_t2: normale
+  - pipeline: cron.notif-processqueue.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.notif-processqueue.front2
+    priority_t2: normale
+  - pipeline: cron.notif-previ.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.notif-previ.front2
+    priority_t2: normale
+  - pipeline: cron.notif-obs.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.notif-obs.front2
+    priority_t2: normale
+  - pipeline: cron.notif-foudre.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.notif-foudre.front2
+    priority_t2: haute
+  - pipeline: cron.notif-radar.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.notif-radar.front2
+    priority_t2: haute
+  - pipeline: cron.clean-imageserver-tmp.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.clean-imageserver-tmp.front2
+    priority_t2: basse
+  - pipeline: cron.mc-process.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.mc-process.front2
+    priority_t2: haute
+  - pipeline: cron.webcam-ddu.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.webcam-ddu.front2
+    priority_t2: normale
+  - pipeline: cron.sat-knmi.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.sat-knmi.front2
+    priority_t2: normale
+  - pipeline: cron.cleanup.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.cleanup.front2
+    priority_t2: basse
+  - pipeline: cron.helloasso-sync.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.helloasso-sync.front2
+    priority_t2: normale
+  - pipeline: cron.arpa-liguria.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.arpa-liguria.front2
+    priority_t2: haute
+  - pipeline: cron.arpa-piemonte.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.arpa-piemonte.front2
+    priority_t2: haute
+  - pipeline: cron.clean-bs-cache-resize.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.clean-bs-cache-resize.front2
+    priority_t2: basse
+  - pipeline: cron.carte-dyn-ma.front2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.carte-dyn-ma.front2
+    priority_t2: normale
+  - pipeline: cron.vignettes.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.vignettes.nginx2
+    priority_t2: normale
+  - pipeline: cron.transfert-ma.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.transfert-ma.nginx2
+    priority_t2: normale
+  - pipeline: cron.stats-ma.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.stats-ma.nginx2
+    priority_t2: normale
+  - pipeline: cron.vigicrues.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.vigicrues.nginx2
+    priority_t2: haute
+  - pipeline: cron.meteoalerte-cache.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.meteoalerte-cache.nginx2
+    priority_t2: normale
+  - pipeline: cron.sat-modis.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.sat-modis.nginx2
+    priority_t2: haute
+  - pipeline: cron.sat-modis-new.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.sat-modis-new.nginx2
+    priority_t2: haute
+  - pipeline: cron.radiomap.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.radiomap.nginx2
+    priority_t2: normale
+  - pipeline: cron.maj-accueil.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.maj-accueil.nginx2
+    priority_t2: normale
+  - pipeline: cron.maj-historic.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.maj-historic.nginx2
+    priority_t2: haute
+  - pipeline: cron.adhesion-annuelle.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.adhesion-annuelle.nginx2
+    priority_t2: normale
+  - pipeline: cron.static-posteriori.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.static-posteriori.nginx2
+    priority_t2: haute
+  - pipeline: cron.filtrage-static.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.filtrage-static.nginx2
+    priority_t2: haute
+  - pipeline: cron.modeles-cache.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.modeles-cache.nginx2
+    priority_t2: normale
+  - pipeline: cron.climato-annuelle-current.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.climato-annuelle-current.nginx2
+    priority_t2: haute
+  - pipeline: cron.climato-annuelle.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.climato-annuelle.nginx2
+    priority_t2: haute
+  - pipeline: cron.concours.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.concours.nginx2
+    priority_t2: normale
+  - pipeline: cron.notif-processqueue.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.notif-processqueue.nginx2
+    priority_t2: normale
+  - pipeline: cron.notif-previ.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.notif-previ.nginx2
+    priority_t2: normale
+  - pipeline: cron.notif-obs.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.notif-obs.nginx2
+    priority_t2: normale
+  - pipeline: cron.notif-foudre.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.notif-foudre.nginx2
+    priority_t2: haute
+  - pipeline: cron.notif-radar.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.notif-radar.nginx2
+    priority_t2: haute
+  - pipeline: cron.clean-imageserver-tmp.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.clean-imageserver-tmp.nginx2
+    priority_t2: basse
+  - pipeline: cron.mc-process.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.mc-process.nginx2
+    priority_t2: haute
+  - pipeline: cron.webcam-ddu.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.webcam-ddu.nginx2
+    priority_t2: normale
+  - pipeline: cron.sat-knmi.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.sat-knmi.nginx2
+    priority_t2: normale
+  - pipeline: cron.cleanup.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.cleanup.nginx2
+    priority_t2: basse
+  - pipeline: cron.helloasso-sync.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.helloasso-sync.nginx2
+    priority_t2: normale
+  - pipeline: cron.arpa-liguria.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.arpa-liguria.nginx2
+    priority_t2: haute
+  - pipeline: cron.arpa-piemonte.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.arpa-piemonte.nginx2
+    priority_t2: haute
+  - pipeline: cron.clean-bs-cache-resize.nginx2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.clean-bs-cache-resize.nginx2
+    priority_t2: basse
+  - pipeline: cron.worker-modeles.modeles2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.worker-modeles.modeles2
+    priority_t2: normale
+  - pipeline: cron.clean-cache-modeles.modeles2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.clean-cache-modeles.modeles2
+    priority_t2: basse
+  - pipeline: cron.recup-gfs05.modeles2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.recup-gfs05.modeles2
+    priority_t2: normale
+  - pipeline: cron.recup-gfs1deg.modeles2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.recup-gfs1deg.modeles2
+    priority_t2: normale
+  - pipeline: cron.recup-ecmwf.modeles2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.recup-ecmwf.modeles2
+    priority_t2: normale
+  - pipeline: cron.recup-gem.modeles2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.recup-gem.modeles2
+    priority_t2: normale
+  - pipeline: cron.recup-gemens.modeles2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.recup-gemens.modeles2
+    priority_t2: normale
+  - pipeline: cron.recup-arome.modeles2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.recup-arome.modeles2
+    priority_t2: normale
+  - pipeline: cron.recup-arpege.modeles2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.recup-arpege.modeles2
+    priority_t2: normale
+  - pipeline: cron.recup-arome13.modeles2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.recup-arome13.modeles2
+    priority_t2: normale
+  - pipeline: cron.recup-arome-antilles.modeles2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.recup-arome-antilles.modeles2
+    priority_t2: normale
+  - pipeline: cron.recup-gefs-ctrl.modeles2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.recup-gefs-ctrl.modeles2
+    priority_t2: normale
+  - pipeline: cron.recup-gefs-avg.modeles2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.recup-gefs-avg.modeles2
+    priority_t2: normale
+  - pipeline: cron.recup-gefs-gep.modeles2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.recup-gefs-gep.modeles2
+    priority_t2: normale
+  - pipeline: cron.recup-gefs-spr.modeles2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.recup-gefs-spr.modeles2
+    priority_t2: normale
+  - pipeline: cron.recup-gfshd.modeles2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.recup-gfshd.modeles2
+    priority_t2: normale
+  - pipeline: cron.cleanup-modeles-ncl.modeles2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.cleanup-modeles-ncl.modeles2
+    priority_t2: basse
+  - pipeline: cron.mapserver-restart.mapserver2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.mapserver-restart.mapserver2
+    priority_t2: normale
+  - pipeline: cron.tomcat-kill.mapserver2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.tomcat-kill.mapserver2
+    priority_t2: basse
+  - pipeline: cron.tomcat-start.mapserver2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.tomcat-start.mapserver2
+    priority_t2: basse
+  - pipeline: cron.tomcat-clean-access-log.mapserver2
+    job_namespace: "cron://infoclimat"
+    job_name: cron.tomcat-clean-access-log.mapserver2
+    priority_t2: basse
+  - pipeline: cron.modeles-cache.mysql3
+    job_namespace: "cron://infoclimat"
+    job_name: cron.modeles-cache.mysql3
+    priority_t2: normale
+  - pipeline: cron.recuperation-bufr.mysql3
+    job_namespace: "cron://infoclimat"
+    job_name: cron.recuperation-bufr.mysql3
+    priority_t2: haute
+  - pipeline: liveobjects.uplink
+    job_namespace: "webhook://infoclimat"
+    job_name: liveobjects.uplink
+    priority_t2: haute
+  - pipeline: station-autonome.udp-server
+    job_namespace: "daemon://infoclimat"
+    job_name: station-autonome.udp-server
+    priority_t2: haute
+  - pipeline: python-climate-services.pluviometrie
+    job_namespace: "daemon://infoclimat"
+    job_name: python-climate-services.pluviometrie
+    priority_t2: haute
+  - pipeline: python-climate-services.combined
+    job_namespace: "daemon://infoclimat"
+    job_name: python-climate-services.combined
+    priority_t2: haute
+  - pipeline: ventoux.uplink
+    job_namespace: "webhook://infoclimat"
+    job_name: ventoux.uplink
+    priority_t2: haute
+  - pipeline: mobile-api.publication-obs
+    job_namespace: "webhook://infoclimat"
+    job_name: mobile-api.publication-obs
+    priority_t2: normale
+  - pipeline: mobile-api.observation-like
+    job_namespace: "webhook://infoclimat"
+    job_name: mobile-api.observation-like
+    priority_t2: normale
+  - pipeline: meteoalerte.gateway
+    job_namespace: "webhook://infoclimat"
+    job_name: meteoalerte.gateway
+    priority_t2: normale
+  - pipeline: admin-photolive.valide
+    job_namespace: "webhook://infoclimat"
+    job_name: admin-photolive.valide
+    priority_t2: normale
+  - pipeline: meteoalerte.like
+    job_namespace: "webhook://infoclimat"
+    job_name: meteoalerte.like
+    priority_t2: normale

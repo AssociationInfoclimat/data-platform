@@ -1,0 +1,2124 @@
+# Inventaire des tables référencées dans le code des 23 repos — inventaire 2026-06
+# Schéma d'une entrée :
+#   name:          mariadb://<base>/<table> | timescaledb://postgres/<table>
+#                  (tokens motifs : {AAAA}/{YYYY}=année, {MM}=mois, {1-3}=décade,
+#                   {dd}=jour, {XX}=code 2 lettres pays/param — ex. geoNames_{XX}, eca_{XX}_{XX})
+#   partitioning:  none | "par année (V5_data_{AAAA})" | "par mois/décade (static_{MM}_d{1-3})" | autre
+#   personal_data: true si colonnes nominatives/IP/email repérées en passant (graine registre RGPD)
+#   engine_hint:   indication trouvée dans le code (MEMORY, MyISAM...) ou null
+#   writers:       ["<repo>:<fichier>", ...]  # INSERT/UPDATE/DELETE/REPLACE/LOAD DATA
+#   readers:       ["<repo>:<fichier>", ...]  # SELECT (échantillon représentatif, pas exhaustif si >10 : noter "+N autres")
+#   status:        actif | douteux | mort
+#   notes:
+version: 1
+tables:
+  - name: "timescaledb://postgres/Infrahoraire"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:include/MeteoFrance/combined.php"
+      - "site-infoclimat:include/MeteoFrance/infrahoraires.php"
+    status: actif
+    notes: >-
+      Observations infrahoraires MeteoFrance (6 min). Lecture seule via pdo.php (DATABASE='postgres'). Ingestion hors-repo.
+  - name: "timescaledb://postgres/InfrahoraireTempsReel"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:include/MeteoFrance/combined.php"
+      - "site-infoclimat:include/MeteoFrance/infrahoraires.php"
+    status: actif
+    notes: >-
+      Temps réel infrahoraire MF. Lecture seule depuis le code cloné.
+  - name: "timescaledb://postgres/Horaire"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:include/MeteoFrance/combined.php"
+      - "site-infoclimat:climato/mgetData.php"
+    status: actif
+    notes: >-
+      Observations horaires MeteoFrance. Lecture seule.
+  - name: "timescaledb://postgres/HoraireTempsReel"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:include/MeteoFrance/combined.php"
+    status: actif
+    notes: >-
+      Temps réel horaire MF. Lecture seule.
+  - name: "timescaledb://postgres/Quotidienne"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:include/MeteoFrance/quotidiennes.php"
+    status: actif
+  - name: "timescaledb://postgres/QuotidienneAutresParametres"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:include/MeteoFrance/quotidiennes.php"
+    status: actif
+  - name: "timescaledb://postgres/Decadaire"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:include/MeteoFrance/decadaires.php"
+    status: actif
+  - name: "timescaledb://postgres/DecadaireAgro"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:include/MeteoFrance/decadaires-agro.php"
+    status: actif
+  - name: "timescaledb://postgres/Mensuelle"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:climato/mgetData.php"
+    status: actif
+  - name: "timescaledb://postgres/Station"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:include/MeteoFrance/combined.php"
+      - "site-infoclimat:include/MeteoFrance/stations.php"
+      - "site-infoclimat:include/MeteoFrance/quotidiennes.php"
+    status: actif
+    notes: >-
+      Référentiel stations MF (TimescaleDB). Lecture seule.
+  - name: "mariadb://V5/api_previ_acces"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:modeles/public-api.php"
+    readers:
+      - "site-infoclimat:modeles/public-api.php"
+    status: actif
+  - name: "mariadb://V5/api_previ_bannis"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:modeles/public-api.php"
+    status: actif
+  - name: "mariadb://V5/apns_devices"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers:
+      - "site-infoclimat:include/class/APNS/APNS.php"
+    readers: []
+    status: actif  # 2026-06-07 : existence confirmée en prod (introspection MariaDB)
+    notes: >-
+      Tokens push APNS iOS. Legacy — remplacé par appli_notifications.
+  - name: "mariadb://V5/apns_messages"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/notif_processqueue.php"
+      - "site-infoclimat:include/class/APNS/APNS.inc.php"
+      - "site-infoclimat:include/class/APNS/APNS.php"
+    readers:
+      - "site-infoclimat:cron/notif_processqueue.php"
+    status: actif  # 2026-06-07 : existence confirmée en prod (introspection MariaDB)
+    notes: >-
+      File de messages push APNS legacy.
+  - name: "mariadb://V5/appli_logs"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/munin/appli.php"
+      - "site-infoclimat:mobile-api/index.php"
+    readers:
+      - "site-infoclimat:cron/munin/appli.php"
+    status: actif
+  - name: "mariadb://V5/appli_notifications"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:include/Notifications/notifications.php"
+      - "site-infoclimat:include/communs/fonctions.php"
+    readers:
+      - "site-infoclimat:include/Notifications/notifications.php"
+    status: actif
+  - name: "mariadb://V5/appli_params"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers:
+      - "site-infoclimat:mobile-api/inc/accueil_api.inc.php"
+      - "site-infoclimat:mobile-api/inc/config-set_api.inc.php"
+      - "site-infoclimat:mobile-api/inc/push-list_api.inc.php"
+    readers:
+      - "site-infoclimat:mobile-api/inc/accueil_api.inc.php"
+    status: actif
+  - name: "mariadb://V5/appli_tokens"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers:
+      - "site-infoclimat:mobile-api/inc/connexion_api.inc.php"
+    readers:
+      - "site-infoclimat:mobile-api/inc/connexion_api.inc.php"
+    status: actif
+  - name: "mariadb://V5/boutique"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:admin-bureau/boutic.php"
+    readers:
+      - "site-infoclimat:admin-bureau/boutic.php"
+    status: actif  # 2026-06-07 : existence confirmée en prod (introspection MariaDB)
+  - name: "mariadb://V5/boutique_commandes"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers:
+      - "site-infoclimat:admin-bureau/boutic.php"
+    readers:
+      - "site-infoclimat:admin-bureau/boutic.php"
+    status: actif  # 2026-06-07 : existence confirmée en prod (introspection MariaDB)
+  - name: "mariadb://V5/carte_MA_cache"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:mobile-api/inc/API_obscache.php"
+    readers:
+      - "site-infoclimat:mobile-api/inc/API_obscache.php"
+    status: actif
+  - name: "mariadb://V5/cartes"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/radar_process.py"
+      - "site-infoclimat:data/cartes/generation_cartes.php"
+    readers:
+      - "site-infoclimat:data/cartes/generation_cartes.php"
+    status: actif
+  - name: "mariadb://V5/cartes_tuiles"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/mysqlconf.py"
+      - "site-infoclimat:include/Radar/generate-radaric-mf-values-accumulations/generate_radaric_mf_values_accumulations/tiles.py"
+      - "site-infoclimat:include/communs/jsontiles.php"
+    readers:
+      - "site-infoclimat:include/communs/jsontiles.php"
+    status: actif
+  - name: "mariadb://V5/codes_valid_email"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:include/ajax/send_validate_code.php"
+    readers:
+      - "site-infoclimat:include/ajax/send_validate_code.php"
+    status: actif
+  - name: "mariadb://V5/comptes"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers:
+      - "site-infoclimat:accueil/index.php"
+      - "site-infoclimat:admin-tech/edit_user.php"
+      - "site-infoclimat:data/change_passwords.php"
+    readers:
+      - "site-infoclimat:include/communs/infos_utilisateur.php"
+      - "site-infoclimat:include/connexion.php"
+      - "site-infoclimat:recherche/index.php"
+      - "+N autres"
+    status: actif
+  - name: "mariadb://V5/comptes_pseudos"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers:
+      - "site-infoclimat:admin-tech/edit_user.php"
+      - "site-infoclimat:include/inscription.inc.php"
+      - "site-infoclimat:mobile-api/inc/inscription_api.inc.php"
+    readers:
+      - "site-infoclimat:include/inscription.inc.php"
+    status: actif
+  - name: "mariadb://V5/comptes_reinitialisations"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers:
+      - "site-infoclimat:include/ajax/ajax_oubli_mot_de_passe.php"
+      - "site-infoclimat:mobile-api/inc/connexion-oubli_api.inc.php"
+      - "site-infoclimat:mon_compte/reinit_mdp.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5/comptes_statuts"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:include/communs/infos_utilisateur.php"
+    status: actif
+    notes: >-
+      Contient email_contact — donnée personnelle RGPD.
+  - name: "mariadb://V5/comptes_tokens"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers:
+      - "site-infoclimat:admin-tech/connectAs.php"
+      - "site-infoclimat:include/connexion.php"
+    readers:
+      - "site-infoclimat:include/connexion.php"
+    status: actif
+  - name: "mariadb://V5/connectes"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: "MEMORY"
+    writers:
+      - "site-infoclimat:include/communs/fonctions.inc.php"
+      - "site-infoclimat:include/communs/fonctions.php"
+    readers:
+      - "site-infoclimat:include/communs/fonctions.inc.php"
+      - "site-infoclimat:include/communs/fonctions.php"
+    status: actif
+    notes: >-
+      Table MEMORY — traces IP/URL/session visiteurs actifs 5 min. Données personnelles IP+pseudonyme.
+  - name: "mariadb://V5/contribuer_contributeurs"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:contribuer/index.php"
+    status: actif
+  - name: "mariadb://V5/contribuer_rubriques"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:contribuer/index.php"
+    status: actif
+  - name: "mariadb://V5/electric_comments"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:electric/point.php"
+    readers:
+      - "site-infoclimat:electric/point.php"
+    status: actif  # 2026-06-07 : existence confirmée en prod (introspection MariaDB)
+  - name: "mariadb://V5/electric_photolive"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:electric/associer.inc.php"
+      - "site-infoclimat:electric/point.php"
+    readers: []
+    status: actif  # 2026-06-07 : existence confirmée en prod (introspection MariaDB)
+  - name: "mariadb://V5/electric_photos"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:electric/new.inc.php"
+      - "site-infoclimat:electric/point.php"
+    readers: []
+    status: actif  # 2026-06-07 : existence confirmée en prod (introspection MariaDB)
+  - name: "mariadb://V5/electric_points"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:electric/new.inc.php"
+      - "site-infoclimat:electric/update.inc.php"
+    readers: []
+    status: actif  # 2026-06-07 : existence confirmée en prod (introspection MariaDB)
+  - name: "mariadb://V5/electric_users"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers:
+      - "site-infoclimat:mobile-api/inc/electric-tracking_api.inc.php"
+    readers: []
+    status: actif  # 2026-06-07 : existence confirmée en prod (introspection MariaDB)
+  - name: "mariadb://V5/espace_stockage"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:mobile-api/inc/espace-stockage_api.inc.php"
+    readers:
+      - "site-infoclimat:mobile-api/inc/espace-stockage_api.inc.php"
+    status: actif
+  - name: "mariadb://V5/faq"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:about/faq.php"
+    readers:
+      - "site-infoclimat:about/faq.php"
+    status: actif
+  - name: "mariadb://V5/force_disconnect"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:admin-tech/edit_user.php"
+      - "site-infoclimat:vhost_asso/infos/paiement.php"
+    readers:
+      - "site-infoclimat:include/connexion.php"
+    status: actif
+  - name: "mariadb://V5/foudre"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/recup_blitzortung.php"
+      - "site-infoclimat:cron/recup_blitzortung_ws.php"
+    readers:
+      - "site-infoclimat:accueil/automodule_json.php"
+    status: actif
+  - name: "mariadb://V5/gcm_devices"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:include/class/APNS/APNS.php"
+    status: actif  # 2026-06-07 : existence confirmée en prod (introspection MariaDB)
+    notes: >-
+      Tokens push FCM/GCM Android legacy.
+  - name: "mariadb://V5/gcm_messages"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/notif_processqueue.php"
+      - "site-infoclimat:include/class/APNS/APNS.inc.php"
+      - "site-infoclimat:include/class/APNS/APNS.php"
+    readers: []
+    status: actif  # 2026-06-07 : existence confirmée en prod (introspection MariaDB)
+  - name: "mariadb://V5/ic_medias"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:photolive/upload.php"
+    readers:
+      - "site-infoclimat:photolive/upload.php"
+    status: actif
+  - name: "mariadb://V5/lieux_preferes"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers:
+      - "site-infoclimat:include/ajax/delPref.php"
+    readers:
+      - "site-infoclimat:include/ajax/delPref.php"
+    status: actif
+  - name: "mariadb://V5/likes"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:meteoalerte/like.php"
+      - "site-infoclimat:mobile-api/inc/observation-like_api.inc.php"
+      - "site-infoclimat:mobile-api/inc/observation-unlike_api.inc.php"
+    readers:
+      - "site-infoclimat:mobile-api/inc/observation-like_api.inc.php"
+    status: actif
+  - name: "mariadb://V5/likes_cache"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:meteoalerte/like.php"
+      - "site-infoclimat:mobile-api/inc/observation-like_api.inc.php"
+      - "site-infoclimat:mobile-api/inc/observation-unlike_api.inc.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5/messages_alerte_bas"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:gestion/message_alerte.php"
+    readers:
+      - "site-infoclimat:include/template/head.php"
+    status: actif
+  - name: "mariadb://V5/meteoalerte"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:admin-photolive/modo_ctrl.php"
+      - "site-infoclimat:data/ic_meteonet/transfert.php"
+      - "site-infoclimat:meteoalerte/gateway.php"
+    readers:
+      - "site-infoclimat:meteoalerte/gateway.php"
+    status: actif
+  - name: "mariadb://V5/mp_mp"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers:
+      - "site-infoclimat:include/communs/fonctions.inc.php"
+      - "site-infoclimat:include/communs/fonctions.php"
+    readers:
+      - "site-infoclimat:include/communs/fonctions.inc.php"
+    status: actif
+    notes: >-
+      Messages privés entre membres.
+  - name: "mariadb://V5/opendata_tokens"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:opendata-v2/common.inc.php"
+      - "site-infoclimat:opendata/index.php"
+    readers:
+      - "site-infoclimat:opendata-v2/common.inc.php"
+    status: actif
+  - name: "mariadb://V5/personnes"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers:
+      - "site-infoclimat:admin-tech/edit_user.php"
+      - "site-infoclimat:include/ajax/ajax_mc_confidentialite.php"
+      - "site-infoclimat:include/inscription.inc.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5/personnes_coordonnees"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers:
+      - "site-infoclimat:admin-tech/edit_user.php"
+      - "site-infoclimat:include/inscription.inc.php"
+      - "site-infoclimat:mobile-api/inc/inscription_api.inc.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5/radar"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/compo_new_1.inc.php"
+      - "site-infoclimat:cron/compo_new_1.php"
+      - "site-infoclimat:cron/compo_new_1_1.php"
+    readers:
+      - "site-infoclimat:accueil/automodule_json.php"
+    status: actif
+  - name: "mariadb://V5/recherches_index"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:recherche/index.php"
+    status: actif  # 2026-06-07 : existence confirmée en prod (introspection MariaDB)
+  - name: "mariadb://V5/requetes_ma"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:meteoalerte/gateway.php"
+      - "site-infoclimat:mobile-api/inc/publication-obs_api.inc.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5/saints"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:include/communs/fonctions.php"
+    status: actif
+  - name: "mariadb://V5/temps_calme"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:admin-photolive/modo_ctrl.php"
+      - "site-infoclimat:meteoalerte/gateway.php"
+      - "site-infoclimat:mobile-api/inc/publication-obs_api.inc.php"
+    readers:
+      - "site-infoclimat:mobile-api/inc/accueil_api.inc.php"
+      - "+N autres"
+    status: actif
+  - name: "mariadb://V5_apprendre/dossiers"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:dossiers/index.php"
+      - "site-infoclimat:recherche/common.php"
+    status: actif
+  - name: "mariadb://V5_cartic/donnees"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cartic/edit.php"
+    readers:
+      - "site-infoclimat:cartic/index.php"
+    status: actif
+  - name: "mariadb://V5_cartic/jobs"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cartic/generation_carte.php"
+      - "site-infoclimat:cartic/job_worker.php"
+    readers:
+      - "site-infoclimat:cartic/index.php"
+    status: actif
+  - name: "mariadb://V5_cartic/palettes"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cartic/makepal.php"
+    readers:
+      - "site-infoclimat:cartic/index.php"
+    status: actif
+  - name: "mariadb://V5_chroniques/actualites"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:chroniques/edition.php"
+      - "site-infoclimat:cron/xml2actu.php"
+      - "site-infoclimat:cron/xml2actu_CFR.php"
+    readers:
+      - "site-infoclimat:chroniques/index.php"
+      - "site-infoclimat:include/ajax/getFeedInfo.php"
+    status: actif
+  - name: "mariadb://V5_chroniques/actualites_commentaires"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:chroniques/index.php"
+      - "site-infoclimat:mobile-api/inc/actualites-commenter_api.inc.php"
+    readers:
+      - "site-infoclimat:chroniques/index.php"
+    status: actif
+  - name: "mariadb://V5_chroniques/bim"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:recherche/recherche_jour.inc.php"
+    status: actif
+  - name: "mariadb://V5_chroniques/bqs"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:recherche/recherche_jour.inc.php"
+    status: actif
+  - name: "mariadb://V5_chroniques/bqs_calendrier"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:bqs/admin.php"
+    readers:
+      - "site-infoclimat:bqs/index.php"
+    status: actif
+  - name: "mariadb://V5_chroniques/bqs_users"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers:
+      - "site-infoclimat:bqs/inscr.php"
+    readers:
+      - "site-infoclimat:include/ajax/getMenuV2.php"
+    status: actif
+  - name: "mariadb://V5_chroniques/bulletins_speciaux"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:gestion-prevs/newbs.php"
+    readers:
+      - "site-infoclimat:forums/forumbs.php"
+      - "site-infoclimat:cron/vigi_mf.php"
+    status: actif
+  - name: "mariadb://V5_chroniques/bulletins_speciaux_propositions"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:gestion-prevs/bs.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_chroniques/bulletins_speciaux_suivi"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:gestion-prevs/bs.php"
+      - "site-infoclimat:cron/vigi_mf.php"
+    readers:
+      - "site-infoclimat:recherche/index.php"
+    status: actif
+    notes: >-
+      Base déduite de la connexion get_utf8_pdo_connection('V5_chroniques') —
+      include/Vigilances/vigilances.php:1681. INSERT INTO
+      bulletins_speciaux_suivi(...) sans qualificateur (l.1684) : base =
+      V5_chroniques. pipelines.yaml corrigé 2026-06-05
+      (était mariadb://V5/bulletins_speciaux_suivi).
+  - name: "mariadb://V5_chroniques/suivi_special"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/vigi_mf.php"
+    readers:
+      - "site-infoclimat:cron/vigi_mf.php"
+    status: actif
+  - name: "mariadb://V5_chroniques/suivi_special_elm"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/vigi_mf.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_climato/climatic"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:climatic/addData.php"
+      - "site-infoclimat:climatic/deleteData.php"
+      - "site-infoclimat:climatic/import.php"
+    readers:
+      - "site-infoclimat:climatic/liaison.php"
+    status: actif
+    notes: >-
+      Relevés climatiques saisis manuellement par les membres.
+  - name: "mariadb://V5_climato/climato_journaliere_auto"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/climato_annuelle.inc.php"
+      - "site-infoclimat:cron/climato_annuelle.php"
+    readers:
+      - "site-infoclimat:cron/climato_tiles.php"
+      - "site-infoclimat:cron/climato_1.php"
+      - "site-infoclimat:cron/climato_normales.php"
+      - "+N autres"
+    status: actif
+  - name: "mariadb://V5_climato/climato_journaliere_injectee"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/meteo.data.gouv.fr/QUOT.php"
+      - "site-infoclimat:cron/meteo.data.gouv.fr/SQR.php"
+      - "site-infoclimat:data/recuperation/synop/meteosuisse/recup_archives.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_climato/climato_journaliere_static"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:climato/static_save.php"
+      - "site-infoclimat:cron/tests/casterino.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_climato/climato_mensuelle_auto"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:climato/transfert.php"
+      - "site-infoclimat:cron/climato_annuelle.inc.php"
+      - "site-infoclimat:cron/climato_annuelle.php"
+    readers:
+      - "site-infoclimat:cron/climato_tiles.php"
+      - "site-infoclimat:cron/climato_normales.php"
+      - "+N autres"
+    status: actif
+  - name: "mariadb://V5_climato/climato_reviews"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:gestion-donnees/trouver_erreurs_valid.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_climato/eca_data"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/ecad/insert_eca.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_climato/eca_stations"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:climatologie/ins_eca.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_climato/editions_moderateurs"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:stations-meteo/edition.php"
+      - "site-infoclimat:stations-meteo/edition_gsod.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_climato/historic_events"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:historic/add.php"
+    readers:
+      - "site-infoclimat:recherche/index.php"
+    status: actif
+    notes: >-
+      Base déduite de la connexion connexionSQL('V5_climato') —
+      cron/historic.php:229. UPDATE/SELECT/INSERT sur historic_events sans
+      qualificateur (l.394,404) : base = V5_climato. pipelines.yaml corrigé
+      2026-06-05 (était mariadb://V5/historic_events).
+  - name: "mariadb://V5_climato/historic_normales"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:historic/index.php"
+    status: actif
+  - name: "mariadb://V5_climato/historic_propose"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:historic/add.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_climato/historic_propose_val"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:admin-historic/index.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_climato/historic_records_depts"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/records/records_depts.php"
+    readers: []
+    status: actif
+    notes: >-
+      Base déduite de la connexion connexionSQL('V5_climato') —
+      cron/historic.php:229. TRUNCATE/INSERT INTO historic_records_depts sans
+      qualificateur (l.237,239) : base = V5_climato. pipelines.yaml corrigé
+      2026-06-05 (était mariadb://V5/historic_records_depts).
+  - name: "mariadb://V5_climato/historic_records_nationaux"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/records/records_nationaux.php"
+    readers: []
+    status: actif
+    notes: >-
+      Base déduite de la connexion connexionSQL('V5_climato') —
+      cron/historic.php:229. TRUNCATE/INSERT INTO historic_records_nationaux
+      sans qualificateur (l.236,238) : base = V5_climato. pipelines.yaml
+      corrigé 2026-06-05 (était mariadb://V5/historic_records_nationaux).
+  - name: "mariadb://V5_climato/historic_values"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:historic/add.php"
+    readers:
+      - "site-infoclimat:historic/index.php"
+    status: actif
+    notes: >-
+      Base déduite de la connexion connexionSQL('V5_climato') —
+      cron/historic.php:229. UPDATE/SELECT/INSERT sur historic_values sans
+      qualificateur (l.233-235,248,253,271,288) : base = V5_climato.
+      pipelines.yaml corrigé 2026-06-05 (était mariadb://V5/historic_values).
+  - name: "mariadb://V5_climato/hydro"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/hydro/eaufrance_data.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_climato/indicateur_national"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/indicateur_national.php"
+      - "site-infoclimat:cron/indicateur_national/indicateur_national.php"
+    readers:
+      - "site-infoclimat:accueil/indicateur_national_api.php"
+    status: actif
+  - name: "mariadb://V5_climato/indicateur_national_arpegepe"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/indicateur_national/indicateur_national_arpege_pe.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_climato/indicateur_national_gefs"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/indicateur_national/indicateur_national_gefs.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_climato/indicateur_pluvio"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/comephore/calc_indicateur_manual.php"
+      - "site-infoclimat:cron/comephore/calc_indicateur_realtime.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_climato/normales"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:data/climato_mf.inc.core.php"
+    readers:
+      - "site-infoclimat:climato/normales.php"
+    status: actif
+  - name: "mariadb://V5_climato/normales_cache"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/normales/populate_cache.php"
+    readers:
+      - "site-infoclimat:climato/normales.php"
+    status: actif
+  - name: "mariadb://V5_climato/postes"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers:
+      - "site-infoclimat:stations/inscription_db_new.php"
+    readers:
+      - "site-infoclimat:admin-climato/index.php"
+      - "site-infoclimat:climato/poste.php"
+    status: actif
+  - name: "mariadb://V5_climato/releves"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:climatic/liaison.php"
+    readers:
+      - "site-infoclimat:admin-climato/index.php"
+    status: actif
+  - name: "mariadb://V5_climato/vigicrues"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/hydro/vigicrues.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_climato/vigilance_direct"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/vigi_mf.php"
+    readers:
+      - "site-infoclimat:accueil/automodule_json.php"
+    status: actif
+    notes: >-
+      Base déduite de la connexion get_utf8_pdo_connection('V5_climato') —
+      include/Vigilances/vigilances.php:868,923. DELETE/INSERT INTO
+      vigilance_direct(...) sans qualificateur (l.874,926) : base = V5_climato.
+      pipelines.yaml corrigé 2026-06-05 (était mariadb://V5/vigilance_direct).
+  - name: "mariadb://V5_climato/vigilance_direct_demo"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:meteoalerte/vigilance.php"
+    status: actif  # 2026-06-07 : existence confirmée en prod (introspection MariaDB)
+  - name: "mariadb://V5_climato/vigilances_mf"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/vigi_mf.php"
+    readers:
+      - "site-infoclimat:meteoalerte/vigilance.php"
+    status: actif
+    notes: >-
+      Base déduite de la connexion insert('V5_climato', ...) —
+      include/Vigilances/vigilances.php:1777 (RealVigilancesMFInserter::insertVigilancesMF).
+      INSERT INTO vigilances_mf(...) sans qualificateur (l.1779) : base =
+      V5_climato. pipelines.yaml corrigé 2026-06-05
+      (était mariadb://V5/vigilances_mf).
+  - name: "mariadb://V5_communaute/annuaire_sites"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:recherche/index.php"
+    status: actif
+  - name: "mariadb://V5_communaute/annuaire_stations"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:data/recuperation/static/mnw.php"
+      - "site-infoclimat:gestion-reseaux/validate.php"
+    readers:
+      - "site-infoclimat:gestion-reseaux/getDataSta.php"
+    status: actif
+  - name: "mariadb://V5_communaute/annuaire_webcams"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:webcams/inscription_db.php"
+    readers:
+      - "site-infoclimat:webcams/index.php"
+    status: actif
+  - name: "mariadb://V5_communaute/webcams_archives"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/archivage_webcams_1.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_data_{AAAA}/static_{MM}_d{1-3}"
+    partitioning: "par mois/décade (static_{MM}_d{1-3})"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:objenious/oy.php"
+      - "site-infoclimat:data/insertion/insertion.php"
+      - "site-infoclimat:cron/mc/radome.php"
+      - "serveur-station-autonome:serveur_station_autonome/repository/DataRepository.py"
+    readers:
+      - "site-infoclimat:opendata-v2/common.inc.php"
+      - "site-infoclimat:opendata/common.inc.php"
+      - "site-infoclimat:include/stations/stations.php"
+      - "site-infoclimat:mobile-api/inc/config-get_api.inc.php"
+      - "site-infoclimat:stations-meteo/default_big.php"
+      - "+N autres"
+    status: actif
+    notes: >-
+      Tables StatIC partitionnées par année et décade mensuelle. Observations réseaux amateurs.
+  - name: "mariadb://V5_data_{AAAA}/synop_{MM}_d{1-3}"
+    partitioning: "par mois/décade (synop_{MM}_d{1-3})"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/image_mf.php"
+      - "site-infoclimat:cron/mc/nivose.php"
+      - "site-infoclimat:data/insert_ogimet.php"
+      - "site-infoclimat:data/reprocess.php"
+      - "site-infoclimat:data/recalculs/recalcul_soleil_suisse.php"
+      - "+N autres"
+    readers:
+      - "site-infoclimat:opendata-v2/common.inc.php"
+      - "site-infoclimat:opendata/common.inc.php"
+      - "site-infoclimat:gestion-donnees/getMonthly.php"
+      - "site-infoclimat:accueil/automodule_json.php"
+      - "+N autres"
+    status: actif
+    notes: >-
+      Tables SYNOP partitionnées par année et décade mensuelle. Observations réseau synoptique.
+  - name: "mariadb://V5_data_anomalies/donnees_supprimees_modos"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:stations-meteo/adminDelete.php"
+    readers: []
+    status: actif
+    notes: >-
+      Journal de suppressions de données par les modérateurs.
+  - name: "mariadb://V5_data_mf/enneigement"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/enneigement/recup_donneespub_mf.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_data_mf/mf_data"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:data/insertion/mf_ancien.php"
+    readers:
+      - "site-infoclimat:data/cartes/editer_xyz.php"
+    status: actif  # 2026-06-07 : existence confirmée en prod (introspection MariaDB)
+    notes: >-
+      Table MF non partitionnée legacy. Remplacée par mf_data_{AAAA}_{MM}.
+  - name: "mariadb://V5_data_mf/mf_data_{AAAA}_{MM}"
+    partitioning: "par année/mois (mf_data_{AAAA}_{MM})"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:ventoux/upsert_dump.php"
+    readers:
+      - "site-infoclimat:cron/climato_annuelle.inc.php"
+      - "site-infoclimat:data/cartes/editer_xyz.php"
+      - "+N autres"
+    status: actif
+    notes: >-
+      Données MeteoFrance partitionnées par année et mois. Ingestion via ventoux/upsert_dump.php.
+  - name: "mariadb://V5_data_mf/mf_stations"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:data/climato_mf_dl.php"
+      - "site-infoclimat:data/insert_mf_clim_csv.php"
+      - "site-infoclimat:data/insert_mf_csv.php"
+    readers:
+      - "site-infoclimat:cron/climato_annuelle.inc.php"
+    status: actif
+  - name: "mariadb://V5_data_params/bouees_bateaux"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:data/insert.php"
+    readers: []
+    status: actif  # 2026-06-07 : existence confirmée en prod (introspection MariaDB)
+  - name: "mariadb://V5_data_params/cartes"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:data/cartes/generation_cartes.php"
+    status: actif
+  - name: "mariadb://V5_data_params/exclusions"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:gestion-donnees/restriction_nouveau.php"
+    readers:
+      - "site-infoclimat:data/traitement/filtrage_static.php"
+    status: actif
+  - name: "mariadb://V5_data_params/metsyn"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:data/insert.php"
+      - "site-infoclimat:data/insert_ish_history.php"
+      - "site-infoclimat:gestion/tri_metar_ajax.php"
+    readers:
+      - "site-infoclimat:data/insertion/insertion.php"
+    status: actif
+    notes: >-
+      Métadonnées stations synoptiques/METAR (identifiants OMM/ICAO, coordonnées).
+  - name: "mariadb://V5_data_params/modeles_stations"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:modeles/public-api.php"
+    status: actif
+  - name: "mariadb://V5_data_params/static"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:data/recuperation/static/mnw.php"
+      - "site-infoclimat:data/traitement/filtrage_static.php"
+      - "site-infoclimat:mon_compte/static.php"
+    readers:
+      - "site-infoclimat:data/traitement/filtrage_static.php"
+      - "site-infoclimat:mon_compte/static.php"
+      - "+N autres"
+    status: actif
+    notes: >-
+      Paramètres stations StatIC (config, propriétaire, capteurs déclarés).
+  - name: "mariadb://V5_data_params/static_emplacements"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:stations/metadonnees_add.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_data_params/static_instruments"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:stations/metadonnees_add.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_data_params/static_ip"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers:
+      - "site-infoclimat:data/recuperation/posteriori_static_2019.php"
+      - "site-infoclimat:mon_compte/static.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_data_params/static_maintenance"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:stations/metadonnees_add.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_data_params/static_photos"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:stations/metadonnees_add.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_data_params/static_post"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:mon_compte/static_posteriori.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_data_params/static_qualite"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:stations/metadonnees_add.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_data_params/static_restrictions"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:stations/metadonnees_add.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_data_params/stations"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/arpa/liguria_meta.php"
+      - "site-infoclimat:cron/arpa/piemonte_meta.php"
+      - "site-infoclimat:cron/ffvl/recup_ffvl.php"
+      - "site-infoclimat:gestion/StatIC_ajouter.php"
+      - "+N autres"
+    readers:
+      - "site-infoclimat:gestion/tri_metar.php"
+      - "+N autres"
+    status: actif
+    notes: >-
+      Référentiel global des stations (synop, static, mae, metar, bouées, etc.).
+  - name: "mariadb://V5_data_params/stations_hydro"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/hydro/eaufrance_stations.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_data_params/temps_omm"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:data/insertion/insertion.php"
+    status: actif
+  - name: "mariadb://V5_mail/categories"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:contact/admin.php"
+    status: actif
+  - name: "mariadb://V5_mail/commentaires_modos"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:contact/adm-fil-actions.inc.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_mail/fils"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:contact/adm-ajax.php"
+      - "site-infoclimat:contact/adm-fil-actions.inc.php"
+      - "site-infoclimat:contact/app.php"
+    readers:
+      - "site-infoclimat:contact/admin.php"
+    status: actif
+  - name: "mariadb://V5_mail/fils_vu_par"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:contact/ajaxKeepalive.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_mail/messages"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:contact/app.php"
+      - "site-infoclimat:contact/index.php"
+      - "site-infoclimat:contact/index_new.php"
+    readers:
+      - "site-infoclimat:contact/admin.php"
+    status: actif
+  - name: "mariadb://V5_photolive/evaluations"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:include/ajax/vote_photolive.php"
+    readers:
+      - "site-infoclimat:include/ajax/vote_photolive.php"
+    status: actif
+  - name: "mariadb://V5_photolive/moderation_avis"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:admin-photolive/index.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_photolive/photos"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:admin-photolive/index.php"
+      - "site-infoclimat:admin-photolive/modo_ctrl.php"
+      - "site-infoclimat:admin-photolive/valide.php"
+      - "site-infoclimat:photolive/publication_db.php"
+      - "site-infoclimat:mobile-api/inc/publication-obs-photo.inc.php"
+    readers:
+      - "site-infoclimat:include/ajax/vote_photolive.php"
+      - "+N autres"
+    status: actif
+  - name: "mariadb://V5_prevs/previsionnistes"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers:
+      - "site-infoclimat:gestion-prevs/ajax_publi.php"
+      - "site-infoclimat:gestion-prevs/ajax_sauv.php"
+    readers:
+      - "site-infoclimat:gestion-prevs/index.php"
+    status: actif
+  - name: "mariadb://V5_rencontres/activites"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:admin-rencontres/index.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_rencontres/participants_v5"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers:
+      - "site-infoclimat:rencontres/inscription.php"
+    readers:
+      - "site-infoclimat:rencontres/index.php"
+    status: actif
+  - name: "mariadb://V5_rencontres/participations_v5"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:rencontres/inscription.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_rencontres/rencontres"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:admin-rencontres/index.php"
+    readers:
+      - "site-infoclimat:rencontres/index.php"
+    status: actif
+  - name: "mariadb://V5_stations/reseau_stations"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:stations/inscription_db_new.php"
+      - "site-infoclimat:webcams/inscription_db.php"
+    readers:
+      - "site-infoclimat:gestion-reseaux/amateurs.php"
+    status: actif
+  - name: "mariadb://V5_stations/station_lora"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/lora/lora_insert.php"
+    readers:
+      - "site-infoclimat:stations-meteo/lora.php"
+    status: actif
+  - name: "mariadb://V5_videolive/evaluations"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:include/ajax/vote_videolive.php"
+    readers: []
+    status: actif
+  - name: "mariadb://V5_videolive/videos"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:videolive/publication.php"
+    readers:
+      - "site-infoclimat:videolive/playlist.php"
+      - "site-infoclimat:videolive/details.php"
+    status: actif
+  - name: "mariadb://asso/adherents_commentaires"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:admin-bureau/ajout_comm.php"
+    readers:
+      - "site-infoclimat:admin-bureau/details_adherent.php"
+    status: actif
+  - name: "mariadb://asso/adhesion_reminder"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:vhost_asso/infos/formulaire.php"
+    readers: []
+    status: actif
+  - name: "mariadb://asso/ag_live"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:asso/live-ag-callback.php"
+    readers:
+      - "site-infoclimat:asso/live-ag.php"
+    status: actif  # 2026-06-07 : existence confirmée en prod (introspection MariaDB)
+  - name: "mariadb://asso/ag_live_questions"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:asso/live-ag-ajax.php"
+    readers:
+      - "site-infoclimat:asso/live-ag.php"
+    status: actif  # 2026-06-07 : existence confirmée en prod (introspection MariaDB)
+  - name: "mariadb://asso/assemblees_gene"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:admin-bureau/ag.php"
+    readers:
+      - "site-infoclimat:asso/index.php"
+    status: actif
+  - name: "mariadb://asso/asso_adherants"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers:
+      - "site-infoclimat:admin-bureau/mail_relance.php"
+      - "site-infoclimat:admin-bureau/adherents_gestion_forum_terminator.php"
+      - "site-infoclimat:admin-bureau/supprimer_adhesion.php"
+      - "site-infoclimat:vhost_asso/infos/paiement.php"
+      - "+N autres"
+    readers:
+      - "site-infoclimat:admin-bureau/points_csv.php"
+      - "site-infoclimat:forums/sync_adherents_status.php"
+      - "+N autres"
+    status: actif
+  - name: "mariadb://asso/paiements"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers:
+      - "site-infoclimat:vhost_asso/infos/paiement.php"
+    readers:
+      - "site-infoclimat:admin-bureau/adhesions.php"
+    status: actif
+  - name: "mariadb://asso/paiements_helloasso"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers:
+      - "site-infoclimat:helloasso/sync.php"
+    readers: []
+    status: actif
+  - name: "mariadb://asso/pouvoirs"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers:
+      - "site-infoclimat:asso/pouvoirs.php"
+    readers:
+      - "site-infoclimat:admin-bureau/generer_mail_pouvoirs.php"
+    status: actif
+  - name: "mariadb://concoursprevi/manches"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:concours/admin.php"
+    readers:
+      - "site-infoclimat:concours/index.php"
+      - "site-infoclimat:concours/classement.php"
+      - "site-infoclimat:cron/concours.php"
+    status: actif
+  - name: "mariadb://concoursprevi/pronos"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:concours/sauvegarder.php"
+    readers:
+      - "site-infoclimat:cron/concours.php"
+      - "site-infoclimat:concours/classement.php"
+    status: actif
+  - name: "mariadb://concoursprevi/participants_v5"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers:
+      - "site-infoclimat:concours/inscription.php"
+    readers:
+      - "site-infoclimat:concours/index.php"
+    status: actif
+  - name: "mariadb://concoursprevi/participations_sondages"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:concours/sondage.php"
+    readers: []
+    status: mort  # 2026-06-07 : absente en prod (table ou base inexistante)
+  - name: "mariadb://data_cartes/cartes"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:data/cartes/generation_cartes.php"
+    readers:
+      - "site-infoclimat:data/cartes/generation_cartes.php"
+    status: actif
+  - name: "mariadb://data_cartes/cartes_zooms"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:data/cartes/generation_cartes.php"
+    status: actif
+  - name: "mariadb://data_cartes/satellites"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:cron/sat_modis.php"
+    readers:
+      - "site-infoclimat:include/ajax/sat_get_jours.php"
+    status: actif
+    notes: >-
+      Base déduite de la connexion connexionSQL('data_cartes') —
+      cron/sat_modis.php:38. INSERT INTO satellites(...) sans qualificateur
+      (l.47,63) : base = celle de la connexion PDO (dbname=data_cartes).
+      pipelines.yaml corrigé 2026-06-05 (était mariadb://V5/satellites).
+  - name: "mariadb://data_geo/communes_latlong_complete"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:include/communs/fonctions.php"
+    status: actif
+  - name: "mariadb://data_geo/geoNames_FR"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:geonames/upsert.php"
+    readers:
+      - "site-infoclimat:include/ajax/ajax_localisation_2.php"
+    status: actif
+  - name: "mariadb://dico/lexique"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:dico/admin.php"
+    readers:
+      - "site-infoclimat:chroniques/index.php"
+      - "site-infoclimat:include/template/menu_desktop.inc.php"
+      - "site-infoclimat:recherche/index.php"
+    status: actif
+  - name: "mariadb://forums2/core_members"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:mon_compte/forum.php"
+      - "site-infoclimat:forums/fusion.php"
+      - "site-infoclimat:include/ajax/getMenuV2.php"
+    status: actif
+    notes: >-
+      Membres IPBoard v4. Lecture seule depuis site-infoclimat.
+  - name: "mariadb://forums2/core_sessions"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:forums/stats_forums.php"
+      - "site-infoclimat:include/ajax/getMenuV2.php"
+    status: actif
+  - name: "mariadb://forums2/core_sys_cp_sessions"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:include/ajax/getMenuV2.php"
+    status: actif
+  - name: "mariadb://forums2/core_validating"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:include/ajax/getMenuV2.php"
+    status: actif
+  - name: "mariadb://forums2/forums_topics"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:include/ajax/getMenuV2.php"
+    status: actif
+  - name: "mariadb://forums/ibf_posts"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:forums/newPost.php"
+      - "site-infoclimat:forums/newTopic.php"
+      - "site-infoclimat:forums/newStatIC.php"
+    readers: []
+    status: mort
+    notes: >-
+      Tables IPBoard v2 legacy (base forums). Scripts inactifs. Base active = forums2.
+  - name: "mariadb://forums/ibf_topics"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:forums/newPost.php"
+      - "site-infoclimat:forums/newTopic.php"
+      - "site-infoclimat:forums/ouvertureTopics.php"
+    readers: []
+    status: mort
+  - name: "mariadb://forums/ibf_forums_recent_posts"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:forums/newPost.php"
+      - "site-infoclimat:forums/newStatIC.php"
+    readers: []
+    status: mort
+  - name: "mariadb://forums/ibf_core_members"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:forums/fusion.php"
+      - "site-infoclimat:forums/infos_compte.php"
+    status: mort
+  - name: "mariadb://forums/ibf_sessions"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:forums/stats_forums.php"
+    status: mort
+  - name: "mariadb://forums/ibf_members"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:forums/recherche_compte.php"
+    status: mort
+  - name: "mariadb://mantis/mantis_bug_table"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:contact/admin.php"
+    status: actif  # 2026-06-07 : existence confirmée en prod (introspection MariaDB)
+    notes: >-
+      Bugtracker Mantis. Lecture seule depuis contact/admin.php.
+  - name: "mariadb://meteo_a_l_ecole/mod_stations"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:include/meteo_a_l_ecole.inc.php"
+    status: actif  # 2026-06-07 : existence confirmée en prod (introspection MariaDB)
+  - name: "mariadb://meteo_a_l_ecole/ressources_sci_categories"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:include/meteo_a_l_ecole.inc.php"
+    status: actif  # 2026-06-07 : existence confirmée en prod (introspection MariaDB)
+  - name: "mariadb://meteo_a_l_ecole/ressources_sci_items"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:include/meteo_a_l_ecole.inc.php"
+    status: actif  # 2026-06-07 : existence confirmée en prod (introspection MariaDB)
+  - name: "mariadb://proftpd/ftpuser"
+    partitioning: "none"
+    personal_data: true
+    engine_hint: null
+    writers:
+      - "site-infoclimat:admin-tech/ajax_add_ftp.php"
+      - "site-infoclimat:admin-tech/ajax_modif_ftp.php"
+      - "site-infoclimat:admin-tech/ajax_delete_ftp.php"
+    readers:
+      - "site-infoclimat:admin-tech/comptes_ftp.php"
+      - "site-infoclimat:stations/ftp_over_https.php"
+    status: actif
+  - name: "mariadb://proftpd/ftpquotalimits"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:admin-tech/ajax_add_ftp.php"
+      - "site-infoclimat:admin-tech/ajax_modif_ftp.php"
+      - "site-infoclimat:admin-tech/ajax_delete_ftp.php"
+    readers:
+      - "site-infoclimat:admin-tech/comptes_ftp.php"
+    status: actif
+  - name: "mariadb://reseau/stations"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:data/insert.php"
+    status: mort  # 2026-06-07 : absente en prod (table ou base inexistante)
+    notes: >-
+      Base reseau — lecture seule, code sous guard 'if false'. Usage douteux.
+  - name: "mariadb://alerte/vigi_mf"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:cron/vigi_mf.php"
+    status: mort  # 2026-06-07 : absente en prod (table ou base inexistante)
+    notes: >-
+      Base alerte — lecture seule. Source de vigilances MF importées dans V5_climato.vigilances_mf.
+  - name: "sphinx://geonames"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:include/ajax/ajax_localisation_2.php"
+      - "site-infoclimat:include/ajax/villes.php"
+      - "site-infoclimat:include/ajax/stations_1.php"
+    status: actif
+    notes: >-
+      Index Sphinx (API port 9312). Source MariaDB. Namespace sphinx:// hors schéma mariadb/timescale.
+  - name: "sphinx://stationsSYN"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:include/ajax/stations_1.php"
+      - "site-infoclimat:include/ajax/stations.php"
+    status: actif
+  - name: "sphinx://photolive"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:photolive/upload.php"
+      - "site-infoclimat:recherche/common.php"
+    status: actif
+  - name: "sphinx://forums_search_posts_main"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:recherche/common.php"
+      - "site-infoclimat:recherche/ajax.php"
+    status: actif
+  - name: "sphinx://members_search_main"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:recherche/common.php"
+    status: actif
+  - name: "sphinx://bulletinsspeciaux"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:recherche/common.php"
+    status: actif
+  - name: "sphinx://suivisspeciaux"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:recherche/common.php"
+    status: actif
+  - name: "sphinx://bqs"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:recherche/common.php"
+    status: actif
+  - name: "sphinx://bim"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:recherche/common.php"
+    status: actif
+  - name: "sphinx://dossiers"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:recherche/common.php"
+    status: actif
+  - name: "sphinx://historic"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:recherche/common.php"
+    status: actif
+  - name: "sphinx://climatoA"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:recherche/common.php"
+    status: actif
+  - name: "sphinx://vigiMF"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:recherche/common.php"
+    status: actif
+  - name: "sphinx://annuSites"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:recherche/common.php"
+    status: actif
+  - name: "sphinx://annuStations"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:recherche/common.php"
+    status: actif
+  - name: "sphinx://annuWebcams"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:recherche/common.php"
+    status: actif
+  - name: "sphinx://videolive"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:recherche/common.php"
+    status: actif
+  - name: "sphinx://internal"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers:
+      - "site-infoclimat:recherche/common.php"
+    status: douteux
+  # ── Entrées ajoutées post-revue 2026-06 ────────────────────────
+  - name: "mariadb://V5_data_{AAAA}/bouees_{MM}_d{1-3}"
+    partitioning: "par mois/décade (bouees_{MM}_d{1-3})"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:data/recuperation/mf-bouees.php"
+    readers: []
+    status: actif
+    notes: >-
+      INSERT INTO V5_data_{YYYY}.bouees_{MM}_d{dd} (mf-bouees.php:33,52).
+      Pipeline cron.mf-bouees (srx-data-2, toutes les 15 min).
+  - name: "mariadb://V5_data_{AAAA}/metar_{MM}_d{1-3}"
+    partitioning: "par mois/décade (metar_{MM}_d{1-3})"
+    engine_hint: null
+    writers:
+      - "site-infoclimat:data/insertion/metar.php"
+    readers:
+      - "site-infoclimat:cron/radar.php"
+      - "site-infoclimat:stations-meteo/index.php"
+      - "site-infoclimat:stations-meteo/extremes.php"
+      - "site-infoclimat:mobile-api/inc/carte-stationfull_api.inc.php"
+    status: actif
+    notes: >-
+      INSERT IGNORE INTO V5_data_{AAAA}.metar_{MM}_d{dec} (metar.php:33,48).
+      Readers : radar.php:241, stations-meteo/index.php:770,
+      extremes.php:80, carte-stationfull_api.inc.php:765.
+  # ── Vues matérialisées TimescaleDB (refresh Kestra) ─────────────────────────
+  - name: "timescaledb://postgres/mv_quotidienne_realtime"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "infrapilot:roles/applications/scheduler/files/flows/infoclimat.db.dataclimat.refresh-materialized-views.yml"
+    readers: []
+    status: actif
+    notes: >-
+      Vue matérialisée. Rafraîchie toutes les 6 min par
+      kestra.infoclimat.db.dataclimat.refresh-materialized-views (REFRESH MATERIALIZED
+      VIEW CONCURRENTLY). Aucun reader tracé dans site-infoclimat.
+  - name: "timescaledb://postgres/mv_mensuelle_realtime"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "infrapilot:roles/applications/scheduler/files/flows/infoclimat.db.dataclimat.refresh-materialized-views.yml"
+    readers: []
+    status: actif
+    notes: >-
+      Vue matérialisée. Rafraîchie toutes les 6 min par
+      kestra.infoclimat.db.dataclimat.refresh-materialized-views.
+  - name: "timescaledb://postgres/mv_records_absolus_par_mois"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "infrapilot:roles/applications/scheduler/files/flows/infoclimat.db.dataclimat.refresh-materialized-views.yml"
+    readers: []
+    status: actif
+    notes: >-
+      Vue matérialisée. Rafraîchie toutes les 6 min par
+      kestra.infoclimat.db.dataclimat.refresh-materialized-views.
+  - name: "timescaledb://postgres/mv_itn_daily_all_years"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "infrapilot:roles/applications/scheduler/files/flows/infoclimat.db.dataclimat.refresh-materialized-views.yml"
+    readers: []
+    status: actif
+    notes: >-
+      Vue matérialisée. Rafraîchie toutes les 6 min par
+      kestra.infoclimat.db.dataclimat.refresh-materialized-views.
+  - name: "timescaledb://postgres/mv_records_battus"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "infrapilot:roles/applications/scheduler/files/flows/infoclimat.db.dataclimat.refresh-mv-records-battus.yml"
+    readers: []
+    status: actif
+    notes: >-
+      Vue matérialisée. Rafraîchie toutes les 15 min par
+      kestra.infoclimat.db.dataclimat.refresh-mv-records-battus (status actif).
+  - name: "timescaledb://postgres/mv_records_battus_realtime"
+    partitioning: "none"
+    engine_hint: null
+    writers:
+      - "infrapilot:roles/applications/scheduler/files/flows/infoclimat.db.dataclimat.refresh-mv-records-battus-realtime.yml"
+    readers:
+      - "dataforgoodfr/14_ValorisationDonneeMeteo:backend/weather/views.py"
+    status: douteux
+    notes: >-
+      Vue matérialisée **planifiée mais pas encore créée en base** (introspection du
+      2026-06-09 : absente de ct-timescale). Référencée par le **client** DataForGood
+      dataforgoodfr/14_ValorisationDonneeMeteo (backend/weather, tests marqués « mv_records_battus_realtime
+      path is not developed for now ») → **non-fantôme : réf anticipée d'un consommateur, pas du code mort**.
+      Flow de refresh Kestra refresh-mv-records-battus-realtime préparé mais disabled. Repassera `actif` à la création.
+
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # Ajouts 2026-06-09 — familles dynamiques (réduction des orphelines structurelles)
+  # et socle dataclimat Timescale (post-introspection/réconciliation 2026-06).
+  # ════════════════════════════════════════════════════════════════════════════
+  - name: "mariadb://V5_data_{AAAA}/mae_{MM}_d{1-3}"
+    partitioning: "par mois/décade (mae_{MM}_d{1-3})"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: actif
+    notes: >-
+      Famille « Météo à l'École » partitionnée par année (jusqu'à V5_data_1930) et décade
+      mensuelle — ~3 600 tables, soit le gros des orphelines structurelles. Alimentation hors monolithe.
+  - name: "mariadb://V5_data_{AAAA}/test_stations_autonomes_{MM}_d{1-3}"
+    partitioning: "par mois/décade"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: douteux
+    notes: "Famille de test stations autonomes par année/décade — usage à confirmer."
+  - name: "mariadb://V5_data_{AAAA}/test_{MM}_d{1-3}"
+    partitioning: "par mois/décade"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: douteux
+    notes: "Tables de test par décade — à statuer."
+  - name: "mariadb://V5_data_{AAAA}/profiles"
+    partitioning: "par année (V5_data_{AAAA})"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: douteux
+    notes: "Table 'profiles' présente dans chaque base annuelle — usage à confirmer."
+  - name: "mariadb://V5_data_{AAAA}/acars"
+    partitioning: "par année (V5_data_{AAAA})"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: douteux
+    notes: "Données ACARS (aéronefs) par base annuelle — usage à confirmer."
+  - name: "mariadb://V5_data_{AAAA}/synop_{MM}_d{1-3}_bak"
+    partitioning: "par mois/décade"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: mort
+    notes: "Sauvegardes des partitions synop — purgeable."
+  - name: "mariadb://V5_data_{AAAA}/static_{MM}_d{1-3}_bak"
+    partitioning: "par mois/décade"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: mort
+    notes: "Sauvegardes des partitions StatIC — purgeable."
+  - name: "mariadb://data_geo/geoNames_{XX}"
+    partitioning: "1 table par pays (code ISO 2 lettres)"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: actif
+    notes: "Référentiel GeoNames éclaté par pays (~250 tables). Lectures dynamiques selon le code pays."
+  - name: "mariadb://V5_climato/eca_{XX}_{XX}"
+    partitioning: "1 table par paramètre×pays"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: actif
+    notes: >-
+      ECA&D (European Climate Assessment) éclaté par paramètre (RR/TX/TN) et pays (~70 tables).
+      Le code ne référence littéralement que `eca_data`.
+  # ── Socle dataclimat (TimescaleDB, db postgres) — non référencé par le monolithe ──
+  # Infra infoclimat : alimentation (ingestion) + refresh matviews (Kestra) hors monolithe.
+  # Consommé par le client DataForGood dataforgoodfr/14_ValorisationDonneeMeteo (consommateur, pas la source).
+  - name: "timescaledb://postgres/StationTempsReel"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: actif
+    notes: "Socle dataclimat — stations temps réel. Alimentation hors monolithe."
+  - name: "timescaledb://postgres/InformationStation"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: actif
+    notes: "Socle dataclimat — métadonnées station. Alimentation hors monolithe."
+  - name: "timescaledb://postgres/CommandeStation"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: actif
+    notes: "Socle dataclimat — commandes/abonnements station. Alimentation hors monolithe."
+  - name: "timescaledb://postgres/Producteur"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: actif
+    notes: "Socle dataclimat — producteurs de données. Alimentation hors monolithe."
+  - name: "timescaledb://postgres/Position"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: actif
+    notes: "Socle dataclimat — positions/géolocalisation station. Alimentation hors monolithe."
+  - name: "timescaledb://postgres/Parametre"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: actif
+    notes: "Socle dataclimat — paramètres mesurés. Alimentation hors monolithe."
+  - name: "timescaledb://postgres/TypePoste"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: actif
+    notes: "Socle dataclimat — typologie de postes. Référentiel."
+  - name: "timescaledb://postgres/ommid"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: actif
+    notes: "Socle dataclimat — correspondance OMM id. Référentiel."
+  - name: "timescaledb://postgres/ref_department_region"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: actif
+    notes: "Socle dataclimat — référentiel département/région (backend/sql/tables/001_table_ref_department_region.sql côté client)."
+  - name: "timescaledb://postgres/station_classe"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: actif
+    notes: "Socle dataclimat — classement qualité station."
+  - name: "timescaledb://postgres/station_creation_date"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: actif
+    notes: "Socle dataclimat — date de création des stations."
+  - name: "timescaledb://postgres/station_creation_date_bak"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: mort
+    notes: "Sauvegarde de station_creation_date — purgeable."
+  - name: "timescaledb://postgres/_prisma_migrations"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: douteux
+    notes: "Table interne de migrations Prisma — reliquat d'outillage (le schéma courant est géré en SQL). À confirmer."
+  - name: "timescaledb://postgres/mv_quotidienne_tn"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: actif
+    notes: "Matview intermédiaire (records Tn) — lue par les vues v_* / le client. Refresh hors monolithe (Kestra)."
+  - name: "timescaledb://postgres/mv_quotidienne_tx"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: actif
+    notes: "Matview intermédiaire (records Tx) — lue par les vues v_* / le client. Refresh hors monolithe (Kestra)."
+  - name: "timescaledb://postgres/mv_record_event_max_history"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: actif
+    notes: "Matview intermédiaire (historique records max). Refresh hors monolithe (Kestra)."
+  - name: "timescaledb://postgres/mv_record_event_min_history"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: actif
+    notes: "Matview intermédiaire (historique records min). Refresh hors monolithe (Kestra)."
+  - name: "timescaledb://postgres/mv_first_temperature_date"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: actif
+    notes: "Matview intermédiaire (1ère date de température). Refresh hors monolithe (Kestra)."
+  - name: "timescaledb://postgres/mv_itn_daily_1991_2020_real"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: actif
+    notes: "Matview intermédiaire (normales ITN quotidiennes 1991-2020). Refresh hors monolithe (Kestra)."
+  - name: "timescaledb://postgres/mv_baseline_station_daily_mean_1991_2020"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: actif
+    notes: "Matview intermédiaire (baseline moyenne quotidienne station 1991-2020). Refresh hors monolithe (Kestra)."
+  - name: "timescaledb://postgres/SaveProgress"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: actif
+    notes: "Socle dataclimat — suivi de progression d'ingestion/jobs. Alimentation hors monolithe."
+  - name: "timescaledb://postgres/mv_records_battus_meta"
+    partitioning: "none"
+    engine_hint: null
+    writers: []
+    readers: []
+    status: actif
+    notes: "Socle dataclimat — métadonnées de mv_records_battus (backend/sql/schemas/records/001_mv_records_battus_meta.sql côté client). Refresh hors monolithe."

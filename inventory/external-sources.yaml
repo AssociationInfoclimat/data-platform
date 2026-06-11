@@ -1,0 +1,961 @@
+# Sources de données externes consommées — inventaire 2026-06
+# Schéma d'une entrée :
+#   name:      api://<source>/<dataset>  (ex. api://meteofrance/paquets-observations)
+#   url_hint:  URL ou host repéré dans le code
+#   auth:      none | token | compte (ne JAMAIS copier de secret ici)
+#   consumers: [ids de pipelines]
+#   notes:
+version: 1
+sources:
+
+  # ─── Météo-France ──────────────────────────────────────────────────────────
+
+  - name: api://meteofrance/DPVigilance
+    url_hint: https://public-api.meteofrance.fr/public/DPVigilance/v1/
+    auth: token
+    consumers:
+      - kestra.infoclimat.data.meteofrance.vigilance
+      - cron.vigilance-meteofrance.front2
+    notes: >-
+      Token OAuth2 récupéré via POST https://portail-api.meteofrance.fr/token
+      (APPLICATION_ID en env). Tracé dans include/Vigilances/vigilances.php.
+
+  - name: api://meteofrance/donnees-libres-radar
+    url_hint: https://public-api.meteofrance.fr/public/DPRadar/v1/mosaiques
+    auth: token
+    consumers:
+      - cron.radarmf
+      - cron.compo-new
+      - kestra.infoclimat.data.meteorology.download-and-convert-radar
+    notes: >-
+      Même token OAuth2 portail-api. Tracé dans include/Radar/radar.php.
+      Alias pipelines.yaml : api://meteofrance/radar (kestra download-and-convert-radar)
+      — même endpoint, deux noms coexistent dans pipelines.yaml.
+
+  - name: api://meteofrance/paquets-observations
+    url_hint: https://portail-api.meteofrance.fr/
+    auth: token
+    consumers:
+      - kestra.infoclimat.data.recuperation.launch-data-recup
+    notes: >-
+      Script shell prod non mappé dans les clones ; url_hint déduit du
+      mécanisme OAuth2 portail-api (APPLICATION_ID env). Ancienne source :
+      pro.meteofrance.com (compte — script recup_data_mf_extranet, wget cookie,
+      mort/legacy). Douteux : pipeline prod non intégralement tracé.
+
+  - name: api://meteofrance/climatologie-portail-api
+    url_hint: https://portail-api.meteofrance.fr/
+    auth: token
+    consumers:
+      - kestra.infoclimat.data.meteofrance.climatologie-portail-api.infrahoraires
+      - kestra.infoclimat.data.meteofrance.climatologie-portail-api.horaires
+    notes: >-
+      Scripts prod non mappés dans les clones ; les deux pipelines sont status
+      douteux (I/O non traçables depuis le flow). Token OAuth2 portail-api.
+
+  - name: api://meteofrance/donnees-climatologiques
+    url_hint: https://portail-api.meteofrance.fr/
+    auth: token
+    consumers:
+      - cron.climato.mensuelle
+      - cron.climato.mensuelle-current
+      - cron.climato-normales.mois-01
+      - cron.climato-normales.mois-02
+      - cron.climato-normales.mois-03
+      - cron.climato-normales.mois-04
+      - cron.climato-normales.mois-05
+      - cron.climato-normales.mois-06
+      - cron.climato-normales.mois-07
+      - cron.climato-normales.mois-08
+      - cron.climato-normales.mois-09
+      - cron.climato-normales.mois-10
+      - cron.climato-normales.mois-11
+      - cron.climato-normales.mois-12
+    notes: >-
+      Ancien endpoint : donneespubliques.meteofrance.fr (références dans le code
+      comme liens documentaires). Token OAuth2 portail-api.
+
+  - name: api://meteofrance/donnees-libres-nivo
+    url_hint: https://portail-api.meteofrance.fr/
+    auth: token
+    consumers:
+      - cron.recup-donneespub-mf-enneigement
+    notes: Données nivologiques libres. Token OAuth2 portail-api.
+
+  - name: api://meteofrance/donnees-libres-marine
+    url_hint: https://donneespubliques.meteofrance.fr/donnees_libres/Txt/Marine/
+    auth: none
+    consumers:
+      - cron.mf-bouees
+    notes: >-
+      CSV Marine téléchargé directement (fopen). Tracé dans
+      data/recuperation/mf-bouees.php.
+
+  - name: api://meteofrance/meteo-data-gouv-daily
+    url_hint: https://object.data.gouv.fr/meteofrance-pnt/
+    auth: none
+    consumers:
+      - kestra.infoclimat.data.meteofrance.climatologie-meteo-data-gouv.daily
+    notes: >-
+      Open data data.gouv.fr. Même bucket que l'AROME PNT (object.data.gouv.fr
+      / meteofrance-pnt).
+
+  - name: api://meteofrance/meteo-data-gouv-hourly
+    url_hint: https://object.data.gouv.fr/meteofrance-pnt/
+    auth: none
+    consumers:
+      - kestra.infoclimat.data.meteofrance.climatologie-meteo-data-gouv.hourly
+    notes: Open data data.gouv.fr.
+
+  - name: api://meteofrance/meteo-data-gouv-monthly
+    url_hint: https://object.data.gouv.fr/meteofrance-pnt/
+    auth: none
+    consumers:
+      - kestra.infoclimat.data.meteofrance.climatologie-meteo-data-gouv.monthly
+    notes: Open data data.gouv.fr.
+
+  - name: api://meteofrance/portail-mf-station
+    url_hint: https://portail-api.meteofrance.fr/
+    auth: token
+    consumers:
+      - cron.image-mf
+    notes: >-
+      Images de bulletins par station MF. Token OAuth2 portail-api. Tracé dans
+      cron/image_mf.php (appel interne via mf.controller.php qui délègue au
+      portail-api).
+
+  - name: api://meteofrance/dcpc-nwp
+    url_hint: http://dcpc-nwp.meteo.fr/services/PS_GetCache_DCPCPreviNum
+    auth: token
+    consumers:
+      - cron.recup-arpege.modeles2
+      - cron.recup-arome13.modeles2
+      - cron.recup-arome-antilles.modeles2
+    notes: >-
+      Token passé en paramètre ?token=… (env TOKEN_MF). Tracé dans
+      modeles-php/GFS/script/recup_arpege05.async.php,
+      recup_arome13.async.php, recup_arome_antilles.php.
+
+  - name: api://data.gouv.fr/meteofrance-pnt-arome
+    url_hint: https://object.data.gouv.fr/meteofrance-pnt/pnt/
+    auth: none
+    consumers:
+      - cron.recup-arome.modeles2
+    notes: >-
+      AROME 0.025° open data via bucket S3 data.gouv.fr. Tracé dans
+      modeles-php/GFS/script/recup_arome.async.php.
+
+  # ─── NOAA / NWS ────────────────────────────────────────────────────────────
+
+  - name: api://noaa/nomads-gfs
+    url_hint: https://nomads.ncep.noaa.gov/
+    auth: none
+    consumers:
+      - kestra.infoclimat.forecast.gfs.fetch-gfs-modeles-2
+      - cron.recup-gfs05.modeles2
+      - cron.recup-gfs1deg.modeles2
+      - cron.recup-gfshd.modeles2
+    notes: >-
+      Téléchargement GRIB2 via filter_gfs_hd.pl / pub/data. Tracé dans
+      modeles-php/GFS/script/recup_data_2.php.
+
+  - name: api://noaa/nomads-gefs
+    url_hint: https://nomads.ncep.noaa.gov/pub/data/nccf/com/gens/prod/gefs.
+    auth: none
+    consumers:
+      - kestra.infoclimat.forecast.gefs.fetch-gefs-modeles-2
+      - cron.recup-gefs-ctrl.modeles2
+      - cron.recup-gefs-avg.modeles2
+      - cron.recup-gefs-gep.modeles2
+      - cron.recup-gefs-spr.modeles2
+    notes: >-
+      Tracé dans modeles-php/GFS/script/recup_gefs_new.php.
+
+  - name: api://noaa/synop
+    url_hint: https://tgftp.nws.noaa.gov/SL.us008001/
+    auth: none
+    consumers:
+      - kestra.infoclimat.data.recuperation.launch-data-recup
+    notes: >-
+      Données SYNOP NOAA/NWS. Tracé dans
+      site-infoclimat/data/recuperation/synop/.
+
+  - name: api://noaa/metar
+    url_hint: https://tgftp.nws.noaa.gov/SL.us008001/DF.an/DC.sfmar/
+    auth: none
+    consumers:
+      - kestra.infoclimat.data.recuperation.launch-data-recup
+    notes: >-
+      METAR buoys / ships. Tracé dans
+      site-infoclimat/data/recuperation/bouees/noaa.php.
+
+  - name: api://noaa/bufr
+    url_hint: https://tgftp.nws.noaa.gov/SL.us008001/DF.bf/DC.intl/
+    auth: none
+    consumers:
+      - kestra.infoclimat.data.recuperation.bufr
+      - cron.recuperation-bufr.mysql3
+    notes: >-
+      BUFR international. Tracé dans
+      site-infoclimat/data/recuperation/synop/bufr/bufr.inc.php.
+
+  - name: api://noaa/cdn-star-goes16-abi-conus-07
+    url_hint: https://cdn.star.nesdis.noaa.gov/GOES16/ABI/CONUS/07/
+    auth: none
+    consumers:
+      - cron.goes-ir-new
+    notes: >-
+      Canal IR 07 GOES-16. Tracé dans
+      site-infoclimat/data/cartes/goes/getDataIRNew.php.
+
+  - name: api://noaa/cdn-star-goes16-abi-conus-vis
+    url_hint: https://cdn.star.nesdis.noaa.gov/GOES16/ABI/CONUS/GEOCOLOR/
+    auth: none
+    consumers:
+      - cron.goes-vis-new
+    notes: >-
+      Canal visible / GeoColor GOES-16. Tracé dans
+      site-infoclimat/data/cartes/goes/getDataIRNew.php.
+
+  - name: api://noaa/satepsanone-goes-west-ir4
+    url_hint: http://satepsanone.nesdis.noaa.gov/pub/GIS/GOESwest/GoesWest04I4_latest.tif
+    auth: none
+    consumers:
+      - cron.goes-ir4
+    notes: >-
+      Ancien endpoint GOES-West IR4. Tracé dans
+      site-infoclimat/data/cartes/goes/getData.php. Potentiellement mort
+      (satepsanone legacy).
+
+  - name: api://noaa/satepsanone-goes-west-vis
+    url_hint: http://satepsanone.nesdis.noaa.gov/pub/GIS/GOESeast/GoesEast1V_latest.tif
+    auth: none
+    consumers:
+      - cron.goes-vis
+    notes: >-
+      Ancien endpoint GOES-East VIS. Tracé dans
+      site-infoclimat/data/cartes/goes/getDataVisE.php. Potentiellement mort
+      (satepsanone legacy).
+
+  - name: api://noaa/mesonet-agron-nexrad-n0q
+    url_hint: http://mesonet.agron.iastate.edu/data/gis/images/4326/USCOMP/n0q_0.tif.Z
+    auth: none
+    consumers:
+      - cron.nexrad
+    notes: >-
+      Iowa State University mesonet NEXRAD composite. Tracé dans
+      site-infoclimat/data/cartes/nexrad/getData.php.
+
+  # ─── ECCC (Environnement et Changement climatique Canada) ──────────────────
+
+  - name: api://eccc/model-gem-global
+    url_hint: https://dd.weatheroffice.gc.ca/model_gem_global/
+    auth: none
+    consumers:
+      - kestra.infoclimat.forecast.gem.fetch-gem-modeles-2
+      - cron.recup-gem.modeles2
+    notes: >-
+      MSC Datamart GEM Global. URL confirmée dans reconciliation.md (correction
+      post-revue).
+
+  - name: api://eccc/ensemble-naefs
+    url_hint: https://dd.weatheroffice.gc.ca/ensemble/naefs/
+    auth: none
+    consumers:
+      - kestra.infoclimat.forecast.gemens.fetch-gemens-modeles-2
+      - cron.recup-gemens.modeles2
+    notes: >-
+      Ensemble NAEFS (GEM-ENS). URL confirmée dans reconciliation.md.
+
+  # ─── ECMWF ─────────────────────────────────────────────────────────────────
+
+  - name: api://ecmwf/opendata
+    url_hint: https://data.ecmwf.int/
+    auth: none
+    consumers:
+      - kestra.infoclimat.forecast.ecmwf.fetch-ecmwf-modeles-2
+      - cron.recup-ecmwf.modeles2
+    notes: >-
+      ECMWF open data (FTP data-portal.ecmwf.int → modeles/ECMWF/).
+      URL confirmée dans reconciliation.md.
+
+  # ─── PO.DAAC / NASA Earthdata ──────────────────────────────────────────────
+
+  - name: api://podaac/sst-mur
+    url_hint: https://archive.podaac.earthdata.nasa.gov/podaac-ops-cumulus-protected/MUR-JPL-L4-GLOB-v4.1/
+    auth: compte
+    consumers:
+      - kestra.infoclimat.data.oceanic.compute-sea-surface-temperature-podaac
+    notes: >-
+      SST MUR JPL. Auth via NASA URS (urs.earthdata.nasa.gov), credentials en
+      env NASA_API_USER / NASA_API_PASSWORD. Tracé dans
+      site-infoclimat/data/cartes/ifremer/podaac_sst_MUR.php.
+
+  - name: api://nasa/lance-modaps
+    url_hint: https://lance3.modaps.eosdis.nasa.gov/imagery/subsets/
+    auth: none
+    consumers:
+      - kestra.infoclimat.front.cron.sat-modis
+      - cron.sat_modis
+      - cron.sat-modis.front2
+      - cron.sat-modis.nginx2
+    notes: >-
+      Imagerie MODIS Terra/Aqua LANCE. Tracé dans
+      site-infoclimat/cron/sat_modis.php.
+
+  - name: api://nasa/earthdata-wmts
+    url_hint: https://map1c.vis.earthdata.nasa.gov/wmts-geo/wmts.cgi
+    auth: none
+    consumers:
+      - cron.sat_modis
+    notes: >-
+      NASA Worldview WMTS capabilities. Tracé dans
+      site-infoclimat/cron/sat_modis.php.
+
+  - name: api://nasa/earthdata-wvs
+    url_hint: https://wvs.earthdata.nasa.gov/api/v1/snapshot
+    auth: none
+    consumers:
+      - kestra.infoclimat.front.cron.sat-modis-new
+      - cron.sat-modis-new.front2
+      - cron.sat-modis-new.nginx2
+    notes: >-
+      NASA Worldview Snapshots. Tracé dans
+      site-infoclimat/cron/sat_modis_new.php.
+
+  # ─── EUMETSAT ──────────────────────────────────────────────────────────────
+
+  - name: api://eumetsat/eumetview-static-images
+    url_hint: https://eumetview.eumetsat.int/static-images/latestImages/
+    auth: none
+    consumers:
+      - cron.eumetsat
+    notes: >-
+      Images MSG statiques (NaturalColor, Airmass, WV062, Fog, Convection…).
+      Tracé dans site-infoclimat/server5/eumetsat.php.
+
+  # ─── KNMI ──────────────────────────────────────────────────────────────────
+
+  - name: api://knmi/msg-cpp-products
+    url_hint: https://anonymous.api.dataplatform.knmi.nl/wms/adaguc-server
+    auth: none
+    consumers:
+      - kestra.infoclimat.data.sat-knmi
+      - cron.sat-knmi.front2
+      - cron.sat-knmi.nginx2
+    notes: >-
+      MSG Cloud Physical Properties via KNMI ADAGUC WCS. Tracé dans
+      site-infoclimat/data/cartes/ifremer/sat_knmi.php (accès anonyme).
+
+  - name: api://knmi/msgcpp-adaguc-wms
+    url_hint: https://msgcpp-adaguc.knmi.nl/adaguc-server/
+    auth: none
+    consumers:
+      - cron.knmi
+    notes: >-
+      Ancien endpoint KNMI ADAGUC WMS pour GetCapabilities. Tracé dans
+      site-infoclimat/server5/knmi.php (commenté en faveur du nouveau endpoint,
+      voir api://knmi/msg-cpp-products). Le pipeline cron.knmi reste ACTIF
+      (srx-data-2 crontab:68, pipelines.yaml) — seul cet endpoint-ci est délaissé.
+
+  # ─── UK Met Office ─────────────────────────────────────────────────────────
+
+  - name: api://ukmet/wms-sat-ir
+    url_hint: https://www.metoffice.gov.uk/public/data/LayerCache/
+    auth: compte
+    consumers:
+      - cron.recup-ukmet
+    notes: >-
+      WMS satellite IR Met Office. Authentification HTTP (compte). Tracé dans
+      site-infoclimat/cron/sat/recup_ukmet.py (HTTPS + referer).
+
+  - name: api://ukmet/wms-sat-vis
+    url_hint: https://www.metoffice.gov.uk/public/data/LayerCache/
+    auth: compte
+    consumers:
+      - cron.recup-ukmet
+    notes: >-
+      WMS satellite visible Met Office. Même script et endpoint que wms-sat-ir.
+
+  # ─── NICT (Japan) ──────────────────────────────────────────────────────────
+
+  - name: api://nict/himawari8-latest-json
+    url_hint: https://himawari8-dl.nict.go.jp/himawari8/img/D531106/latest.json
+    auth: none
+    consumers:
+      - cron.himawari
+    notes: >-
+      Dernier horodatage Himawari-8/9. Tracé dans
+      site-infoclimat/cron/sat/himawari.php.
+
+  - name: api://nict/himawari8-img-full-24h
+    url_hint: http://himawari8-dl.nict.go.jp/himawari8/img/D531106/16d/550/
+    auth: none
+    consumers:
+      - cron.himawari
+    notes: >-
+      Tuiles image full-disk 16 segments. Tracé dans
+      site-infoclimat/cron/sat/himawari.php.
+
+  # ─── DLR ───────────────────────────────────────────────────────────────────
+
+  - name: api://dlr.taurus/wetterbilder
+    url_hint: ftp://taurus.caf.dlr.de/put/wetterbilder/
+    auth: none
+    consumers:
+      - cron.sat_modis
+    notes: >-
+      Images satellite HD (France, Italie) via FTP DLR. Tracé dans
+      site-infoclimat/cron/sat_modis.php.
+
+  # ─── sat24 ─────────────────────────────────────────────────────────────────
+
+  - name: api://sat24/image-fr
+    url_hint: http://fr.sat24.com/image/?region=fr&type=
+    auth: none
+    consumers:
+      - cron.image
+    notes: >-
+      Images satellite sat24 France (visible + infraPolair). Tracé dans
+      site-infoclimat/cron/image.php.
+
+  - name: api://sat24/image-fr-visible
+    url_hint: http://www.sat24.com/image2.ashx?region=fr&ir=False
+    auth: none
+    consumers:
+      - cron.sat24
+    notes: >-
+      Image visible sat24 France. Tracé dans
+      site-infoclimat/cron/sat24.php.
+
+  - name: api://sat24/image-europe-ir
+    url_hint: http://www.sat24.com/image2.ashx?region=eu&ir=True
+    auth: none
+    consumers:
+      - cron.colorise
+    notes: >-
+      Image infrarouge Europe sat24. Tracé dans
+      site-infoclimat/cron/colorise.php.
+
+  - name: api://sat24/image-infrarouge-polaire
+    url_hint: http://fr.sat24.com/image/?region=eu&type=infraPolair
+    auth: none
+    consumers:
+      - cron.colorise.srx-data-2
+      - cron.compo-new
+    notes: >-
+      Image infrarouge polaire Europe sat24. Tracé dans
+      site-infoclimat/cron/colorise.php.
+
+  # ─── meteox ────────────────────────────────────────────────────────────────
+
+  - name: api://meteox/radar-europe
+    url_hint: http://www2.meteox.com/radareu.php
+    auth: none
+    consumers:
+      - cron.radar
+      - cron.image
+    notes: >-
+      Mosaïque radar Europe meteox. Tracé dans
+      site-infoclimat/cron/radar.php et image.php.
+
+  # ─── meteomedia ────────────────────────────────────────────────────────────
+
+  - name: api://meteomedia/radar-frankreich
+    url_hint: http://data.meteomedia.de/data/layers/frankreich/
+    auth: none
+    consumers:
+      - cron.compo-new-1
+    notes: >-
+      Radar MeteoMedia Allemagne (couverture France + régions). Tracé dans
+      site-infoclimat/cron/compo_new_1.php.
+
+  - name: api://meteomedia/radar
+    url_hint: http://data.meteomedia.de/data/layers/
+    auth: none
+    consumers:
+      - kestra.infoclimat.data.cartes.radar.compo-new-1
+    notes: >-
+      Même source que radar-frankreich, pipeline Kestra. Tracé dans
+      site-infoclimat/include/meteomedia/meteomedia.php.
+
+  # ─── meteocentre ───────────────────────────────────────────────────────────
+
+  - name: api://meteocentre/upperair
+    url_hint: http://meteocentre.com/upperair/images/
+    auth: none
+    consumers:
+      - kestra.infoclimat.front.cron.radio-map
+      - cron.radioMap
+      - cron.radiomap.front2
+      - cron.radiomap.nginx2
+    notes: >-
+      Radiosondages upperair meteocentre. Tracé dans
+      site-infoclimat/cron/radioMap.php.
+
+  - name: api://meteocentre/lightning-foudre
+    url_hint: http://meteocentre.com/lightning/fr_anim/foudrefr_zeus.
+    auth: none
+    consumers:
+      - cron.image
+    notes: >-
+      Image foudre animée meteocentre. Tracé dans
+      site-infoclimat/cron/image.php.
+
+  - name: api://meteocentre/lightning-anim
+    url_hint: http://meteocentre.com/lightning/fr_anim/foudrefr_zeus.
+    auth: none
+    consumers:
+      - cron.anim-foudre
+    notes: >-
+      Animation foudre (frames multiples). Tracé dans
+      site-infoclimat/cron/anim_foudre.php.
+
+  - name: api://meteocentre/meteoalerte-zones
+    url_hint: http://meteocentre.com/meteoalerte/france/
+    auth: none
+    consumers:
+      - kestra.infoclimat.data.meteoalerte.cache
+      - cron.meteoalerte-mise_en_cache-legacy
+      - cron.meteoalerte-mise_en_cache-v5
+      - cron.meteoalerte-cache.front2
+      - cron.meteoalerte-cache.nginx2
+    notes: >-
+      Images GIF zones meteoalerte par département depuis meteocentre.
+      Tracé dans site-infoclimat/meteoalerte/mise_en_cache.php.
+
+  # ─── meteoalerte (partenaire) ───────────────────────────────────────────────
+
+  - name: api://meteoalerte/exchange_ic
+    url_hint: https://meteoalerte.com/france/exchange_ic/send_obs.php
+    auth: token
+    consumers:
+      - kestra.infoclimat.data.meteoalerte.synchro-ma
+      - cron.transfert-ma.front2
+      - cron.transfert-ma.nginx2
+    notes: >-
+      Échange IC↔MétéoAlerte (observations). Token HTTP_X_MY_TOKEN.
+      Tracé dans site-infoclimat/data/ic_meteonet/transfert.php.
+
+  - name: api://meteoalerte/exchange_ic-stats
+    url_hint: http://meteoalerte.com/france/exchange_ic/stats.php
+    auth: none
+    consumers:
+      - kestra.infoclimat.data.meteoalerte.cache
+      - cron.meteoalerte-mise_en_cache-legacy
+      - cron.meteoalerte-mise_en_cache-v5
+      - cron.meteoalerte-cache.front2
+      - cron.meteoalerte-cache.nginx2
+    notes: >-
+      Statistiques meteoalerte (all/orage/pluie/neige/vents/brouillard…).
+      Tracé dans site-infoclimat/meteoalerte/mise_en_cache.php.
+
+  # ─── vigicrues / eaufrance ─────────────────────────────────────────────────
+
+  - name: api://vigicrues/InfoVigiCru
+    url_hint: https://www.vigicrues.gouv.fr/services/1/InfoVigiCru.geojson
+    auth: none
+    consumers:
+      - kestra.infoclimat.data.vigicrues
+      - cron.vigicrues.front2
+      - cron.vigicrues.nginx2
+    notes: >-
+      GeoJSON vigilance crues. Tracé dans
+      site-infoclimat/cron/hydro/vigicrues.php.
+
+  - name: api://eaufrance/hubeau-hydrometrie-observations-tr
+    url_hint: https://hubeau.eaufrance.fr/api/v1/hydrometrie/observations_tr
+    auth: none
+    consumers:
+      - cron.eaufrance-data
+    notes: >-
+      Hub'Eau hydrométrologie temps réel. Tracé dans
+      site-infoclimat/cron/hydro/eaufrance_data.php.
+
+  # ─── blitzortung ───────────────────────────────────────────────────────────
+
+  - name: api://blitzortung/data-protected-strokes
+    url_hint: http://data.blitzortung.org/Data_<zone>/Protected/Strokes/
+    auth: compte
+    consumers:
+      - cron.recup-blitzortung
+    notes: >-
+      Données foudre protégées (login:pwd en env ou DB). Tracé dans
+      site-infoclimat/cron/recup_blitzortung.php.
+
+  - name: api://blitzortung/strikes
+    url_hint: http://data.blitzortung.org/Data_<zone>/Protected/Strokes/
+    auth: compte
+    consumers:
+      - kestra.infoclimat.data.recup-blitzortung
+    notes: >-
+      Même source que data-protected-strokes ; pipeline Kestra. Auth HTTP Basic
+      login:pwd (env BLITZ_LOGIN / BLITZ_PWD).
+
+  # ─── ifremer / medspiration ────────────────────────────────────────────────
+
+  - name: api://ifremer/medspiration-bra-odyssea
+    url_hint: ftp://eftp.ifremer.fr/cersat-rt/project/medspiration/data/l4/bra/odyssea/
+    auth: compte
+    consumers:
+      - cron.med-bra-dl
+    notes: >-
+      SST L4 Brésil Odyssea. FTP compte IFREMER. Tracé dans
+      site-infoclimat/data/cartes/ifremer/med_BRA_dl.php.
+
+  - name: api://ifremer/medspiration-gbr-odyssea
+    url_hint: ftp://eftp.ifremer.fr/cersat-rt/project/medspiration/data/l4/med/odyssea/
+    auth: compte
+    consumers:
+      - cron.med-gbr-dl
+    notes: >-
+      SST L4 Méditerranée (GBR) Odyssea. Tracé dans
+      site-infoclimat/data/cartes/ifremer/med_GBR_dl.php.
+
+  - name: api://ifremer/medspiration-glob-odyssea
+    url_hint: ftp://eftp.ifremer.fr/cersat-rt/project/myocean/sst-tac/l4/glob/odyssea/
+    auth: compte
+    consumers:
+      - cron.med-glob-dl
+    notes: >-
+      SST L4 Global Odyssea. Tracé dans
+      site-infoclimat/data/cartes/ifremer/med_GLOB_dl.php.
+
+  - name: api://ifremer/medspiration-l4-atlantic
+    url_hint: ftp://ftp.ifremer.fr/ifremer/medspiration/data/l4/myocean/eur/meteo-france/l4-atlantic-3hourly
+    auth: compte
+    consumers:
+      - cron.ifremer-dl
+    notes: >-
+      SST L4 Atlantique 3h. Tracé dans
+      site-infoclimat/data/cartes/ifremer_dl.php.
+
+  - name: api://ifremer/medspiration-saf-odyssea
+    url_hint: ftp://eftp.ifremer.fr/cersat-rt/project/medspiration/data/l4/saf/odyssea/
+    auth: compte
+    consumers:
+      - cron.med-saf-dl
+    notes: >-
+      SST L4 SAF Odyssea. Tracé dans
+      site-infoclimat/data/cartes/ifremer/med_SAF_dl.php.
+
+  # ─── JMA (Japon) ───────────────────────────────────────────────────────────
+
+  - name: api://jma/bosai-amedas-map
+    url_hint: https://www.jma.go.jp/bosai/amedas/data/map/
+    auth: none
+    consumers:
+      - cron.recup-jma
+    notes: >-
+      Données AMEDAS carte (JSON par horodatage). Tracé dans
+      site-infoclimat/data/recuperation/synop/jma/recup_jma.php.
+
+  - name: api://jma/bosai-amedas-point
+    url_hint: https://www.jma.go.jp/bosai/amedas/data/point/
+    auth: none
+    consumers:
+      - cron.recup-jma-tntx
+    notes: >-
+      Données AMEDAS par station (Tn/Tx). Tracé dans
+      site-infoclimat/data/recuperation/synop/jma/recup_jma_tntx.php.
+
+  # ─── AEMET (Espagne) ───────────────────────────────────────────────────────
+
+  - name: api://aemet/opendata-climatologicos
+    url_hint: https://opendata.aemet.es/opendata/api/valores/climatologicos/
+    auth: token
+    consumers:
+      - cron.aemet-climato
+    notes: >-
+      Données climatologiques historiques AEMET. Clé api_key= en env AEMET_KEY.
+      Tracé dans site-infoclimat/data/recuperation/aemet-climato.php.
+
+  # ─── ARPA Piemonte ─────────────────────────────────────────────────────────
+
+  - name: api://arpa-piemonte/observations
+    url_hint: https://webgis.arpa.piemonte.it/static_gis/meteo/meteoPiemonte/txt/
+    auth: none
+    consumers:
+      - kestra.infoclimat.data.arpa.piemonte
+      - cron.arpa-piemonte.front2
+      - cron.arpa-piemonte.nginx2
+    notes: >-
+      Observations temps réel Piémont. Tracé dans
+      site-infoclimat/cron/arpa/piemonte.php (URL corrigée dans
+      reconciliation.md).
+
+  # ─── ARPA Liguria ──────────────────────────────────────────────────────────
+
+  - name: api://arpa-liguria/stations
+    url_hint: https://omirl.regione.liguria.it/Omirl/rest/stations/
+    auth: none
+    consumers:
+      - kestra.infoclimat.data.arpa.liguria
+      - cron.arpa-liguria.front2
+      - cron.arpa-liguria.nginx2
+    notes: >-
+      Observations temps réel Ligurie (T2M, HR, RR1, VV, SRAD, HPA, neige).
+      Tracé dans site-infoclimat/cron/arpa/liguria.php.
+
+  # ─── MeteoSuisse ────────────────────────────────────────────────────────────
+
+  - name: api://meteosuisse/messwerte-aktuell-vqha80
+    url_hint: https://data.geo.admin.ch/ch.meteoschweiz.messwerte-aktuell/VQHA80.csv
+    auth: none
+    consumers:
+      - cron.meteosuisse-recup-live
+    notes: >-
+      Mesures actuelles MeteoSuisse (CSV VQHA80). Open data geo.admin.ch.
+      Tracé dans site-infoclimat/data/recuperation/synop/meteosuisse/recup_live.php.
+
+  # ─── Met Norway (Frost API) ─────────────────────────────────────────────────
+
+  - name: api://metno/frost-observations-v0
+    url_hint: https://frost.met.no/observations/v0.jsonld
+    auth: compte
+    consumers:
+      - cron.metno-recup
+    notes: >-
+      Frost API MET Norway. Auth HTTP Basic (API_ID:API_SECRET env). Tracé dans
+      site-infoclimat/data/recuperation/synop/metno/recup.php.
+
+  # ─── FFVL / Balisemeteo ─────────────────────────────────────────────────────
+
+  - name: api://ffvl/balisemeteo-json
+    url_hint: http://balisemeteo.com/balise_json.php?idBalise=
+    auth: none
+    consumers:
+      - cron.recup-ffvl
+    notes: >-
+      Balises météo FFVL (parapente). ID station en DB V5_data_params.static.
+      Tracé dans site-infoclimat/cron/ffvl/recup_ffvl.php.
+
+  - name: api://ffvl/stations
+    url_hint: http://balisemeteo.com/balise_json.php?idBalise=
+    auth: none
+    consumers:
+      - kestra.infoclimat.data.recuperation.ffvl
+    notes: >-
+      Même source balisemeteo FFVL ; pipeline Kestra.
+
+  # ─── Estofex ────────────────────────────────────────────────────────────────
+
+  - name: api://estofex/forecasts-xml
+    url_hint: http://www.estofex.org/cgi-bin/polygon/showforecast.cgi?xml=yes
+    auth: none
+    consumers:
+      - cron.estofex
+    notes: >-
+      Prévisions tempêtes Europe (XML). Tracé dans
+      site-infoclimat/data/cartes/estofex/getData.php.
+
+  # ─── meteociel ──────────────────────────────────────────────────────────────
+
+  - name: api://meteociel/arpege-pe-table
+    url_hint: https://www.meteociel.fr/
+    auth: none
+    consumers:
+      - cron.indicateur-national-arpege-pe
+    notes: >-
+      Tableau ARPEGE PE scrappé depuis meteociel. URL précise non retrouvée dans
+      les clones — entrée douteuse.
+
+  - name: api://meteociel/neige-nivoses
+    url_hint: https://www.meteociel.fr/
+    auth: none
+    consumers:
+      - cron.nivose-mc
+    notes: >-
+      Données neige/nivoses depuis meteociel. URL précise non retrouvée dans
+      les clones — entrée douteuse.
+
+  # ─── Davis WeatherLink ──────────────────────────────────────────────────────
+
+  - name: api://davis/weatherlink-api-historic
+    url_hint: https://api.weatherlink.com/v2/
+    auth: token
+    consumers:
+      - cron.wlklive-posteriori
+    notes: >-
+      API WeatherLink v2 (historiques). Clé api-signature HMAC calculée depuis
+      env. Tracé dans site-infoclimat/data/recuperation/static/wlkLive.php.
+
+  - name: api://davis/weatherlink-webdownload
+    url_hint: http://weatherlink.com/webdl.php
+    auth: compte
+    consumers:
+      - cron.posteriori-static-2019
+    notes: >-
+      Ancienne API WeatherLink webdl (user/pass en DB). Tracé dans
+      site-infoclimat/data/recuperation/posteriori_static_2019.php.
+
+  # ─── HelloAsso ──────────────────────────────────────────────────────────────
+
+  - name: api://helloasso/paiements
+    url_hint: https://api.helloasso.com/
+    auth: token
+    consumers:
+      - kestra.infoclimat.front.cron.helloasso-sync
+      - cron.helloasso-sync.front2
+      - cron.helloasso-sync.nginx2
+    notes: >-
+      API HelloAsso (paiements/dons association). HELLOASSO_ENDPOINT défini dans
+      site-infoclimat/helloasso/config.inc.php.
+
+  # ─── Gmail IMAP ─────────────────────────────────────────────────────────────
+
+  - name: api://gmail-imap/webcam_ddu
+    url_hint: imap.gmail.com:993
+    auth: compte
+    consumers:
+      - kestra.infoclimat.front.cron.webcam-ddu
+      - cron.webcam-ddu.front2
+      - cron.webcam-ddu.nginx2
+    notes: >-
+      Réception webcam DDU (Terre Adélie) par email IMAP Gmail. Auth compte
+      (env yourEmail/yourEmailPassword). Tracé dans
+      site-infoclimat/cron/ddu/recup_webcam.php.
+
+  # ─── IoT / Stations autonomes ───────────────────────────────────────────────
+
+  - name: api://liveobjects/dataMessage
+    url_hint: https://liveobjects.orange-business.com/
+    auth: token
+    consumers:
+      - liveobjects.uplink
+      - liveobjects.eeware
+    notes: >-
+      Webhooks Orange Live Objects (push inbound vers IC). Token HTTP
+      HTTP_X_IC_TOKEN. Handler : site-infoclimat/liveobjects/_uplink_.php.
+      uplink actif, eeware douteux.
+
+  - name: api://scaleway/iot-hub
+    url_hint: https://iot.fr-par.scaleway.com/
+    auth: token
+    consumers:
+      - liveobjects.mqtt-scw
+    notes: >-
+      Webhook Scaleway IoT Hub MQTT LTE-M/NB-IoT. Token HTTP_X_MY_TOKEN.
+      Handler : site-infoclimat/liveobjects/mqtt-scw.php. Pipeline douteux.
+
+  - name: api://ttn/uplink-message
+    url_hint: https://www.thethingsindustries.com/
+    auth: token
+    consumers:
+      - ttn.uplink
+    notes: >-
+      Webhook TTN (The Things Network / Industries) LoRaWAN. Handler :
+      site-infoclimat/ttn/_uplink_.php. Pipeline douteux.
+
+  - name: api://station-autonome/udp-datagram
+    url_hint: "udp://[host-local]:port"
+    auth: none
+    consumers:
+      - station-autonome.udp-server
+    notes: >-
+      Datagrammes UDP locaux depuis la station autonome. Pas d'URL HTTP externe.
+      Daemon Python : serveur-station-autonome.
+
+  - name: api://station-autonome/hex-payload
+    url_hint: "http://[host-local]/liveobjects/_uplink_.php"
+    auth: token
+    consumers:
+      - station-autonome.http-decoder
+    notes: >-
+      Payload hex décodé par le serveur HTTP interne. Douteux (pipeline mort).
+
+  - name: api://ventoux/station-push
+    url_hint: https://www.infoclimat.fr/ventoux/
+    auth: token
+    consumers:
+      - ventoux.uplink
+    notes: >-
+      Push station Ventoux (handler HTTP internal). Pas de source externe de
+      données — source IS infoclimat. Inclus car déclaré api:// dans
+      pipelines.yaml (uplink IoT local → IC).
+
+  # ─── Interne IC ─────────────────────────────────────────────────────────────
+
+  - name: api://infoclimat/ic-meteonet-extract-foudre
+    url_hint: https://www.infoclimat.fr/data/ic_meteonet/extract_foudre.php
+    auth: none
+    consumers:
+      - cron.foudre
+    notes: >-
+      Endpoint interne IC : export GeoJSON foudre depuis la base IC. Tracé dans
+      site-infoclimat/data/cartes/ifremer/foudre.php. Source interne — inclus
+      car déclaré api:// dans pipelines.yaml.
+
+  # ─── Interne IC (modèles cache) ─────────────────────────────────────────────
+
+  - name: api://modeles-infoclimat/available-json
+    url_hint: https://www.infoclimat.fr/
+    auth: none
+    consumers:
+      - kestra.infoclimat.front.cron.modeles-cache
+      - kestra.infoclimat.modeles.cache
+      - cron.modeles-cache.front2
+      - cron.modeles-cache.nginx2
+      - cron.modeles-cache.mysql3
+    notes: >-
+      Source interne (endpoint IC modèles). Pas une source externe de données
+      — inclus car déclaré api:// dans pipelines.yaml.
+
+  # NB : api://tempsreel/push-server-pub n'est PAS inventorié ici — c'est une CIBLE
+  # de publication interne (apparaît uniquement en OUTPUT dans pipelines.yaml :
+  # ventoux.uplink, mobile-api.*, meteoalerte.*, admin-photolive.valide), pas une
+  # source externe consommée. Retiré post-revue.
+
+  # ─── Oleg (synop-fr historique) ─────────────────────────────────────────────
+
+  - name: api://oleg-192.16.167.24/synop-fr
+    url_hint: http://192.16.167.24/
+    auth: none
+    consumers:
+      - cron.datas-synops-curl
+    notes: >-
+      Récupération SYNOP France via IP interne Oleg. Source probablement interne
+      / ancienne. Douteux.
+
+# ─── Non-data hosts écartés (Step 2 filet URL) ──────────────────────────────
+#
+# Hosts identifiés dans grep URLs mais écartés car non-data ou commentaires :
+#
+#   stackoverflow.com, issues.mediagoblin.org  — commentaires code source
+#   cpc.ncep.noaa.gov/products/wesley/wgrib2/  — doc wgrib2 (liens commentaires)
+#   tigge-portal.ecmwf.int                     — legacy TIGGE (code mort,
+#                                                modeles-ncl/download*.py)
+#   opendap.nccs.nasa.gov                      — OPeNDAP NASA legacy
+#                                                (modeles-ncl/nasa/, code mort)
+#   proxfree.com / no.proxfree.com             — proxy anonyme (code modèle
+#                                                legacy, non-data)
+#   api.met.no/weatherapi/gribfiles/1.0        — MetNO GFS legacy
+#                                                (modeles-php/GFS/script/
+#                                                recup_data_metno.php, mort)
+#   pypi.org, pythonhosted.org, python.org     — infrastructure Python
+#   wrong-issuer.com, wrong-audience.com       — fixtures tests JWT
+#   epsg.io/transform                          — lien doc test GDAL
+#   google.com/bot.html                        — user-agent test crawler
+#   www.iso.org/iso/fr/                        — lien doc langue (commentaire)
+#   metoffice.gov.uk (accueil/update_carte.inc.php, tiles.php, cartes/sat_transparency.php)
+#                                              — référence WMS affichée côté
+#                                                client (leaflet/tiles), pas un
+#                                                pull pipeline — distinct de
+#                                                ukmet/wms-sat-ir (recup_ukmet.py)
+#   www.aprweather.com, meteocentre.com (radiosondage_*.php) — liens affichés
+#                                                dans le rendu HTML modeles-php,
+#                                                pas des pulls pipeline
+#   ftpdatos.aemet.es/datos_observacion        — source AEMET synop temps réel
+#                                                FTP (aemet.php) ; pas de
+#                                                pipeline associé dans pipelines.yaml
+#                                                (cron.aemet-synop inexistant) — écart
+#   ogimet.com                                 — archives synop legacy
+#                                                (archives_ogimet.php) ; pipeline
+#                                                CLI-only, hors crontab active,
+#                                                déjà noté comme accès wget legacy
+#   www.infoclimat.fr/v5/..., v5.infoclimat.fr — appels internes
+#   donneespubliques.meteofrance.fr            — liens documentaires (texte HTML)
+#   mf-nwp-models.s3.amazonaws.com            — ancienne URL AROME HD (S3 AWS MF
+#                                                legacy, recup_arome13.async.php l.112-115
+#                                                commenté ou remplacé par
+#                                                object.data.gouv.fr)

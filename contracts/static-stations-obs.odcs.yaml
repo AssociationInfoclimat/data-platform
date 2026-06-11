@@ -1,0 +1,343 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:static-stations-obs
+name: Observations du réseau StatIC (stations communautaires)
+version: 0.1.0
+status: active
+domain: observations
+dataProduct: observations-temps-reel
+
+description:
+  purpose: >-
+    Observations des stations amateurs du réseau StatIC (stations installées par
+    l'association ou par les contributeurs). Cœur métier de l'association : alimente les
+    cartes temps réel, les tableaux stations, l'opendata et la climatologie communautaire.
+  usage: >-
+    Référentiel stations dans V5_data_params.static (id, id_compte propriétaire, licence,
+    coordonnées). Séries temporelles partitionnées à la main par année/mois/décade :
+    V5_data_{AAAA}.static_{MM}_d{1|2|3}. Timestamps dh_utc en UTC. Unités conventionnelles
+    Infoclimat : °C, hPa, km/h, mm — différentes des unités SI des données MF temps réel.
+  limitations: >-
+    Qualité hétérogène selon le matériel et l'installation (contrôles via
+    gestion-donnees/auto_control.php). Trous fréquents (connectivité des contributeurs).
+    Le champ complements agrège des mesures additionnelles non normalisées (séparées
+    par @). La licence (commerciale ou non) conditionne l'exposition opendata.
+
+tags:
+  - meteo
+  - time-series
+  - static
+  - communautaire
+  - mariadb
+
+servers:
+  - server: prod-mariadb
+    type: mysql
+    environment: production
+    host: ${DB_HOST}
+    port: 3306
+    database: V5_data_params
+
+schema:
+  - name: static
+    physicalType: table
+    description: >-
+      Référentiel des stations StatIC — V5_data_params.static. Une ligne par station.
+    properties:
+      - name: id
+        physicalType: VARCHAR
+        logicalType: string
+        description: Identifiant station Infoclimat (ex. 000XW)
+        required: true
+        unique: true
+        primaryKey: true
+        primaryKeyPosition: 1
+      - name: id_compte
+        physicalType: INT
+        logicalType: integer
+        description: Compte utilisateur propriétaire de la station (donnée personnelle indirecte — cf. audits/rgpd)
+        required: true
+      - name: licence
+        physicalType: INT
+        logicalType: integer
+        description: Niveau de licence d'exposition (commerciale / non commerciale), pilote l'opendata
+        required: true
+
+  - name: static_observations
+    physicalName: static_{MM}_d{1|2|3} (bases V5_data_{AAAA})
+    physicalType: table
+    description: >-
+      Séries temporelles d'observations StatIC, partitionnées manuellement par
+      année (base), mois et décade (table). Pas nominal de 5 minutes.
+    properties:
+      - name: id_station
+        physicalType: VARCHAR
+        logicalType: string
+        description: Référence vers V5_data_params.static.id
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 1
+      - name: dh_utc
+        physicalType: DATETIME
+        logicalType: date
+        description: Date et heure de la mesure (UTC), clé temporelle
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 2
+      - name: temperature
+        physicalType: DECIMAL
+        logicalType: number
+        description: Température sous abri
+        customProperties:
+          - property: unit
+            value: °C
+        quality:
+          - rule: validValues
+            description: Température plausible en France
+            mustBeGreaterOrEqualTo: -60
+            mustBeLessOrEqualTo: 55
+            severity: error
+      - name: pression
+        physicalType: DECIMAL
+        logicalType: number
+        description: Pression ramenée au niveau de la mer
+        customProperties:
+          - property: unit
+            value: hPa
+        quality:
+          - rule: validValues
+            description: Records mondiaux ≈ 870–1084 hPa
+            mustBeGreaterOrEqualTo: 850
+            mustBeLessOrEqualTo: 1100
+            severity: error
+      - name: pression_variation_3h
+        physicalType: DECIMAL
+        logicalType: number
+        description: Variation de pression mer sur 3 h
+        customProperties:
+          - property: unit
+            value: hPa
+      - name: humidite
+        physicalType: INT
+        logicalType: integer
+        description: Humidité relative
+        customProperties:
+          - property: unit
+            value: '%'
+        quality:
+          - rule: validValues
+            description: Pourcentage
+            mustBeGreaterOrEqualTo: 0
+            mustBeLessOrEqualTo: 100
+            severity: error
+      - name: point_de_rosee
+        physicalType: DECIMAL
+        logicalType: number
+        description: Température du point de rosée
+        customProperties:
+          - property: unit
+            value: °C
+      - name: visibilite
+        physicalType: INT
+        logicalType: integer
+        description: Visibilité horizontale
+        customProperties:
+          - property: unit
+            value: m
+      - name: vent_moyen
+        physicalType: DECIMAL
+        logicalType: number
+        description: Vent moyen sur 10 min à 10 m
+        customProperties:
+          - property: unit
+            value: km/h
+        quality:
+          - rule: validValues
+            description: Vent moyen plausible
+            mustBeGreaterOrEqualTo: 0
+            mustBeLessOrEqualTo: 300
+            severity: error
+      - name: vent_rafales
+        physicalType: DECIMAL
+        logicalType: number
+        description: Rafale maximale
+        customProperties:
+          - property: unit
+            value: km/h
+        quality:
+          - rule: validValues
+            description: Record mondial ≈ 408 km/h
+            mustBeGreaterOrEqualTo: 0
+            mustBeLessOrEqualTo: 450
+            severity: error
+      - name: vent_rafales_10min
+        physicalType: DECIMAL
+        logicalType: number
+        description: Rafale maximale sur 10 min
+        customProperties:
+          - property: unit
+            value: km/h
+      - name: vent_direction
+        physicalType: INT
+        logicalType: integer
+        description: Direction du vent
+        customProperties:
+          - property: unit
+            value: deg
+        quality:
+          - rule: validValues
+            description: Rose de 360
+            mustBeGreaterOrEqualTo: 0
+            mustBeLessOrEqualTo: 360
+            severity: error
+      - name: temperature_min
+        physicalType: DECIMAL
+        logicalType: number
+        description: Température minimale
+        customProperties:
+          - property: unit
+            value: °C
+      - name: temperature_max
+        physicalType: DECIMAL
+        logicalType: number
+        description: Température maximale
+        customProperties:
+          - property: unit
+            value: °C
+      - name: pluie_1h
+        physicalType: DECIMAL
+        logicalType: number
+        description: Précipitations sur 1 h
+        customProperties:
+          - property: unit
+            value: mm
+        quality:
+          - rule: validValues
+            description: Record mondial 1 h ≈ 305 mm
+            mustBeGreaterOrEqualTo: 0
+            mustBeLessOrEqualTo: 400
+            severity: error
+      - name: pluie_3h
+        physicalType: DECIMAL
+        logicalType: number
+        description: Précipitations sur 3 h
+        customProperties:
+          - property: unit
+            value: mm
+      - name: pluie_6h
+        physicalType: DECIMAL
+        logicalType: number
+        description: Précipitations sur 6 h
+        customProperties:
+          - property: unit
+            value: mm
+      - name: pluie_12h
+        physicalType: DECIMAL
+        logicalType: number
+        description: Précipitations sur 12 h
+        customProperties:
+          - property: unit
+            value: mm
+      - name: pluie_24h
+        physicalType: DECIMAL
+        logicalType: number
+        description: Précipitations sur 24 h
+        customProperties:
+          - property: unit
+            value: mm
+      - name: pluie_cumul_0h
+        physicalType: DECIMAL
+        logicalType: number
+        description: Précipitations cumulées depuis 0 h UTC
+        customProperties:
+          - property: unit
+            value: mm
+      - name: pluie_intensite
+        physicalType: DECIMAL
+        logicalType: number
+        description: Intensité de précipitation instantanée
+        customProperties:
+          - property: unit
+            value: mm/h
+      - name: pluie_intensite_max_1h
+        physicalType: DECIMAL
+        logicalType: number
+        description: Intensité maximale de précipitation sur 1 h
+        customProperties:
+          - property: unit
+            value: mm/h
+      - name: uv
+        physicalType: DECIMAL
+        logicalType: number
+        description: Rayonnement solaire (exposé en opendata sous le nom radiations)
+        customProperties:
+          - property: unit
+            value: W/m2
+      - name: ensoleillement
+        physicalType: DECIMAL
+        logicalType: number
+        description: Durée d'ensoleillement
+        customProperties:
+          - property: unit
+            value: hours
+      - name: temperature_sol
+        physicalType: DECIMAL
+        logicalType: number
+        description: Température du sol
+        customProperties:
+          - property: unit
+            value: °C
+      - name: temps_omm
+        physicalType: INT
+        logicalType: integer
+        description: Code temps présent OMM (cf. stations-meteo/ww.php)
+      - name: complements
+        physicalType: TEXT
+        logicalType: string
+        description: >-
+          Mesures additionnelles non normalisées, séparées par @ (uv_index, snow_height,
+          battery_tension, windchill, heat_index, tn/tx horaires...). À contractualiser
+          individuellement si un consommateur s'appuie dessus.
+      - name: source
+        physicalType: VARCHAR
+        logicalType: string
+        description: >-
+          Logiciel/canal d'acquisition (oy1110, liveobjects, wlkIPxml, wlkLive, csv,
+          weatherlink, vws, vws2, mnw, weewxPosteriori...)
+    quality:
+      - rule: uniqueness
+        description: Une seule ligne par (id_station, dh_utc)
+        severity: error
+      - rule: freshness
+        description: >-
+          Pour une station active, la donnée la plus récente doit dater de moins de 1 h
+          (au-delà, la station est considérée en panne, pas en anomalie de pipeline)
+        severity: warning
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+slaProperties:
+  - property: frequency
+    value: 5 minutes
+    description: Pas temporel nominal (variable selon le matériel du contributeur)
+  - property: retention
+    value: illimitée depuis 1996 (hot MariaDB), candidate prioritaire au cold storage
+    description: Politique de rétention
+
+customProperties:
+  - property: lineageJob
+    value: cron://infoclimat:cron.ingest_static
+  - property: retroCompatLayer
+    value: include/stations/stations.php (lecture), opendata-v2/common.inc.php (export)
+  - property: partitioningScheme
+    value: base V5_data_{AAAA}, table static_{MM}_d{décade 1-3} — à convertir en hypertable lors de la migration TimescaleDB (phase 3)
+  - property: personalData
+    value: id_compte (lien station→compte) — à inscrire au registre RGPD (audits/rgpd)

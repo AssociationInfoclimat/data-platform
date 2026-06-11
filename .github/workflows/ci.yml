@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  datacontract-lint:
+    name: Lint des contrats ODCS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Installer datacontract-cli
+        run: pip install --quiet datacontract-cli
+      - name: Lint des contrats
+        run: |
+          for contract in contracts/*.odcs.yaml; do
+            if [ "$contract" = "contracts/_template.odcs.yaml" ]; then
+              continue
+            fi
+            echo "Lint de $contract"
+            datacontract lint "$contract"
+          done
+
+  tests-tools:
+    name: Tests outillage Python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Installer les dépendances de test
+        run: pip install --quiet pytest pyyaml
+      - name: pytest
+        working-directory: tools
+        run: python3 -m pytest tests/ -v

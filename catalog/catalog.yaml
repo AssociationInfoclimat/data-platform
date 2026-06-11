@@ -1,0 +1,384 @@
+# Index machine-lisible du catalogue de données Infoclimat
+# Curaté à la main ; sera enrichi par introspection (tools/catalog_introspect.py).
+# backlog promu le 2026-06-05, voir audits/inventaire-2026-06
+version: 1
+datasets:
+  - id: infrahoraire-mf
+    name: Observations infrahoraires Météo-France
+    domain: observations
+    contract: contracts/infrahoraire-mf.odcs.yaml
+    sheet: catalog/datasets/infrahoraire-mf.md
+    storage:
+      - system: timescaledb
+        database: infoclimat
+        tables:
+          - Infrahoraire
+          - InfrahoraireTempsReel
+    fallback:
+      - system: mariadb
+        database: mf_data
+    owner: pam
+    status: active
+
+  - id: static-stations-obs
+    name: Observations du réseau StatIC
+    domain: observations
+    contract: contracts/static-stations-obs.odcs.yaml
+    sheet: catalog/datasets/static-stations-obs.md
+    storage:
+      - system: mariadb
+        database: V5_data_params
+        tables:
+          - static
+      - system: mariadb
+        database: V5_data_{AAAA}
+        tables:
+          - static_{MM}_d{1-3}
+    owner: pam
+    status: active
+
+  - id: opendata-export
+    name: Export OpenData Infoclimat (v2)
+    domain: opendata
+    contract: contracts/opendata-export.odcs.yaml
+    sheet: catalog/datasets/opendata-export.md
+    storage:
+      - system: api
+        location: opendata-v2/
+    upstream:
+      - static-stations-obs
+      - infrahoraire-mf
+    owner: pam
+    status: active
+
+  # ── Domaines promus depuis backlog ─────────────────────────────────────────
+
+  - id: horaire-mf-timescale
+    name: Observations horaires Météo-France (TimescaleDB)
+    domain: observations
+    contract: null
+    sheet: catalog/datasets/horaire-mf-timescale.md
+    storage:
+      - system: timescaledb
+        database: infoclimat
+        tables:
+          - Horaire
+          - HoraireTempsReel
+    upstream:
+      - kestra.infoclimat.data.meteofrance.climatologie-portail-api.horaires
+      - kestra.infoclimat.data.meteofrance.climatologie-meteo-data-gouv.monthly
+    owner: pam
+    status: active
+
+  - id: quotidienne-mf-timescale
+    name: Observations quotidiennes / décadaires Météo-France (TimescaleDB)
+    domain: observations
+    contract: null
+    storage:
+      - system: timescaledb
+        database: infoclimat
+        tables:
+          - Quotidienne
+          - QuotidienneAutresParametres
+          - Decadaire
+          - DecadaireAgro
+          - Mensuelle
+    upstream:
+      - kestra.infoclimat.data.meteofrance.climatologie-meteo-data-gouv.daily
+      - kestra.infoclimat.data.meteofrance.climatologie-meteo-data-gouv.monthly
+    owner: pam
+    status: active
+
+  - id: climato-mf-timescale
+    name: Vues matérialisées climatologiques (TimescaleDB)
+    domain: climato
+    contract: contracts/climato-mf-timescale.odcs.yaml
+    sheet: catalog/datasets/climato-mf-timescale.md
+    storage:
+      - system: timescaledb
+        database: infoclimat
+        tables:
+          - mv_quotidienne_realtime
+          - mv_mensuelle_realtime
+          - mv_records_absolus_par_mois
+          - mv_itn_daily_all_years
+          - mv_records_battus
+          - mv_records_battus_realtime
+    upstream:
+      - kestra.infoclimat.db.dataclimat.refresh-materialized-views
+      - kestra.infoclimat.db.dataclimat.refresh-mv-records-battus
+    owner: pam
+    status: active
+
+  - id: climato-mariadb
+    name: Climatologie agrégée MariaDB (climato_journaliere_auto, climato_mensuelle_auto, historiques)
+    domain: climato
+    contract: null
+    storage:
+      - system: mariadb
+        database: V5_climato
+        tables:
+          - climato_journaliere_auto
+          - climato_mensuelle_auto
+          - climato_journaliere_injectee
+          - climato_journaliere_static
+          - climato_reviews
+          - historic_events
+          - historic_normales
+          - historic_propose
+          - historic_values
+          - historic_records_depts
+          - historic_records_nationaux
+          - indicateur_national
+          - indicateur_pluvio
+    upstream:
+      - kestra.infoclimat.data.climatologie.climato-annuelle
+      - kestra.infoclimat.data.climatologie.climato-annuelle-current
+    owner: pam
+    status: active
+
+  - id: synop-metar-reseau-etranger
+    name: Observations synoptiques et METAR — réseaux étrangers (NOAA, ARPA, Ogimet)
+    domain: observations
+    contract: contracts/synop-metar-reseau-etranger.odcs.yaml
+    sheet: catalog/datasets/synop-metar-reseau-etranger.md
+    storage:
+      - system: mariadb
+        database: V5_data_{AAAA}
+        tables:
+          - synop_{MM}_d{1-3}
+          - metar_{MM}_d{1-3}
+      - system: file
+        location: file://datastore/data/synop
+      - system: file
+        location: file://datastore/data/metar
+    upstream:
+      - kestra.infoclimat.data.recuperation.bufr
+      - kestra.infoclimat.data.arpa.liguria
+      - kestra.infoclimat.data.arpa.piemonte
+    owner: pam
+    status: active
+
+  - id: foudre
+    name: Données foudre (Météorage / Blitzortung / Meteocentre)
+    domain: foudre
+    contract: contracts/foudre.odcs.yaml
+    sheet: catalog/datasets/foudre.md
+    storage:
+      - system: mariadb
+        database: V5
+        tables:
+          - foudre
+    upstream:
+      - cron.recup-blitzortung
+      - cron.foudre
+    owner: pam
+    status: active
+
+  - id: radar-tuiles
+    name: Données radar météo (Météo-France DPRadar + Meteomedia)
+    domain: radar
+    contract: null
+    sheet: catalog/datasets/radar-tuiles.md
+    storage:
+      - system: mariadb
+        database: V5
+        tables:
+          - radar
+          - cartes
+          - cartes_tuiles
+      - system: file
+        location: file://datastore/tiles/radar
+    upstream:
+      - kestra.infoclimat.data.meteorology.download-and-convert-radar
+      - cron.radarmf
+      - cron.compo-new
+    owner: pam
+    status: active
+
+  - id: vigilances-meteo
+    name: Vigilances Météo-France et Vigicrues
+    domain: vigilance
+    contract: null
+    storage:
+      - system: mariadb
+        database: V5_climato
+        tables:
+          - vigilance_direct
+          - vigilances_mf
+          - vigicrues
+      - system: mariadb
+        database: V5_chroniques
+        tables:
+          - bulletins_speciaux_suivi
+      - system: mariadb
+        database: V5
+        tables:
+          - meteoalerte
+    upstream:
+      - kestra.infoclimat.data.meteofrance.vigilance
+      - kestra.infoclimat.data.vigicrues
+      - kestra.infoclimat.data.meteoalerte.synchro-ma
+    owner: pam
+    status: active
+
+  - id: v5-comptes-utilisateurs
+    name: Comptes utilisateurs et authentification (V5)
+    domain: autre
+    contract: null
+    storage:
+      - system: mariadb
+        database: V5
+        tables:
+          - comptes
+          - comptes_pseudos
+          - comptes_reinitialisations
+          - comptes_statuts
+          - comptes_tokens
+          - temps_calme
+    owner: pam
+    status: active
+    notes: >-
+      Données personnelles (personal_data:true). Périmètre RGPD à documenter
+      séparément. Aucun pipeline batch en écriture — modifications via code
+      web V5.
+
+  - id: photolive
+    name: Photos météo live (galerie V5_photolive)
+    domain: autre
+    contract: null
+    storage:
+      - system: mariadb
+        database: V5_photolive
+        tables:
+          - photos
+          - evaluations
+          - moderation_avis
+      - system: mariadb
+        database: V5
+        tables:
+          - electric_photolive
+    upstream:
+      - admin-photolive.valide
+    owner: pam
+    status: active
+
+  - id: forums2-ipboard
+    name: Forums IPBoard (forums2)
+    domain: forums
+    contract: null
+    storage:
+      - system: mariadb
+        database: forums2
+        tables:
+          - core_members
+          - core_sessions
+          - forums_topics
+    owner: pam
+    status: active
+    notes: >-
+      Accès depuis site-infoclimat uniquement (lectures auth/SSO).
+      Administration via IPBoard — aucun pipeline batch en écriture depuis
+      site-infoclimat.
+
+  - id: modeles-nwp-fichiers
+    name: Modèles NWP — fichiers GRIB/NetCDF (srx-modeles-2 + NFS modeles)
+    domain: modeles
+    contract: null
+    sheet: catalog/datasets/modeles-nwp.md
+    storage:
+      - system: file
+        location: file://srx-modeles-2/modeles/AROME/
+      - system: file
+        location: file://srx-modeles-2/modeles/AROMEhr/
+      - system: file
+        location: file://srx-modeles-2/modeles/ARPEGE/
+      - system: file
+        location: file://srx-modeles-2/modeles/ECMWF/
+      - system: file
+        location: file://srx-modeles-2/modeles/GFS/
+      - system: file
+        location: file://srx-modeles-2/modeles/GFSHD/
+      - system: file
+        location: file://srx-modeles-2/modeles/GFS1deg/
+      - system: file
+        location: file://srx-modeles-2/modeles/GEFS/
+      - system: file
+        location: file://srx-modeles-2/modeles/GEM/
+      - system: file
+        location: file://srx-modeles-2/modeles/GEMENS/
+      - system: file
+        location: file://modeles/modeles.infoclimat.net
+    upstream:
+      - cron.recup-arome.modeles2
+      - cron.recup-arpege.modeles2
+      - kestra.infoclimat.forecast.gfs.fetch-gfs-modeles-2
+      - kestra.infoclimat.forecast.gefs.fetch-gefs-modeles-2
+      - kestra.infoclimat.forecast.ecmwf.fetch-ecmwf-modeles-2
+      - kestra.infoclimat.forecast.gem.fetch-gem-modeles-2
+      - kestra.infoclimat.forecast.gemens.fetch-gemens-modeles-2
+    owner: pam
+    status: active
+
+  - id: satellite-tuiles-fichiers
+    name: Images satellite — tuiles GeoTIFF et PNG (UKMET, GOES, Himawari, MODIS)
+    domain: satellite
+    contract: null
+    storage:
+      - system: file
+        location: file://datastore/tempsreel.infoclimat.net/tiles/
+      - system: file
+        location: file://datastore/satellite/modis
+    upstream:
+      - cron.recup-ukmet
+      - cron.goes-ir-new
+      - cron.himawari
+      - kestra.infoclimat.front.cron.sat-modis
+      - kestra.infoclimat.front.cron.sat-modis-new
+    owner: pam
+    status: active
+
+  - id: previsions-bulletins
+    name: Bulletins de prévision rédigés (national, régionaux, BIM, audio)
+    domain: previsions
+    contract: null
+    sheet: catalog/datasets/previsions-bulletins.md
+    storage:
+      - system: file
+        location: file://web/previsions/ (bn_*.txt, bulletin{id}.prev, archives_pdf/, audio_mp3/)
+      - system: mariadb
+        database: V5_prevs
+        tables:
+          - previsionnistes
+      - system: mariadb
+        database: V5_chroniques
+        tables:
+          - bim
+    upstream:
+      - gestion-prevs (rédaction humaine — pas de pipeline batch)
+    owner: pam
+    status: active
+    notes: >-
+      Production éditoriale par les prévisionnistes bénévoles via gestion-prevs/.
+      V5_prevs.previsionnistes est personal_data:true (registre RGPD). Les cartes et
+      sorties modèles (WRF...) relèvent de modeles-nwp-fichiers, pas de ce dataset.
+
+  - id: hydro-eaufrance-vigicrues
+    name: Données hydrologiques EauFrance / Vigicrues
+    domain: vigilance
+    contract: null
+    storage:
+      - system: mariadb
+        database: V5_climato
+        tables:
+          - hydro
+          - vigicrues
+      - system: mariadb
+        database: V5_data_params
+        tables:
+          - stations_hydro
+    upstream:
+      - cron.eaufrance-data
+      - kestra.infoclimat.data.vigicrues
+    owner: pam
+    status: active

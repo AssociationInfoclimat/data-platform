@@ -1,0 +1,11 @@
+# Secrets locaux de l'outillage (cf. tools/.env.ini.template)
+.env.ini
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# IDE
+.idea/
+.vscode/

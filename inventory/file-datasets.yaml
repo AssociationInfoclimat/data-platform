@@ -1,0 +1,1203 @@
+# Datasets fichiers (datastore, NFS, S3) — inventaire 2026-06
+# Schéma d'une entrée :
+#   name:       file://datastore/<pattern> | file://modeles/<pattern> | s3://<bucket>/<pattern>
+#               ({YYYY}, {MM}, {DD}, {HH} pour les segments datés)
+#   format:     geotiff | png | jpg | netcdf | grib2 | json | csv | flv/mp4 | mixte | autre
+#   producer:   id de pipeline (pipelines.yaml) ou "externe" ou "inconnu"
+#   consumers:  ["<repo>:<fichier>" ou id pipeline, ...]
+#   retention:  description si trouvée (script de purge, logrotate) sinon "inconnue"
+#   status:     actif | douteux | mort
+#   notes:
+version: 1
+datasets:
+
+  # ── TUILES SATELLITE UKMET (Meteosat SEVIRI via UK Met Office WMS) ──────────
+  - name: file://datastore/tempsreel.infoclimat.net/tiles/{YYYY}/{MM}/{DD}/vishdb_{HH}_v{ii}.tif
+    format: geotiff
+    producer: cron.recup-ukmet
+    consumers:
+      - mapserver:clouds.map
+      - mapserver:cloudsauto.map
+      - mapserver:clouds3857.map
+    retention: >-
+      Purge journalière cron.clean-shm-tif (fichiers /dev/shm *.tif) ; tuiles
+      datastore sans script de purge daté trouvé — rétention inconnue.
+    status: actif
+    notes: >-
+      Visible (VIS HD) depuis UKMET WMS. Même pipeline produit vishdb,
+      vishdbtrans, irAhdb, irAhdbtrans (4 couches Meteosat).
+
+  - name: >-
+      file://datastore/tempsreel.infoclimat.net/tiles/{YYYY}/{MM}/{DD}/vishdbtrans_{HH}_v{ii}.tif
+    format: geotiff
+    producer: cron.recup-ukmet
+    consumers:
+      - mapserver:clouds.map
+    retention: inconnue
+    status: actif
+    notes: Variante VIS HD transparente (alpha) du dataset vishdb.
+
+  - name: file://datastore/tempsreel.infoclimat.net/tiles/{YYYY}/{MM}/{DD}/irAhdb_{HH}_v{ii}.tif
+    format: geotiff
+    producer: cron.recup-ukmet
+    consumers:
+      - mapserver:clouds.map
+      - mapserver:cloudsauto.map
+    retention: inconnue
+    status: actif
+    notes: Infrarouge (IR A) depuis UKMET WMS, couche Meteosat SEVIRI.
+
+  - name: >-
+      file://datastore/tempsreel.infoclimat.net/tiles/{YYYY}/{MM}/{DD}/irAhdbtrans_{HH}_v{ii}.tif
+    format: geotiff
+    producer: cron.recup-ukmet
+    consumers:
+      - mapserver:clouds.map
+    retention: inconnue
+    status: actif
+    notes: Variante IR transparente du dataset irAhdb.
+
+  # ── TUILES SATELLITE GOES WEST (legacy NOAA GOES-West) ──────────────────────
+  - name: file://datastore/tempsreel.infoclimat.net/tiles/{AAAA}/{MM}/{DD}/goeswi4_{HH}_v{ii}.tif
+    format: geotiff
+    producer: cron.goes-ir4
+    consumers:
+      - mapserver:clouds.map
+    retention: inconnue
+    status: actif
+    notes: Infrarouge canal 4 GOES-West (satepsanone.noaa.gov).
+
+  - name: >-
+      file://datastore/tempsreel.infoclimat.net/tiles/{AAAA}/{MM}/{DD}/goeswvis_{HH}_v{ii}.tif
+    format: geotiff
+    producer: cron.goes-vis
+    consumers:
+      - mapserver:clouds.map
+    retention: inconnue
+    status: actif
+    notes: Visible GOES-West (satepsanone.noaa.gov).
+
+  # ── TUILES SATELLITE GOES EAST-16 (NOAA GOES-16 ABI) ────────────────────────
+  - name: file://datastore/tempsreel.infoclimat.net/tiles/{AAAA}/{MM}/{DD}/goesei7_{HH}_v{ii}.tif
+    format: geotiff
+    producer: cron.goes-ir-new
+    consumers:
+      - mapserver:clouds.map
+    retention: inconnue
+    status: actif
+    notes: Canal 7 IR (3.9 µm) GOES-East 16 depuis cdn.star.nesdis.noaa.gov.
+
+  - name: >-
+      file://datastore/tempsreel.infoclimat.net/tiles/{AAAA}/{MM}/{DD}/goesvisnew_{HH}_v{ii}.tif
+    format: geotiff
+    producer: cron.goes-vis-new
+    consumers:
+      - mapserver:clouds.map
+    retention: inconnue
+    status: actif
+    notes: Visible GOES-East 16 depuis cdn.star.nesdis.noaa.gov.
+
+  # ── TUILES SATELLITE HIMAWARI-8 ──────────────────────────────────────────────
+  - name: >-
+      file://datastore/tempsreel.infoclimat.net/tiles/{AAAA}/{MM}/{DD}/himawarirgb_{HH}_v{ii}.tif
+    format: geotiff
+    producer: cron.himawari
+    consumers:
+      - mapserver:clouds.map
+    retention: inconnue
+    status: actif
+    notes: Composite RGB Himawari-8 depuis NICT (Japan Aerospace Exploration Agency).
+
+  # ── TUILES RADAR MÉTÉO-FRANCE ────────────────────────────────────────────────
+  - name: file://datastore/tempsreel.infoclimat.net/tiles/{AAAA}/{MM}/{DD}/MF_raw_{DDHHii}.png
+    format: png
+    producer: cron.radarmf
+    consumers:
+      - site-infoclimat:cron/radarmf.php
+    retention: inconnue
+    status: actif
+    notes: >-
+      PNG brut radar MF depuis donneespubliques.meteofrance.fr, intermédiaire
+      avant conversion GeoTIFF.
+
+  - name: file://datastore/tempsreel.infoclimat.net/tiles/{AAAA}/{MM}/{DD}/radarmf_{HH}_v{ii}.tif
+    format: geotiff
+    producer: cron.radarmf
+    consumers:
+      - mapserver:radar_fused.map
+      - python-climate-services.pluviometrie
+      - python-climate-services.combined
+    retention: inconnue
+    status: actif
+    notes: GeoTIFF radar MF (lame d'eau), servi par mapserver et python-climate-services.
+
+  # ── TUILES RADAR COMEPHORE / AC60 (montage fs1 pour mapserver legacy) ────────
+  - name: >-
+      file://datastore/tempsreel.infoclimat.net/tiles/{AAAA}/{MM}/{DD}/comephoreRGB_{HH}_v00.tif
+    format: geotiff
+    producer: inconnu
+    consumers:
+      - mapserver:radar_fused.map
+    retention: inconnue
+    status: douteux
+    notes: >-
+      Référencé dans mapserver/radar_fused.map via le montage legacy fs1 (tempsreel.infoclimat.net/tiles/).
+      Producteur non identifié dans les clones (pipeline kestra.infoclimat.data.meteorology.download-and-convert-radar
+      image Docker privée, sous-chemin absent du flow).
+
+  - name: >-
+      file://datastore/tempsreel.infoclimat.net/tiles/{AAAA}/{MM}/{DD}/colorac60radaric_{HH}_v00.tif
+    format: geotiff
+    producer: inconnu
+    consumers:
+      - mapserver:radar_fused.map
+    retention: inconnue
+    status: douteux
+    notes: >-
+      Même situation que comephoreRGB ; radar colorisé IC/AC60 (Météo-France + Infoclimat),
+      vu via le montage legacy fs1 de srx-mapserver-2, producteur non traçable depuis les clones.
+
+  # ── TUILES NEXRAD (NOAA USA) ─────────────────────────────────────────────────
+  - name: file://datastore/tempsreel.infoclimat.net/tiles/{AAAA}/{MM}/{DD}/nexrad_{HH}_v{ii}.tif
+    format: geotiff
+    producer: cron.nexrad
+    consumers:
+      - mapserver:clouds.map
+    retention: inconnue
+    status: actif
+    notes: NEXRAD composite N0Q depuis mesonet.agron.iastate.edu.
+
+  # ── TUILES FOUDRE ────────────────────────────────────────────────────────────
+  - name: file://datastore/tempsreel.infoclimat.net/tiles/{AAAA}/{MM}/{DD}/foudre_{HH}_v{ii}.shp
+    format: autre
+    producer: cron.foudre
+    consumers:
+      - mapserver:foudre.map
+      - mapserver:foudre2.map
+      - mapserver:foudre_densite.map
+      - mapserver:foudre_opacity.map
+    retention: inconnue
+    status: actif
+    notes: >-
+      Shapefile (.shp + .dbf + .shx) des impacts foudre Blitzortung/IC-Meteonet.
+      Servi par plusieurs mapfiles foudre. Également last.sqlite.json en JSON plat.
+
+  - name: file://datastore/tempsreel.infoclimat.net/tiles/last.sqlite.json
+    format: json
+    producer: cron.foudre
+    consumers:
+      - site-infoclimat:cartes/jsontiles.php
+    retention: inconnue
+    status: actif
+    notes: >-
+      Fichier JSON des derniers impacts foudre (accès rapide temps réel),
+      écrasé à chaque run (pas de segment daté).
+
+  # ── TUILES ESTOFEX ──────────────────────────────────────────────────────────
+  - name: file://datastore/tempsreel.infoclimat.net/tiles/estofex_{ts}.geojson
+    format: json
+    producer: cron.estofex
+    consumers:
+      - site-infoclimat:cartes/jsontiles.php
+    retention: inconnue
+    status: actif
+    notes: GeoJSON des prévisions convectives ESTOFEX (estofex.org), non daté en répertoire.
+
+  # ── TUILES ENSOLEILLEMENT (MSGCPP Meteosat) ──────────────────────────────────
+  - name: file://datastore/tempsreel.infoclimat.net/tiles/{AAAA}/{MM}/{DD}/ensol_{HH}_v{ii}.tif
+    format: geotiff
+    producer: cron.msgcpp-ensoleillement
+    consumers:
+      - mapserver:clouds.map
+      - python-climate-services.combined
+    retention: inconnue
+    status: actif
+    notes: >-
+      Ensoleillement (W/m²) calculé depuis PNG MSGCPP KNMI
+      (file://datastore/server5/archives.infoclimat.net/satellIC/srad/).
+
+  # ── TUILES CLIMATOLOGIE MENSUELLE ───────────────────────────────────────────
+  - name: >-
+      file://datastore/tempsreel.infoclimat.net/tiles/{AAAA}/{MM}/99/climm_{param}_99_v0.tif
+    format: geotiff
+    producer: cron.climato.mensuelle
+    consumers:
+      - mapserver:MDLraster.map
+      - python-climate-services.combined
+    retention: inconnue
+    status: actif
+    notes: >-
+      Grilles GeoTIFF des anomalies/valeurs climatologiques mensuelles (TN, TX, RR…).
+      99 = jour fictif pour mensuel ; produit aussi par cron.climato.mensuelle-current.
+
+  # ── TUILES NORMALES CLIMATOLOGIQUES (SQLite) ─────────────────────────────────
+  - name: file://datastore/tempsreel.infoclimat.net/tiles/8110/{MM}/99_99.sqlite
+    format: autre
+    producer: cron.climato-normales.mois-01
+    consumers:
+      - python-climate-services.pluviometrie
+      - python-climate-services.combined
+      - site-infoclimat:include/communs/jsontiles.php
+    retention: inconnue
+    status: actif
+    notes: >-
+      SQLite des normales mensuelles par station (id=8110, un fichier par mois).
+      12 pipelines producteurs (cron.climato-normales.mois-01 à mois-12).
+
+  # ── TUILES CARTES MÉTÉO 24 H (grilles GeoTIFF multiparamètres) ──────────────
+  - name: file://datastore/tempsreel.infoclimat.net/tiles/{AAAA}/{MM}/{DD}/{map}_00.tif
+    format: geotiff
+    producer: cron.generation-cartes-24h
+    consumers:
+      - mapserver:temperature.map
+      - mapserver:temperature_HD.map
+      - mapserver:temperature_THD.map
+      - python-climate-services.combined
+    retention: inconnue
+    status: actif
+    notes: >-
+      Grilles GeoTIFF paramétriques (TN, TX, RR, vent, HR…) générées via GMT/GDAL
+      depuis synop BD. Également produit par cron.generer-hier (veille).
+
+  # ── ARCHIVES SATELLITE KNMI MSGCPP ──────────────────────────────────────────
+  - name: >-
+      file://datastore/server5/archives.infoclimat.net/satellIC/{param}/{YYYY}/{MM}/{DD}/{HH}{ii}.png
+    format: png
+    producer: cron.knmi
+    consumers:
+      - cron.msgcpp-ensoleillement
+      - nginx-config:archives.infoclimat.net.conf
+    retention: inconnue
+    status: actif
+    notes: >-
+      6 paramètres MSGCPP (ctop, ch, srad, rrate, gr, cep) en PNG depuis
+      KNMI ADAGUC WMS. Également last.png écrasé à chaque run.
+
+  - name: >-
+      file://datastore/server5/archives.infoclimat.net/satellIC/{param}/last.png
+    format: png
+    producer: cron.knmi
+    consumers:
+      - nginx-config:archives.infoclimat.net.conf
+    retention: "écrasé à chaque run (un seul fichier par param)"
+    status: actif
+    notes: >-
+      Dernière image MSGCPP par paramètre, écrasée à chaque run de cron.knmi.
+      Pendant daté du dataset archivé {YYYY}/{MM}/{DD}/{HH}{ii}.png.
+
+  - name: >-
+      file://datastore/server5/archives.infoclimat.net/satellIC/{key}/last.jpg
+    format: jpg
+    producer: cron.eumetsat
+    consumers:
+      - nginx-config:archives.infoclimat.net.conf
+    retention: inconnue
+    status: actif
+    notes: >-
+      Images EUMETSAT Eumetview (RGB naturel, airmass, vapeur eau, brouillard,
+      convection, AMV). Seul last.jpg par clé (non archivé en date).
+
+  # ── SATELLITE MODIS TERRA ────────────────────────────────────────────────────
+  - name: file://datastore/satellite/modis
+    format: mixte
+    producer: kestra.infoclimat.front.cron.sat-modis
+    consumers:
+      - site-infoclimat:cron/sat_modis.php
+      - site-legacy:var/www/infoclimat.fr/v5/web/cartes/satellites/{YYYY}/{date}.jpg
+    retention: inconnue
+    status: actif
+    notes: >-
+      Images MODIS Terra (NASA Worldview/LANCE) et DLR Taurus, PNG/JPEG.
+      Doublon avec kestra.infoclimat.front.cron.sat-modis-new (à arbitrer).
+
+  # ── DONNÉES CARTOGRAPHIQUES KNMI (ifremer dir) ───────────────────────────────
+  - name: file://datastore/data/cartes/ifremer
+    format: geotiff
+    producer: kestra.infoclimat.data.sat-knmi
+    consumers:
+      - mapserver:clouds.map
+      - mapserver:cloudsauto.map
+    retention: inconnue
+    status: actif
+    notes: >-
+      GeoTIFF MSG-CPP depuis KNMI ADAGUC API, stockés dans data/cartes/ifremer.
+      Servi par mapserver docker via mount datastore:ro.
+
+  # ── DONNÉES SYNOP BRUTES (raw download) ─────────────────────────────────────
+  - name: file://datastore/data/synop
+    format: autre
+    producer: inconnu
+    consumers:
+      - kestra.infoclimat.data.cleanup
+      - cron.cleanup.front2
+      - cron.cleanup.nginx2
+    retention: >-
+      Purge mtime +30 jours via data/cleanup.sh (kestra.infoclimat.data.cleanup
+      quotidien 00:02 UTC) ; couvre synop/ogimet, synop/meteocentre, synop/aemet-csv,
+      assets/synop/bufr.
+    status: actif
+    notes: >-
+      Fichiers SYNOP bruts (téléchargements Ogimet, Meteocentre, AEMET, BUFR NOAA).
+      Producteur dans pipelines : kestra.infoclimat.data.recuperation.bufr et autres
+      non listés comme output file (DB cible).
+
+  # ── DONNÉES METAR BRUTES ─────────────────────────────────────────────────────
+  - name: file://datastore/data/metar
+    format: autre
+    producer: inconnu
+    consumers:
+      - kestra.infoclimat.data.cleanup
+    retention: Purge mtime +30 jours via data/cleanup.sh (quotidien 00:02 UTC).
+    status: actif
+    notes: >-
+      Fichiers METAR bruts (NOAA, Meteocentre). Producteur : scripts de récupération
+      METAR non tracés comme output fichier dans pipelines.yaml.
+
+  # ── DONNÉES MF BRUTES ────────────────────────────────────────────────────────
+  - name: file://datastore/data/mf
+    format: autre
+    producer: inconnu
+    consumers:
+      - kestra.infoclimat.data.cleanup
+    retention: Purge mtime +30 jours via data/cleanup.sh (quotidien 00:02 UTC).
+    status: actif
+    notes: >-
+      Fichiers Météo-France bruts (données portail MF). Producteur non tracé
+      comme output fichier dans pipelines.yaml.
+
+  # ── DONNÉES STATIC BRUTES (WeatherLink, WLK) ─────────────────────────────────
+  - name: file://datastore/data/static
+    format: autre
+    producer: inconnu
+    consumers:
+      - kestra.infoclimat.data.cleanup
+    retention: >-
+      Purge mtime +30 jours via data/cleanup.sh ; couvre static/mnw,
+      static/weatherlink, static/wlkIPxml, static/wlkLive.
+    status: actif
+    notes: >-
+      Fichiers statiques stations (WeatherLink, WLK Live, MNW). Producteur non
+      tracé comme output fichier dans pipelines.yaml.
+
+  # ── BUFR STORAGE (intermédiaire décodage SYNOP) ──────────────────────────────
+  - name: file://datastore/bufr_storage/{YYYY}/{MM}/{DD}/{HH}
+    format: autre
+    producer: inconnu
+    consumers:
+      - site-infoclimat:data/recuperation/synop/bufr/bufr.inc.php
+      - site-infoclimat:data/recalculs/trouver_bufr_id_station.php
+    retention: inconnue
+    status: actif
+    notes: >-
+      Fichiers BUFR bruts (NOAA via FTP) + expbufr_{0,1}.bufr décodés,
+      organisés par date/heure/station. Producteur : pipeline bufr non tracé
+      comme output fichier (output est mariadb://V5_data).
+
+  # ── COPERNICUS BIOCLIMATIQUE FUTUR ──────────────────────────────────────────
+  - name: file://datastore/copernicus-downscaled-bioclimatic-future
+    format: geotiff
+    producer: externe
+    consumers:
+      - python-climate-services.combined
+    retention: inconnue
+    status: actif
+    notes: >-
+      Données bioclimatiques Copernicus downscalées (GeoTIFF). Producteur externe
+      (téléchargement manuel/script non cloné). Consommé par python-climate-services
+      combined via datastore:/copernicus-downscaled-bioclimatic-future.
+
+  # ── STATICTILES HYDROLOGIE (MVT vecteur) ────────────────────────────────────
+  - name: file://datastore/tempsreel.infoclimat.net/statictiles/troncons-vigicrues
+    format: autre
+    producer: inconnu
+    consumers:
+      - site-infoclimat:climato/indicateur_national_RR.php
+    retention: inconnue
+    status: actif
+    notes: >-
+      Tuiles vecteur MVT (.pbf) des tronçons Vigicrues (Eaufrance). Producteur :
+      site-infoclimat:cron/hydro/eaufrance_rivieres.php — script absent des outputs
+      pipelines.yaml (seul output DB est listé).
+
+  - name: file://datastore/tempsreel.infoclimat.net/statictiles/posteshydro
+    format: autre
+    producer: inconnu
+    consumers:
+      - site-infoclimat:climato/indicateur_national_RR.php
+    retention: inconnue
+    status: actif
+    notes: >-
+      Tuiles vecteur MVT des postes hydrologiques Eaufrance. Producteur :
+      site-infoclimat:cron/hydro/stations_convert_to_MVT.php — non tracé dans pipelines.yaml.
+
+  # ── VIGNETTES STATIONS ───────────────────────────────────────────────────────
+  - name: file://datastore/vignettes
+    format: png
+    producer: kestra.infoclimat.front.cron.update-vignettes
+    consumers:
+      - site-infoclimat:include/vignettes/stations-meteo/{id}.html
+      - nginx-config:static.conf
+    retention: inconnue
+    status: actif
+    notes: >-
+      PNG des vignettes météo par station (observations actuelles). Même dataset
+      produit par cron.vignettes.front2 et cron.vignettes.nginx2 (migration).
+
+  # ── WEBCAM DDU (Dumont d'Urville) ───────────────────────────────────────────
+  - name: file://datastore/webcam/ddu
+    format: jpg
+    producer: kestra.infoclimat.front.cron.webcam-ddu
+    consumers:
+      - site-infoclimat:cron/ddu/recup_webcam.php
+    retention: inconnue
+    status: actif
+    notes: >-
+      Images webcam DDU (Dumont d'Urville) récupérées via IMAP Gmail. Produit aussi
+      par cron.webcam-ddu.front2 / cron.webcam-ddu.nginx2 (migration).
+
+  # ── WEBCAM FOSCAM FTPS (static upload stations) ──────────────────────────────
+  - name: file://site-infoclimat/FTPS/ftp_static/{user}/FoscamCamera_{id}/snap/*.jpg
+    format: jpg
+    producer: externe
+    consumers:
+      - cron.webcams-renommer-last
+    retention: inconnue
+    status: actif
+    notes: >-
+      JPG uploadés par FTP depuis caméras Foscam (stations membres). Producteur
+      externe (camera). Consommé par cron.webcams-renommer-last qui génère webcam_{nom}.jpg.
+
+  - name: file://site-infoclimat/FTPS/ftp_static/{user}/webcam_{nom}.jpg
+    format: jpg
+    producer: cron.webcams-renommer-last
+    consumers:
+      - site-infoclimat:cartes/getProxyWebcam.php
+    retention: inconnue
+    status: actif
+    notes: Dernière image de chaque webcam FTPS renommée par cron.webcams-renommer-last.
+
+  # ── ARCHIVES WEBCAMS MEMBRES ─────────────────────────────────────────────────
+  - name: file://site-legacy/webroot/multimedia/webcams/{YYYY/MM/DD/HH/}
+    format: jpg
+    producer: cron.archivage_webcams
+    consumers:
+      - site-infoclimat:cartes/stations-meteo_getWebcam.php
+    retention: inconnue
+    status: actif
+    notes: >-
+      Archives horaires des webcams membres (JPG). Produit aussi par
+      cron.archivage-webcams sur srx-data-2 (chemin site-infoclimat).
+
+  - name: file://site-infoclimat/cartes/webcams/{id}/{DD-MM-YYYY_ZHHii}.jpg
+    format: jpg
+    producer: cron.archivage-webcams
+    consumers:
+      - site-infoclimat:include/ajax/getDataCam.php
+    retention: inconnue
+    status: actif
+    notes: >-
+      Archives webcams par ID de station (format date {DD-MM-YYYY_ZHHii}),
+      produit par cron.archivage-webcams sur srx-data-2.
+
+  # ── PHOTOLIVE PHOTOS ─────────────────────────────────────────────────────────
+  - name: file://front2/webroot/photolive/photos/{YYYY-MM}
+    format: jpg
+    producer: admin-photolive.valide
+    consumers:
+      - site-infoclimat:photolive/autoresize.php
+      - site-infoclimat:photolive/admin/maj_vignettes.php
+      - site-infoclimat:mobile-api/inc/photolive_api.inc.php
+    retention: inconnue
+    status: actif
+    notes: >-
+      Photos validées sur PhotoLive (images météo membres), organisées par
+      YYYY-MM. Également thumbs/ et vignettes/ (non listés séparément :
+      même producteur, même répertoire).
+
+  # ── MARITIME NETCDF (Ifremer/Copernicus océan) ───────────────────────────────
+  - name: file://mapserver/maritime/last_download.tmp.nc
+    format: netcdf
+    producer: cron.ifremer-dl
+    consumers:
+      - mapserver:clouds.map
+    retention: inconnue
+    status: actif
+    notes: >-
+      NetCDF température de surface mer (Ifremer/CMEMS Méditerranée globale),
+      fichier temporaire écrasé à chaque run. Monté dans docker mapserver.
+
+  - name: file://mapserver/maritime/last_download_BRA.tmp.nc
+    format: netcdf
+    producer: cron.med-bra-dl
+    consumers:
+      - mapserver:clouds.map
+    retention: inconnue
+    status: actif
+    notes: NetCDF SST Brésil depuis CMEMS, fichier temporaire.
+
+  - name: file://mapserver/maritime/last_download_GBR.tmp.nc
+    format: netcdf
+    producer: cron.med-gbr-dl
+    consumers:
+      - mapserver:clouds.map
+    retention: inconnue
+    status: actif
+    notes: NetCDF SST Grande-Bretagne depuis CMEMS, fichier temporaire.
+
+  - name: file://mapserver/maritime/last_download_GLOB.tmp.nc
+    format: netcdf
+    producer: cron.med-glob-dl
+    consumers:
+      - mapserver:clouds.map
+    retention: inconnue
+    status: actif
+    notes: NetCDF SST globale depuis CMEMS, fichier temporaire.
+
+  - name: file://mapserver/maritime/last_download_SAF.tmp.nc
+    format: netcdf
+    producer: cron.med-saf-dl
+    consumers:
+      - mapserver:clouds.map
+    retention: inconnue
+    status: actif
+    notes: NetCDF SST Afrique du Sud depuis CMEMS, fichier temporaire.
+
+  # ── MODÈLES NWP — AROME ──────────────────────────────────────────────────────
+  - name: file://srx-modeles-2/modeles/AROME/
+    format: grib2
+    producer: cron.recup-arome.modeles2
+    consumers:
+      - cron.cleanup-modeles-ncl.modeles2
+      - site-infoclimat:cron/notif_previ.php
+      - nginx-config:modeles.infoclimat.net.conf
+    retention: Purge mtime +2 jours via cleanup.sh (cron.cleanup-modeles-ncl.modeles2 04:03 UTC).
+    status: actif
+    notes: >-
+      GRIB2 AROME 0.025° depuis API Météo-France (portail DDPub). last_run.full.nc
+      utilisé comme sentinel de disponibilité par notif_previ.php.
+
+  - name: file://srx-modeles-2/modeles/AROMEhr/
+    format: grib2
+    producer: cron.recup-arome13.modeles2
+    consumers:
+      - cron.cleanup-modeles-ncl.modeles2
+    retention: Purge mtime +2 jours via cleanup.sh (cron.cleanup-modeles-ncl.modeles2 04:03 UTC).
+    status: actif
+    notes: GRIB2 AROME haute résolution 0.01° (AROMEhr), téléchargé via API MF DDPub.
+
+  - name: file://srx-modeles-2/modeles/AROME_antilles/
+    format: grib2
+    producer: cron.recup-arome-antilles.modeles2
+    consumers:
+      - nginx-config:modeles.infoclimat.net.conf
+    retention: inconnue
+    status: actif
+    notes: GRIB2 AROME Antilles depuis portail DDPub MF.
+
+  # ── MODÈLES NWP — ARPEGE ─────────────────────────────────────────────────────
+  - name: file://srx-modeles-2/modeles/ARPEGE/
+    format: grib2
+    producer: cron.recup-arpege.modeles2
+    consumers:
+      - nginx-config:modeles.infoclimat.net.conf
+    retention: inconnue
+    status: actif
+    notes: GRIB2 ARPEGE global 0.1° depuis portail DDPub MF.
+
+  # ── MODÈLES NWP — ECMWF ──────────────────────────────────────────────────────
+  - name: file://srx-modeles-2/modeles/ECMWF/
+    format: grib2
+    producer: kestra.infoclimat.forecast.ecmwf.fetch-ecmwf-modeles-2
+    consumers:
+      - nginx-config:modeles.infoclimat.net.conf
+    retention: inconnue
+    status: actif
+    notes: >-
+      GRIB2 ECMWF Open Data (IFS) depuis FTP data-portal.ecmwf.int. Doublon :
+      cron.recup-ecmwf.modeles2 (migration Kestra en cours).
+
+  # ── MODÈLES NWP — GFS ────────────────────────────────────────────────────────
+  - name: file://srx-modeles-2/modeles/GFSHD/
+    format: grib2
+    producer: kestra.infoclimat.forecast.gfs.fetch-gfs-modeles-2
+    consumers:
+      - cron.cleanup-modeles-ncl.modeles2
+      - nginx-config:modeles.infoclimat.net.conf
+    retention: Purge mtime +2 jours via cleanup.sh (cron.cleanup-modeles-ncl.modeles2 04:03 UTC).
+    status: actif
+    notes: GRIB2 GFS 0.25° HD (recup_data_0_2deg) depuis NOMADS NCEP.
+
+  - name: file://srx-modeles-2/modeles/GFS/
+    format: grib2
+    producer: kestra.infoclimat.forecast.gfs.fetch-gfs-modeles-2
+    consumers:
+      - cron.cleanup-modeles-ncl.modeles2
+      - nginx-config:modeles.infoclimat.net.conf
+    retention: Purge mtime +2 jours via cleanup.sh (cron.cleanup-modeles-ncl.modeles2 04:03 UTC).
+    status: actif
+    notes: GRIB2 GFS 0.5° depuis NOMADS NCEP.
+
+  - name: file://srx-modeles-2/modeles/GFS1deg/
+    format: grib2
+    producer: kestra.infoclimat.forecast.gfs.fetch-gfs-modeles-2
+    consumers:
+      - nginx-config:modeles.infoclimat.net.conf
+    retention: inconnue
+    status: actif
+    notes: GRIB2 GFS 1° depuis NOMADS NCEP.
+
+  # ── MODÈLES NWP — GEFS ───────────────────────────────────────────────────────
+  - name: file://srx-modeles-2/modeles/GEFS/
+    format: grib2
+    producer: kestra.infoclimat.forecast.gefs.fetch-gefs-modeles-2
+    consumers:
+      - cron.cleanup-modeles-ncl.modeles2
+    retention: Purge mtime +2 jours via cleanup.sh (cron.cleanup-modeles-ncl.modeles2 04:03 UTC).
+    status: actif
+    notes: >-
+      GRIB2 GEFS (ensemble prévisions USA) depuis nomads.ncep.noaa.gov.
+      4 sous-runs : ctrl, avg, gep, spr.
+
+  # ── MODÈLES NWP — GEM / GEMENS ───────────────────────────────────────────────
+  - name: file://srx-modeles-2/modeles/GEM/
+    format: grib2
+    producer: kestra.infoclimat.forecast.gem.fetch-gem-modeles-2
+    consumers:
+      - nginx-config:modeles.infoclimat.net.conf
+    retention: inconnue
+    status: actif
+    notes: GRIB2 GEM global (Canada) depuis dd.weatheroffice.gc.ca.
+
+  - name: file://srx-modeles-2/modeles/GEMENS/
+    format: grib2
+    producer: kestra.infoclimat.forecast.gemens.fetch-gemens-modeles-2
+    consumers:
+      - nginx-config:modeles.infoclimat.net.conf
+    retention: inconnue
+    status: actif
+    notes: GRIB2 GEMENS (ensemble NAEFS Canada) depuis dd.weatheroffice.gc.ca.
+
+  # ── SORTIES PRIVÉES MODELES (PNG NCL générés) ────────────────────────────────
+  - name: file://srx-modeles-2/vhost-modeles/prive/
+    format: png
+    producer: cron.recup-arome.modeles2
+    consumers:
+      - nginx-config:modeles.infoclimat.net.conf
+    retention: inconnue
+    status: actif
+    notes: >-
+      PNG/GIF générés par NCL (modeles-ncl) depuis AROME/AROMEhr/ARPEGE/GFS.
+      Servi sur modeles.infoclimat.net (accès authentifié /private/). Producteurs :
+      cron.recup-gfs05.modeles2, cron.recup-gfs1deg.modeles2, cron.recup-arome.modeles2,
+      cron.recup-arpege.modeles2, cron.recup-arome13.modeles2, cron.recup-arome-antilles.modeles2.
+
+  # ── CARTES LEGACY — SATELLITE SAT24 ─────────────────────────────────────────
+  - name: file://site-infoclimat/cartes/sat/color.{n}.png
+    format: png
+    producer: cron.colorise.srx-data-2
+    consumers:
+      - site-infoclimat:include/communs/fonctions.inc.php
+    retention: inconnue
+    status: actif
+    notes: >-
+      PNG infrarouge polaire colorisé (sat24) pour affichage cartes IC.
+      Variante de cron.colorise (site-legacy). Également tempsat.gif produit.
+
+  - name: file://site-infoclimat/cartes/tempsat.gif
+    format: png
+    producer: cron.colorise.srx-data-2
+    consumers:
+      - site-infoclimat:cartes/
+    retention: inconnue
+    status: actif
+    notes: GIF résumé température satellite (animation sat24 polaire).
+
+  - name: file://site-infoclimat/cartes/vis/{n}.gif
+    format: png
+    producer: cron.sat24
+    consumers:
+      - site-infoclimat:cartes/
+    retention: inconnue
+    status: actif
+    notes: GIF visible France depuis sat24, série numérotée {n}.
+
+  - name: file://site-infoclimat/cartes/vis_mini.gif
+    format: png
+    producer: cron.sat24
+    consumers:
+      - site-infoclimat:cartes/
+    retention: inconnue
+    status: actif
+    notes: Miniature GIF visible France (sat24).
+
+  # ── CARTES LEGACY — COMPOSITIONS RADAR+SAT ──────────────────────────────────
+  - name: file://site-infoclimat/cartes/compo/{n}.png
+    format: png
+    producer: cron.compo-new
+    consumers:
+      - site-infoclimat:cartes/
+      - cron.mail-alert-radar
+    retention: inconnue
+    status: actif
+    notes: PNG composite radar MF + satellite polaire (serie numérotée).
+
+  - name: file://site-infoclimat/cartes/compo_new_1/{zone}/{n}.png
+    format: png
+    producer: cron.compo-new-1
+    consumers:
+      - site-infoclimat:cartes/
+    retention: inconnue
+    status: actif
+    notes: PNG composite radar Météomédia par zone géographique.
+
+  - name: file://site-infoclimat/cartes/compo/last.txt
+    format: autre
+    producer: inconnu
+    consumers:
+      - cron.mail-alert-radar
+    retention: inconnue
+    status: actif
+    notes: >-
+      Sentinelle de fraîcheur radar (timestamp). Consommé par cron.mail-alert-radar
+      pour détecter les pannes. Producteur non explicitement tracé dans pipelines.yaml.
+
+  # ── CARTES FOUDRE (animation) ────────────────────────────────────────────────
+  - name: file://site-infoclimat/cartes/foudre_4h.gif
+    format: png
+    producer: cron.anim-foudre
+    consumers:
+      - site-infoclimat:cartes/
+    retention: inconnue
+    status: actif
+    notes: Animation GIF foudre 4h (Meteocentre lightning). Fichier unique écrasé.
+
+  # ── MÉTÉO-ALERTE CACHE (PNG/TXT zones) ──────────────────────────────────────
+  - name: file://front2/webroot/meteoalerte/cache/{zone}.png
+    format: png
+    producer: kestra.infoclimat.data.meteoalerte.cache
+    consumers:
+      - site-infoclimat:include/Vigilances/vigilances.php
+    retention: inconnue
+    status: actif
+    notes: >-
+      PNG de la carte vigilance MF par zone départementale. Également {zone}.txt
+      (JSON état vigilance). Produit aussi par cron.meteoalerte-cache.front2/nginx2.
+
+  - name: file://front2/webroot/meteoalerte/cache/{zone}.txt
+    format: json
+    producer: kestra.infoclimat.data.meteoalerte.cache
+    consumers:
+      - site-infoclimat:include/Vigilances/vigilances.php
+    retention: inconnue
+    status: actif
+    notes: JSON état vigilance par zone (accompagne le PNG cache météo-alerte).
+
+  - name: file://front2/dev/shm/cache/MeteoAlerte/{zone}.png
+    format: png
+    producer: kestra.infoclimat.data.meteoalerte.cache
+    consumers:
+      - site-infoclimat:include/Vigilances/vigilances.php
+    retention: inconnue
+    status: actif
+    notes: >-
+      PNG vigilance en RAM (/dev/shm, front2) — accès rapide. Même producteur
+      que le cache meteoalerte du webroot front2. Également stats écrit en /dev/shm.
+
+  - name: file://front2/dev/shm/cache/MeteoAlerte/stats
+    format: autre
+    producer: kestra.infoclimat.data.meteoalerte.cache
+    consumers:
+      - site-infoclimat:include/Vigilances/vigilances.php
+    retention: inconnue
+    status: actif
+    notes: Fichier de stats MeteoAlerte en RAM (/dev/shm/cache/MeteoAlerte/stats).
+
+  - name: file://nginx2/webroot/meteoalerte/cache/{zone}.png
+    format: png
+    producer: cron.meteoalerte-cache.nginx2
+    consumers:
+      - site-infoclimat:include/Vigilances/vigilances.php
+    retention: inconnue
+    status: actif
+    notes: >-
+      PNG vigilance sur nginx2 (miroir front2). Produit par cron.meteoalerte-cache.nginx2
+      (migration en cours).
+
+  - name: file://nginx2/webroot/meteoalerte/cache/{zone}.txt
+    format: json
+    producer: cron.meteoalerte-cache.nginx2
+    consumers:
+      - site-infoclimat:include/Vigilances/vigilances.php
+    retention: inconnue
+    status: actif
+    notes: JSON vigilance sur nginx2, accompagne le PNG.
+
+  - name: file://site-legacy/webroot/meteoalerte/cache/{zone}.png
+    format: png
+    producer: cron.meteoalerte-mise_en_cache-legacy
+    consumers:
+      - site-legacy:var/www/infoclimat.fr/v5/web/
+    retention: inconnue
+    status: actif
+    notes: >-
+      PNG vigilance sur site-legacy, produit par cron.meteoalerte-mise_en_cache-legacy
+      et cron.meteoalerte-mise_en_cache-v5.
+
+  - name: file://site-legacy/webroot/meteoalerte/cache/{zone}.txt
+    format: json
+    producer: cron.meteoalerte-mise_en_cache-legacy
+    consumers:
+      - site-legacy:var/www/infoclimat.fr/v5/web/
+    retention: inconnue
+    status: actif
+    notes: JSON vigilance sur site-legacy, accompagne le PNG.
+
+  - name: file://srx-modeles-2/modeles/run/worker*.pid
+    format: autre
+    producer: cron.worker-modeles.modeles2
+    consumers:
+      - cron.worker-modeles.modeles2
+    retention: inconnue
+    status: actif
+    notes: >-
+      Fichiers PID et queue du daemon worker-modeles.sh sur srx-modeles-2.
+      Également worker*.queue consommé par le même daemon.
+
+  # ── IMAGESERVER TMP ──────────────────────────────────────────────────────────
+  - name: file://datastore/imageserver/tmp
+    format: png
+    producer: inconnu
+    consumers:
+      - kestra.infoclimat.front.cron.clean-imageserver-tmp
+    retention: >-
+      Purge mtime +7 jours (Kestra front2) / +30 jours (nginx2) via
+      find *.png -mtime -delete (kestra.infoclimat.front.cron.clean-imageserver-tmp 04:12 UTC).
+    status: actif
+    notes: >-
+      Miniatures PNG générées par imageserver (redimensionnement à la volée).
+      Producteur : PHP imageserver — non tracé comme output fichier dans pipelines.yaml.
+
+  # ── BS IMAGES CACHE-RESIZE ───────────────────────────────────────────────────
+  - name: file://datastore/bs/images/cache-resize
+    format: png
+    producer: inconnu
+    consumers:
+      - kestra.infoclimat.front.cron.clean-bs-cache-resize
+    retention: >-
+      Purge mtime +20 jours (front2) / +30 jours (nginx2) via
+      find -mtime -delete (kestra.infoclimat.front.cron.clean-bs-cache-resize 04:39 UTC).
+    status: actif
+    notes: >-
+      Cache PNG des images bulletins spéciaux (BS) redimensionnées. Producteur :
+      PHP BS/imageserver — non tracé comme output fichier dans pipelines.yaml.
+
+  # ── IMAGES MF STATIONS ───────────────────────────────────────────────────────
+  - name: file://site-infoclimat/stations-meteo/static/meteofrance/{hash1}/{hash2}.png
+    format: png
+    producer: cron.image-mf
+    consumers:
+      - site-infoclimat:stations-meteo/
+      - nginx-config:www3.conf
+    retention: inconnue
+    status: actif
+    notes: >-
+      PNG des graphiques station MF (miniature portail MF), indexés par hash.
+      Servi via www3.infoclimat.fr (datastore:/site-infoclimat/stations-meteo).
+
+  # ── ARCHIVES MODIS LEGACY (site-legacy) ──────────────────────────────────────
+  - name: file://site-legacy/webroot/cartes/satellites/{YYYY}/{date}.jpg
+    format: jpg
+    producer: cron.sat_modis
+    consumers:
+      - site-legacy:var/www/infoclimat.fr/v5/web/satellites/
+    retention: inconnue
+    status: actif
+    notes: >-
+      JPG MODIS Terra/DLR Taurus archivés par date. Produit par cron.sat_modis
+      (site-legacy) — doublon probable avec kestra.infoclimat.front.cron.sat-modis.
+
+  # ── CARTES LEGACY (GIF/PNG site-legacy) ─────────────────────────────────────
+  - name: file://site-legacy/webroot/cartes/sat24.gif
+    format: png
+    producer: cron.image
+    consumers:
+      - site-legacy:var/www/infoclimat.fr/v5/web/cartes/
+    retention: inconnue
+    status: actif
+    notes: GIF satellite sat24 composite (Europe). Produit avec foudre.gif et radar.gif par cron.image.
+
+  - name: file://site-legacy/webroot/cartes/radar.gif
+    format: png
+    producer: cron.image
+    consumers:
+      - site-legacy:var/www/infoclimat.fr/v5/web/cartes/
+    retention: inconnue
+    status: actif
+    notes: GIF radar Europe (meteox.com). Produit par cron.image avec sat24 et foudre.
+
+  - name: file://site-legacy/webroot/cartes/foudre.gif
+    format: png
+    producer: cron.image
+    consumers:
+      - site-legacy:var/www/infoclimat.fr/v5/web/cartes/
+    retention: inconnue
+    status: actif
+    notes: GIF foudre Europe (meteocentre.com lightning). Produit par cron.image.
+
+  - name: file://site-legacy/webroot/cartes/compositions/radar_sat.0.png
+    format: png
+    producer: cron.image
+    consumers:
+      - site-legacy:var/www/infoclimat.fr/v5/web/cartes/
+    retention: inconnue
+    status: actif
+    notes: PNG composite radar+satellite France (site-legacy).
+
+  - name: file://site-legacy/webroot/cartes/sat/color.{n}.png
+    format: png
+    producer: cron.colorise
+    consumers:
+      - site-legacy:var/www/infoclimat.fr/v5/web/cartes/
+    retention: inconnue
+    status: actif
+    notes: PNG infrarouge colorisé sat24 site-legacy (equivalent de cartes/sat/color.{n}.png srx-data-2).
+
+  - name: file://site-legacy/webroot/cartes/radar/{n}.png
+    format: png
+    producer: cron.radar
+    consumers:
+      - site-legacy:var/www/infoclimat.fr/v5/web/cartes/
+    retention: inconnue
+    status: actif
+    notes: PNG radar Europe meteox (site-legacy), série numérotée.
+
+  - name: file://site-legacy/webroot/cartes/radar_dl.gif
+    format: png
+    producer: cron.radar
+    consumers:
+      - site-legacy:var/www/infoclimat.fr/v5/web/cartes/
+    retention: inconnue
+    status: actif
+    notes: GIF radar Europe téléchargeable (site-legacy).
+
+  - name: file://site-legacy/webroot/cartes/radiosondage.png
+    format: png
+    producer: cron.radioMap
+    consumers:
+      - site-legacy:var/www/infoclimat.fr/v5/web/cartes/
+    retention: inconnue
+    status: actif
+    notes: PNG de la carte de radiosondage (Meteocentre upperair).
+
+  # ── HISTORIQUE DES ÉVÉNEMENTS (cache fichiers) ───────────────────────────────
+  - name: file://site-legacy/webroot/historic/timeline/{period}/{hash}.txt
+    format: autre
+    producer: cron.historic
+    consumers:
+      - site-infoclimat:historic/details.php
+    retention: inconnue
+    status: actif
+    notes: Cache texte des chronologies historiques (par période et hash événement).
+
+  - name: file://site-legacy/webroot/historic/data/{periode}_{type}.xyz
+    format: autre
+    producer: cron.historic
+    consumers:
+      - site-infoclimat:historic/
+    retention: inconnue
+    status: actif
+    notes: Données XYZ (lat/lon/val) des séries historiques météo par période et type.
+
+  - name: file://site-legacy/webroot/historic/img/{periode}/{type}.txt
+    format: autre
+    producer: cron.historic
+    consumers:
+      - site-infoclimat:historic/
+    retention: inconnue
+    status: actif
+    notes: Métadonnées texte des images historiques (index légers).
+
+  # ── BANNIÈRES CLIMATIC ───────────────────────────────────────────────────────
+  - name: file://site-legacy/webroot/climatic/generated/{id_compte}/ban.last.png
+    format: png
+    producer: cron.climatic
+    consumers:
+      - site-legacy:var/www/infoclimat.fr/v5/web/climatic/
+    retention: inconnue
+    status: actif
+    notes: >-
+      PNG bannière climatique personnalisée par compte membre (site-legacy).
+      Equivalent sur srx-data-2 : cron.climatic.srx-data-2 → file://site-infoclimat/climatic/.
+
+  - name: file://site-infoclimat/climatic/generated/{id_compte}/ban.last.png
+    format: png
+    producer: cron.climatic.srx-data-2
+    consumers:
+      - site-infoclimat:climatic/
+    retention: inconnue
+    status: actif
+    notes: PNG bannière climatic par compte, version srx-data-2 (migration en cours).
+
+  # ── VIGNETTES STATIONS LEGACY ────────────────────────────────────────────────
+  - name: >-
+      file://site-legacy/webroot/include/vignettes/stations-meteo/{id}.html
+    format: autre
+    producer: cron.vignettes-v5-commented
+    consumers:
+      - site-legacy:var/www/infoclimat.fr/v5/web/include/
+    retention: inconnue
+    status: douteux
+    notes: >-
+      HTML de vignettes stations (site-legacy). Pipeline cron.vignettes-v5-commented
+      est commenté dans crontab (status douteux). Remplacé par file://datastore/vignettes.
+
+  # ── SYNOPS LEGACY (datas.txt) ────────────────────────────────────────────────
+  - name: file://site-legacy/webroot-www/data/metars_synops/datas.txt
+    format: autre
+    producer: cron.datas-synops-curl
+    consumers:
+      - site-legacy:var/www/infoclimat.fr/www/
+    retention: inconnue
+    status: douteux
+    notes: >-
+      Fichier texte flat des synops/metars (legacy, pre-v5). Pipeline datas-synops-curl
+      est douteux (source oleg-192.16.167.24 probablement morte).
+
+  # ── EVOTE DATA ───────────────────────────────────────────────────────────────
+  - name: file://datastore/evote/data
+    format: autre
+    producer: externe
+    consumers:
+      - site-infoclimat:vhost_asso/evote/index.php
+      - nginx-config:infoclimat.conf
+      - nginx interne (vhost asso)
+    retention: inconnue
+    status: actif
+    notes: >-
+      Bulletins de vote chiffrés/déchiffrés (evote asso). Producteur externe :
+      scripts evote (non cloné). Servi via alias nginx (datastore:/evote/data/).
+
+  # ── STOCKAGE INFOCLIMAT.NET (vidéos live / RTMP) ─────────────────────────────
+  - name: file://datastore/stockage.infoclimat.net
+    format: mixte
+    producer: inconnu
+    consumers:
+      - nginx-config:stockage.infoclimat.net.conf
+    retention: inconnue
+    status: douteux
+    notes: >-
+      Répertoire servi par nginx (stockage.infoclimat.net). Inclut
+      arome/ (RTMP record via nginx-rtmp). Producteur non identifié dans les clones.
+
+  # ── ARCHIVES (server5) ────────────────────────────────────────────────────────
+  - name: file://datastore/server5/archives.infoclimat.net
+    format: mixte
+    producer: inconnu
+    consumers:
+      - nginx-config:archives.infoclimat.net.conf
+      - nginx interne (vhost archives)
+    retention: inconnue
+    status: actif
+    notes: >-
+      Vhost archives.infoclimat.net (statique NFS read-only). Contient satellIC
+      (KNMI/EUMETSAT) et autres archives météo historiques. Producteurs spécifiques
+      déjà listés séparément (cron.knmi, cron.eumetsat).
+
+  # ── RÉANALYSES ────────────────────────────────────────────────────────────────
+  - name: file://datastore/server5/reanalyses.infoclimat.net
+    format: png
+    producer: inconnu
+    consumers:
+      - nginx-config:reanalyses.infoclimat.net.conf
+      - site-infoclimat:historic/details.php
+      - site-infoclimat:modeles/ncep.php
+    retention: inconnue
+    status: douteux
+    notes: >-
+      PNG des réanalyses NCEP/ERA-Interim (cartes pression/géopotentiel historiques).
+      Servi via nginx reanalyses.infoclimat.net. Producteur non identifié dans les
+      clones (pipeline externe, arrêté après 2017 ?).
+
+  # ── CARTES.INFOCLIMAT.NET ─────────────────────────────────────────────────────
+  - name: file://datastore/cartes.infoclimat.net
+    format: mixte
+    producer: inconnu
+    consumers:
+      - nginx-config:cartes.infoclimat.net.conf
+      - nginx interne (vhost cartes)
+    retention: inconnue
+    status: douteux
+    notes: >-
+      Vhost cartes.infoclimat.net (statique NFS). Contient historic/tiles.cache
+      (tuiles carte historique). Producteur non identifié dans les clones.
+
+  # ── WWW3.INFOCLIMAT.FR ────────────────────────────────────────────────────────
+  - name: file://datastore/www3.infoclimat.fr
+    format: mixte
+    producer: inconnu
+    consumers:
+      - nginx-config:www3.infoclimat.fr.conf
+      - nginx interne (vhost www3)
+    retention: inconnue
+    status: douteux
+    notes: >-
+      Vhost www3.infoclimat.fr (statique NFS, ancien serveur). Producteur non
+      identifié dans les clones.
+
+  # ── EU-DEM RELIEF (fs1, mapserver) ───────────────────────────────────────────
+  - name: file://datastore/mapserver/EU-DEM
+    format: geotiff
+    producer: externe
+    consumers:
+      - mapserver:coastlines_relief.map
+      - mapserver:relief_brut.map
+    retention: inconnue
+    status: actif
+    notes: >-
+      MNT EU-DEM v1.1 (European Digital Elevation Model, Copernicus). Fichiers
+      eu_dem_v11_E30N20_EPSG3857.img et EU-DEM.vrt. Montés via le montage legacy fs1 (varwwwmapserver/)
+      (NFS fs1 sur srx-mapserver-2). Données statiques, producteur externe (Copernicus/EEA).
+
+  # ── SHAPEFILES MODÈLES MAPSERVER ─────────────────────────────────────────────
+  - name: file://datastore/mapserver/map
+    format: autre
+    producer: inconnu
+    consumers:
+      - mapserver:MDLiso.map
+      - mapserver:MDLraster.map
+      - mapserver:MDLvector.map
+      - mapserver:MDLbarbs.map
+      - mapserver:singleMDLiso.map
+    retention: inconnue
+    status: actif
+    notes: >-
+      Shapefiles masque modèles NWP (arome{N}_900913.shp, arpege{N}_900913.shp)
+      référencés par les mapfiles MDL*/singleMDL*. Producteur non identifié
+      (générés hors clones ou livrés avec mapserver). Monté dans le conteneur mapserver (map/)
+      via docker mapserver.
+
+  # ── VHOSTS STATIQUES NGINX (ajout post-revue) ────────────────────────────
+  - name: file://datastore/site-infoclimat/vhost_archives
+    format: mixte
+    producer: inconnu
+    consumers:
+      - nginx interne (vhost archives-meteo)
+    retention: inconnue
+    status: actif
+    notes: >-
+      Racine statique du vhost archives-meteo.fr (root nginx, MR infrapilot !27).
+      Équivaut à webroot/vhost_archives côté front2.
+      Producteur non identifié dans les clones (contenu historique).
+
+  - name: file://modeles/modeles.infoclimat.net
+    format: mixte
+    producer: cron.worker-modeles.modeles2
+    consumers:
+      - nginx interne (vhost archives)
+    retention: inconnue
+    status: actif
+    notes: >-
+      Vue NFS du stockage modèles de srx-modeles-2 (namespace file://modeles), accessible aux frontaux
+      (MR infrapilot !23) — sert wrf.infoclimat.net en natif. Même contenu physique
+      que file://srx-modeles-2/vhost-modeles (sorties des chaînes
+      modèles, workers NCL).

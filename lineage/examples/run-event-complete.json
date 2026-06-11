@@ -1,0 +1,25 @@
+{
+  "eventType": "COMPLETE",
+  "eventTime": "2026-06-05T08:30:00.000Z",
+  "producer": "https://github.com/infoclimat/site-infoclimat",
+  "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/definitions/RunEvent",
+  "run": {
+    "runId": "0190a8b0-1111-7000-8000-000000000001"
+  },
+  "job": {
+    "namespace": "cron://infoclimat",
+    "name": "cron.load_data_mf"
+  },
+  "inputs": [
+    {
+      "namespace": "api://meteofrance",
+      "name": "paquets-observations"
+    }
+  ],
+  "outputs": [
+    {
+      "namespace": "timescaledb://infoclimat",
+      "name": "InfrahoraireTempsReel"
+    }
+  ]
+}

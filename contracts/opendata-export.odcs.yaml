@@ -1,0 +1,203 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:opendata-export
+name: Export OpenData Infoclimat (v2)
+version: 0.1.0
+status: active
+domain: opendata
+dataProduct: opendata
+
+description:
+  purpose: >-
+    Export public des observations (StatIC, Synop, Météo-France) servi par opendata-v2/.
+    C'est la promesse contractuelle de l'association vis-à-vis des consommateurs externes
+    (chercheurs, partenaires, particuliers) : ce contrat est le plus engageant des trois.
+  usage: >-
+    Téléchargement CSV/JSON authentifié (clé API, reCAPTCHA pour le manuel, conventions
+    spéciales Météo-France/ROMMA/AOC Ventoux). Une ligne par (id_station, dh_utc), colonnes
+    = paramètres demandés. Profondeur d'historique : depuis 1996-01-01. Les unités sont
+    celles documentées ci-dessous (conventions Infoclimat : °C, hPa, km/h, mm) quelle que
+    soit la source amont.
+  limitations: >-
+    Les stations exposées dépendent de la licence du propriétaire (flag commercial) et de
+    la whitelist opendata-v2/authorized-stations.inc.php. Paramètres non disponibles selon
+    la source (cf. STATIC_PARAMS / SYNOP_PARAMS / METEOFRANCE_PARAMS dans
+    opendata-v2/common.inc.php). Rate limiting et bans IP appliqués.
+
+tags:
+  - meteo
+  - export
+  - opendata
+  - public
+
+servers:
+  - server: opendata-v2-api
+    type: api
+    environment: production
+    location: https://www.infoclimat.fr/opendata/
+
+schema:
+  - name: opendata_export
+    physicalType: view
+    description: >-
+      Vue logique de l'export : agrégation multi-sources (StatIC, Synop, MF) aplatie aux
+      conventions Infoclimat. Les types physiques sont ceux de la sérialisation CSV/JSON.
+    properties:
+      - name: id_station
+        physicalType: VARCHAR
+        logicalType: string
+        description: Identifiant station (StatIC, OMM ou MF selon le réseau)
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 1
+      - name: dh_utc
+        physicalType: DATETIME
+        logicalType: date
+        description: Date et heure de la mesure (UTC)
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 2
+      - name: temperature
+        physicalType: DECIMAL
+        logicalType: number
+        description: Température sous abri
+        customProperties:
+          - property: unit
+            value: °C
+      - name: pression
+        physicalType: DECIMAL
+        logicalType: number
+        description: Pression niveau mer
+        customProperties:
+          - property: unit
+            value: hPa
+      - name: humidite
+        physicalType: INT
+        logicalType: integer
+        description: Humidité relative
+        customProperties:
+          - property: unit
+            value: '%'
+      - name: point_de_rosee
+        physicalType: DECIMAL
+        logicalType: number
+        description: Point de rosée
+        customProperties:
+          - property: unit
+            value: °C
+      - name: visibilite
+        physicalType: INT
+        logicalType: integer
+        description: Visibilité horizontale
+        customProperties:
+          - property: unit
+            value: m
+      - name: vent_moyen
+        physicalType: DECIMAL
+        logicalType: number
+        description: Vent moyen
+        customProperties:
+          - property: unit
+            value: km/h
+      - name: vent_rafales
+        physicalType: DECIMAL
+        logicalType: number
+        description: Rafale maximale
+        customProperties:
+          - property: unit
+            value: km/h
+      - name: vent_direction
+        physicalType: INT
+        logicalType: integer
+        description: Direction du vent (rose de 360)
+        customProperties:
+          - property: unit
+            value: deg
+      - name: pluie_1h
+        physicalType: DECIMAL
+        logicalType: number
+        description: Précipitations sur 1 h
+        customProperties:
+          - property: unit
+            value: mm
+      - name: pluie_3h
+        physicalType: DECIMAL
+        logicalType: number
+        description: Précipitations sur 3 h
+        customProperties:
+          - property: unit
+            value: mm
+      - name: pluie_cumul_0h
+        physicalType: DECIMAL
+        logicalType: number
+        description: Précipitations cumulées depuis 0 h UTC
+        customProperties:
+          - property: unit
+            value: mm
+      - name: radiations
+        physicalType: DECIMAL
+        logicalType: number
+        description: Rayonnement solaire
+        customProperties:
+          - property: unit
+            value: W/m2
+      - name: neige_au_sol
+        physicalType: DECIMAL
+        logicalType: number
+        description: Épaisseur de neige au sol
+        customProperties:
+          - property: unit
+            value: cm
+      - name: nebulosite
+        physicalType: INT
+        logicalType: integer
+        description: Nébulosité totale
+        customProperties:
+          - property: unit
+            value: octa
+      - name: temps_omm
+        physicalType: INT
+        logicalType: integer
+        description: Code temps présent OMM
+      - name: source
+        physicalType: VARCHAR
+        logicalType: string
+        description: Canal d'acquisition amont (cf. contrat static-stations-obs)
+    quality:
+      - rule: uniqueness
+        description: Une seule ligne par (id_station, dh_utc) et par export
+        severity: error
+      - rule: completeness
+        description: >-
+          Toute station whitelistée et active sur la période demandée doit apparaître
+          dans l'export (vérifiable par comptage vs sources amont)
+        severity: warning
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat
+
+support:
+  - channel: opendata
+    tool: email
+    url: mailto:pamahe@proton.me
+
+slaProperties:
+  - property: frequency
+    value: continu (données disponibles dès ingestion amont)
+    description: Fraîcheur de l'export par rapport aux sources
+  - property: timeOfAvailability
+    value: depuis 1996-01-01
+    description: Profondeur d'historique garantie
+  - property: format
+    value: CSV, JSON (parquet envisagé via une future data API)
+    description: Formats de sérialisation
+
+customProperties:
+  - property: lineageJob
+    value: api://infoclimat:opendata-v2.export
+  - property: upstreamContracts
+    value: urn:infoclimat:contract:static-stations-obs, urn:infoclimat:contract:infrahoraire-mf
+  - property: accessControl
+    value: clé API / reCAPTCHA / whitelist (opendata-v2/authorized-stations.inc.php), licence commerciale ou non par station

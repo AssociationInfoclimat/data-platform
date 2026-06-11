@@ -1,0 +1,85 @@
+# Template de contrat de données Infoclimat — Open Data Contract Standard v3
+# Copier ce fichier, remplacer les <placeholders>, supprimer les commentaires de guidage.
+# Validation : datacontract lint <fichier>
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:<nom-du-dataset>
+name: <Nom lisible du dataset>
+version: 0.1.0 # semver : MAJOR = rupture de schéma, MINOR = ajout compatible, PATCH = doc/qualité
+status: draft # draft | active | deprecated | retired
+domain: <observations|climatologie|opendata|previsions>
+dataProduct: <nom du produit data auquel le dataset appartient>
+
+description:
+  purpose: <Pourquoi ce dataset existe, pour qui>
+  usage: <Comment le consommer correctement (granularité, fuseaux, unités)>
+  limitations: <Ce que le dataset ne garantit PAS (trous, latence, stations mobiles...)>
+
+tags:
+  - meteo
+  - <time-series|referentiel|export>
+
+servers:
+  - server: <prod-timescaledb|prod-mariadb>
+    type: <postgres|mysql>
+    environment: production
+    host: ${DB_HOST} # jamais de valeur en dur : résolu par l'environnement
+    port: <5432|3306>
+    database: <nom de la base>
+    schema: <schema postgres ou base mysql>
+
+schema:
+  - name: <nom_table>
+    physicalName: <"NomPhysique" si différent (casse Postgres)>
+    physicalType: table
+    description: <rôle de la table>
+    properties:
+      - name: <colonne>
+        physicalType: <TEXT|REAL|INTEGER|TIMESTAMPTZ|VARCHAR(n)...>
+        logicalType: <string|number|integer|date|boolean>
+        description: <description métier, reprendre include/MeteoFrance/docs/*.txt>
+        required: true # pour les clés et le timestamp
+        unique: false
+        primaryKey: false
+        primaryKeyPosition: -1
+        # IMPORTANT météo : toujours déclarer l'unité — les sources mélangent K/°C, Pa/hPa, m/s/km/h
+        customProperties:
+          - property: unit
+            value: <K|°C|Pa|hPa|mm|m/s|km/h|%|deg|octa|m|mn|J/m2|W/m2>
+        quality:
+          - rule: validValues # ou bornes physiques
+            description: <ex. température plausible>
+            mustBeGreaterOrEqualTo: <borne basse>
+            mustBeLessOrEqualTo: <borne haute>
+            severity: error # error = rejet/alerte, warning = signalement
+    quality:
+      - rule: uniqueness
+        description: <unicité de la clé temporelle, ex. (station, timestamp)>
+        severity: error
+      - rule: freshness
+        description: <fraîcheur attendue, ex. donnée la plus récente < 2h>
+        severity: warning
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+slaProperties:
+  - property: frequency
+    value: <ex. 6 minutes | 1 hour | 1 day>
+    description: Fréquence de rafraîchissement du dataset
+  - property: retention
+    value: <ex. illimitée hot | 5 ans hot puis cold storage>
+    description: Politique de rétention
+
+customProperties:
+  - property: lineageJob
+    value: <namespace>:<job> # ex. cron://infoclimat:cron.load_data_mf — cf. lineage/namespaces.md
+  - property: retroCompatLayer
+    value: <chemin de la couche PHP dual-source, ex. include/MeteoFrance/infrahoraires.php>

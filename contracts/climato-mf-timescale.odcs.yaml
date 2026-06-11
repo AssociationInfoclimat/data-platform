@@ -1,0 +1,165 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:climato-mf-timescale
+name: Vues matérialisées climatologiques (TimescaleDB)
+version: 0.1.0
+status: draft # schéma partiel par construction — colonnes à compléter après export du DDL (runbook §3)
+domain: climato
+dataProduct: climatologie-temps-reel
+
+description:
+  purpose: >-
+    Agrégats climatologiques temps réel (quotidiens, mensuels, records, indicateur
+    national) calculés en vues matérialisées TimescaleDB à partir des observations
+    infrahoraires et horaires Météo-France. Évite de recalculer les agrégats à chaque
+    requête des pages climato et de l'API mobile.
+  usage: >-
+    Vues rafraîchies par les flows Kestra db.dataclimat.* (REFRESH MATERIALIZED VIEW
+    CONCURRENTLY) — toutes les 6 min pour les 4 vues realtime, toutes les 15 min pour
+    mv_records_battus. Les valeurs héritent des unités SI d'InfrahoraireTempsReel
+    (Kelvin, Pa, m/s) : conversion à la charge du consommateur, voir le glossaire.
+  limitations: >-
+    Les définitions des vues (colonnes, agrégations) ne sont PAS versionnées — elles
+    n'existent qu'en base : ce contrat ne décrit pas les colonnes tant que le DDL n'est pas exporté (catalogue
+    Timescale, runbook §3) n'a pas exporté les définitions. mv_records_battus_realtime
+    existe mais n'est PLUS rafraîchie (flow désactivé) : données figées, ne pas consommer.
+    Latence de 6 à 15 min par rapport aux observations. Aucun reader tracé dans
+    site-infoclimat (lecture présumée via l'API TimescaleDB, php-fpm-7_4-timescale-api).
+
+tags:
+  - meteo
+  - climato
+  - agregats
+  - timescaledb
+  - vues-materialisees
+
+servers:
+  - server: prod-timescaledb
+    type: postgres
+    environment: production
+    host: ${TIMESCALEDB_HOST}
+    port: 5432
+    database: postgres # base ciblée par les flows de refresh (psql -d postgres) — à réconcilier avec la base infoclimat du contrat infrahoraire-mf
+    schema: public
+
+schema:
+  - name: mv_quotidienne_realtime
+    physicalType: view
+    description: >-
+      Vue matérialisée — agrégats quotidiens temps réel par station (tn/tx/rr présumés).
+      Colonnes non versionnées : à compléter après export du DDL.
+    quality:
+      - rule: freshness
+        description: Rafraîchie toutes les 6 min (db.dataclimat.refresh-materialized-views)
+        severity: warning
+    customProperties:
+      - property: schemaSource
+        value: définition en base uniquement — export DDL prévu (introspect_runbook.md §3)
+      - property: refreshFlow
+        value: kestra://infoclimat:db.dataclimat.refresh-materialized-views (cron */6 min)
+
+  - name: mv_mensuelle_realtime
+    physicalType: view
+    description: >-
+      Vue matérialisée — agrégats mensuels temps réel par station.
+      Colonnes non versionnées : à compléter après export du DDL.
+    quality:
+      - rule: freshness
+        description: Rafraîchie toutes les 6 min (db.dataclimat.refresh-materialized-views)
+        severity: warning
+    customProperties:
+      - property: schemaSource
+        value: définition en base uniquement — export DDL prévu (introspect_runbook.md §3)
+      - property: refreshFlow
+        value: kestra://infoclimat:db.dataclimat.refresh-materialized-views (cron */6 min)
+
+  - name: mv_records_absolus_par_mois
+    physicalType: view
+    description: >-
+      Vue matérialisée — records absolus par mois et par station.
+      Colonnes non versionnées : à compléter après export du DDL.
+    quality:
+      - rule: freshness
+        description: Rafraîchie toutes les 6 min (db.dataclimat.refresh-materialized-views)
+        severity: warning
+    customProperties:
+      - property: schemaSource
+        value: définition en base uniquement — export DDL prévu (introspect_runbook.md §3)
+      - property: refreshFlow
+        value: kestra://infoclimat:db.dataclimat.refresh-materialized-views (cron */6 min)
+
+  - name: mv_itn_daily_all_years
+    physicalType: view
+    description: >-
+      Vue matérialisée — indicateur thermique national journalier, toutes années.
+      Colonnes non versionnées : à compléter après export du DDL.
+    quality:
+      - rule: freshness
+        description: Rafraîchie toutes les 6 min (db.dataclimat.refresh-materialized-views)
+        severity: warning
+    customProperties:
+      - property: schemaSource
+        value: définition en base uniquement — export DDL prévu (introspect_runbook.md §3)
+      - property: refreshFlow
+        value: kestra://infoclimat:db.dataclimat.refresh-materialized-views (cron */6 min)
+
+  - name: mv_records_battus
+    physicalType: view
+    description: >-
+      Vue matérialisée — records battus (comparaison historique).
+      Colonnes non versionnées : à compléter après export du DDL.
+    quality:
+      - rule: freshness
+        description: Rafraîchie toutes les 15 min (db.dataclimat.refresh-mv-records-battus)
+        severity: warning
+    customProperties:
+      - property: schemaSource
+        value: définition en base uniquement — export DDL prévu (introspect_runbook.md §3)
+      - property: refreshFlow
+        value: kestra://infoclimat:db.dataclimat.refresh-mv-records-battus (cron */15 min)
+
+  - name: mv_records_battus_realtime
+    physicalType: view
+    description: >-
+      Vue matérialisée — records battus temps réel. OBSOLÈTE : le flow de refresh est
+      désactivé, la vue existe mais ses données sont figées. Ne pas consommer ;
+      candidate à suppression après arbitrage.
+    customProperties:
+      - property: schemaSource
+        value: définition en base uniquement — export DDL prévu (introspect_runbook.md §3)
+      - property: refreshFlow
+        value: kestra://infoclimat:db.dataclimat.refresh-mv-records-battus-realtime (DÉSACTIVÉ — status mort)
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+slaProperties:
+  - property: frequency
+    value: 6 minutes (vues realtime) / 15 minutes (mv_records_battus)
+    description: Pas de rafraîchissement des vues matérialisées
+  - property: retention
+    value: vues recalculées — la rétention est celle des hypertables sources (Infrahoraire, Horaire)
+    description: Politique de rétention
+
+customProperties:
+  - property: lineageJob
+    value: >-
+      kestra://infoclimat:db.dataclimat.refresh-materialized-views ;
+      kestra://infoclimat:db.dataclimat.refresh-mv-records-battus
+  - property: upstreamDatasets
+    value: timescaledb://infoclimat/Infrahoraire, timescaledb://infoclimat/Horaire (contrats infrahoraire-mf, horaire-mf-timescale)
+  - property: schemaSource
+    value: >-
+      infrapilot:roles/applications/scheduler/files/flows/infoclimat.db.dataclimat.*.yml
+      (REFRESH uniquement — définitions des vues non versionnées, export DDL requis)
+  - property: refreshCaveat
+    value: >-
+      REFRESH MATERIALIZED VIEW CONCURRENTLY requiert un index unique par vue ; surveiller
+      les latences de refresh à mesure que les hypertables grossissent (cf. fiche catalogue)

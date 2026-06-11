@@ -1,0 +1,177 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:foudre
+name: Données foudre (impacts temps réel)
+version: 0.1.0
+status: draft # validation contre le DDL réel à venir
+domain: foudre
+dataProduct: foudre-temps-reel
+
+description:
+  purpose: >-
+    Impacts de foudre temps réel agrégés depuis des réseaux de détection tiers
+    (Meteocentre, historiquement Blitzortung). Alimente la carte foudre temps réel,
+    les notifications push mobiles (éclair à proximité) et les statistiques d'orages.
+  usage: >-
+    Lire via include/Foudre/ (cartes) ou les requêtes géo de cron/notif_foudre.php
+    (distance haversine sur lat/lon). dh est en UTC. ATTENTION : dh_usec contient des
+    MILLISECONDES malgré son nom (round(fraction*1000), cf. cron/recup_blitzortung.php:81).
+    La déduplication se fait par la colonne key (md5 position+temps), pas par (dh, lat, lon).
+  limitations: >-
+    L'absence de données n'est PAS une panne (pas d'orage = pas de ligne) : aucune règle
+    de fraîcheur applicable. Rétention inconnue — aucun script de purge trouvé.
+    Le flux Blitzortung est mort (accès modifié ~2023) ; le writer actif présumé
+    (cron/recup_foudre.php, source Meteocentre) est absent des clones — douteux, à
+    confirmer par la vérité terrain de l'hôte. Sur le flux Blitzortung historique, intensite et
+    dev étaient codés en dur à 0 : ne pas s'appuyer sur ces colonnes sans vérifier la source.
+
+tags:
+  - meteo
+  - time-series
+  - foudre
+  - mariadb
+
+servers:
+  - server: prod-mariadb
+    type: mysql
+    environment: production
+    host: ${DB_HOST}
+    port: 3306
+    database: V5
+
+schema:
+  - name: foudre
+    physicalType: table
+    description: >-
+      Impacts de foudre, une ligne par impact détecté. Colonnes relevées sur l'INSERT
+      de cron/recup_blitzortung.php:31 (writer mort mais même table) ; types et clé
+      primaire à confirmer contre le DDL réel.
+    properties:
+      - name: dh
+        physicalType: DATETIME
+        logicalType: date
+        description: Date et heure de l'impact (UTC, seconde entière)
+        required: true
+      - name: dh_usec
+        physicalType: INT
+        logicalType: integer
+        description: >-
+          Fraction de seconde de l'impact. PIÈGE — contient des millisecondes (0-999)
+          malgré le nom "usec" (recup_blitzortung.php:81).
+        customProperties:
+          - property: unit
+            value: ms
+        quality:
+          - rule: validValues
+            description: Millisecondes dans la seconde
+            mustBeGreaterOrEqualTo: 0
+            mustBeLessOrEqualTo: 999
+            severity: warning
+      - name: key
+        physicalType: VARCHAR(32)
+        logicalType: string
+        description: >-
+          Clé de déduplication — md5(lat, lon, zone, dh_usec, dh, str). Utilisée aussi
+          pour ne pas renvoyer deux fois la même notification push.
+        required: true
+        unique: true
+      - name: lat
+        physicalType: DOUBLE
+        logicalType: number
+        description: Latitude de l'impact, négative au sud
+        required: true
+        customProperties:
+          - property: unit
+            value: deg
+        quality:
+          - rule: validValues
+            description: Latitude plausible
+            mustBeGreaterOrEqualTo: -90
+            mustBeLessOrEqualTo: 90
+            severity: error
+      - name: lon
+        physicalType: DOUBLE
+        logicalType: number
+        description: Longitude de l'impact, négative à l'ouest de Greenwich
+        required: true
+        customProperties:
+          - property: unit
+            value: deg
+        quality:
+          - rule: validValues
+            description: Longitude plausible
+            mustBeGreaterOrEqualTo: -180
+            mustBeLessOrEqualTo: 180
+            severity: error
+      - name: alt
+        physicalType: INT
+        logicalType: integer
+        description: Altitude estimée de l'impact (souvent 0 — détection sol)
+        customProperties:
+          - property: unit
+            value: m
+      - name: intensite
+        physicalType: INT
+        logicalType: integer
+        description: >-
+          Intensité du courant de crête. 0 en dur sur le flux Blitzortung historique ;
+          renseignement par la source Meteocentre à confirmer.
+        customProperties:
+          - property: unit
+            value: kA
+      - name: dev
+        physicalType: INT
+        logicalType: integer
+        description: >-
+          Déviation / erreur de localisation estimée. 0 en dur sur le flux Blitzortung
+          historique.
+        customProperties:
+          - property: unit
+            value: m
+      - name: type
+        physicalType: INT
+        logicalType: integer
+        description: >-
+          Type/polarité de l'impact (champ pol du JSON Blitzortung ; sémantique
+          intra-nuage vs nuage-sol à confirmer).
+      - name: stations
+        physicalType: TEXT
+        logicalType: string
+        description: >-
+          Liste des identifiants de stations de détection ayant contribué à la
+          localisation, séparés par des virgules.
+    quality:
+      - rule: uniqueness
+        description: Un impact unique par key (déduplication md5 position+temps)
+        severity: error
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+slaProperties:
+  - property: frequency
+    value: 2 minutes (en épisode orageux)
+    description: Pas de récupération nominal — pas de données hors orage
+  - property: retention
+    value: inconnue — aucun script de purge trouvé, à trancher
+    description: Politique de rétention
+
+customProperties:
+  - property: lineageJob
+    value: >-
+      cron://infoclimat:cron.recup-foudre (writer actif présumé, script absent du clone —
+      douteux) ; cron://infoclimat:cron.recup-blitzortung (mort) ; consommateurs
+      cron://infoclimat:cron.foudre (tuiles) et kestra://infoclimat:appli.notif.notif-foudre
+  - property: retroCompatLayer
+    value: include/Foudre/ (cartes), mobile-api/ (endpoint foudre)
+  - property: schemaSource
+    value: >-
+      cron/recup_blitzortung.php:31 (INSERT INTO V5.foudre) + usages consommateurs
+      (cartes/stats_foudre.php:35, cron/notif_foudre.php:88) — DDL réel attendu

@@ -1,0 +1,336 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:infrahoraire-mf
+name: Observations infrahoraires Météo-France
+version: 0.1.0
+status: active
+domain: observations
+dataProduct: observations-temps-reel
+
+description:
+  purpose: >-
+    Observations infrahoraires (pas 6 minutes) des stations Météo-France, stockées dans
+    TimescaleDB. Source prioritaire du pattern dual-source (fallback MySQL mf_data) pour
+    les cartes, les tableaux stations-meteo, la mobile-api et les agrégats climato.
+  usage: >-
+    Lire via la couche include/MeteoFrance/infrahoraires.php (get_infrahoraires_from_at,
+    get_infrahoraires_from_between) ou combined.php. Les timestamps sont en UTC ISO-8601.
+    ATTENTION aux unités : la table temps réel (InfrahoraireTempsReel) est en unités SI
+    (Kelvin, Pa, m/s), la table historique (Infrahoraire) suit les conventions MF
+    (°C et 1/10, mm et 1/10). Conversion à la charge du consommateur.
+  limitations: >-
+    Couverture limitée aux stations MF. Les données temps réel peuvent être révisées par
+    la passe historique. Pas de garantie de complétude par station (pannes capteurs).
+    La jointure Infrahoraire/InfrahoraireTempsReel se fait sur NUM_POSTE = geo_id_insee
+    tronqué à 7 caractères + précision : voir glossaire.
+
+tags:
+  - meteo
+  - time-series
+  - meteo-france
+  - timescaledb
+
+servers:
+  - server: prod-timescaledb
+    type: postgres
+    environment: production
+    host: ${TIMESCALEDB_HOST}
+    port: 5432
+    database: infoclimat
+    schema: public
+
+schema:
+  - name: infrahoraire
+    physicalName: Infrahoraire
+    physicalType: table
+    description: >-
+      Données infrahoraires MF historiques consolidées (fichiers climatologiques MF,
+      pas 6 minutes). Conventions MF : °C et 1/10, mm et 1/10.
+    properties:
+      - name: NUM_POSTE
+        physicalType: TEXT
+        logicalType: string
+        description: Numéro Météo-France du poste sur 8 chiffres
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 1
+      - name: NOM_USUEL
+        physicalType: TEXT
+        logicalType: string
+        description: Nom usuel du poste
+      - name: LAT
+        physicalType: REAL
+        logicalType: number
+        description: Latitude, négative au sud
+        customProperties:
+          - property: unit
+            value: deg
+        quality:
+          - rule: validValues
+            description: Latitude plausible (France métropolitaine et outre-mer)
+            mustBeGreaterOrEqualTo: -90
+            mustBeLessOrEqualTo: 90
+            severity: error
+      - name: LON
+        physicalType: REAL
+        logicalType: number
+        description: Longitude, négative à l'ouest de Greenwich
+        customProperties:
+          - property: unit
+            value: deg
+        quality:
+          - rule: validValues
+            description: Longitude plausible
+            mustBeGreaterOrEqualTo: -180
+            mustBeLessOrEqualTo: 180
+            severity: error
+      - name: ALTI
+        physicalType: REAL
+        logicalType: number
+        description: Altitude du pied de l'abri ou du pluviomètre si pas d'abri
+        customProperties:
+          - property: unit
+            value: m
+      - name: AAAAMMJJHHMN
+        physicalType: TIMESTAMPTZ
+        logicalType: date
+        description: Date et heure de la mesure (UTC), clé temporelle de l'hypertable
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 2
+      - name: RR
+        physicalType: REAL
+        logicalType: number
+        description: Quantité de précipitation tombée en 6 minutes
+        customProperties:
+          - property: unit
+            value: mm
+        quality:
+          - rule: validValues
+            description: Cumul 6 min physiquement plausible
+            mustBeGreaterOrEqualTo: 0
+            mustBeLessOrEqualTo: 100
+            severity: error
+      - name: T
+        physicalType: REAL
+        logicalType: number
+        description: Température sous abri instantanée (convention MF)
+        customProperties:
+          - property: unit
+            value: °C
+        quality:
+          - rule: validValues
+            description: Température plausible en France (records -41°C / +46°C élargis)
+            mustBeGreaterOrEqualTo: -60
+            mustBeLessOrEqualTo: 55
+            severity: error
+    quality:
+      - rule: uniqueness
+        description: Une seule ligne par (NUM_POSTE, AAAAMMJJHHMN)
+        severity: error
+
+  - name: infrahoraire_temps_reel
+    physicalName: InfrahoraireTempsReel
+    physicalType: table
+    description: >-
+      Données infrahoraires MF temps réel (paquets "observations" MF, pas 6 minutes).
+      Unités SI — Kelvin, Pa, m/s — différentes de la table historique.
+    properties:
+      - name: geo_id_insee
+        physicalType: TEXT
+        logicalType: string
+        description: >-
+          ID du point au format ddnnnpp (dd = département, nnn = commune, ddnnn = code
+          Insee, pp = précision du site). Joint à NUM_POSTE côté historique.
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 1
+      - name: lat
+        physicalType: REAL
+        logicalType: number
+        description: Latitude en degrés
+        customProperties:
+          - property: unit
+            value: deg
+      - name: lon
+        physicalType: REAL
+        logicalType: number
+        description: Longitude en degrés
+        customProperties:
+          - property: unit
+            value: deg
+      - name: reference_time
+        physicalType: TIMESTAMPTZ
+        logicalType: date
+        description: Date/heure de production de la donnée (UTC)
+      - name: insert_time
+        physicalType: TIMESTAMPTZ
+        logicalType: date
+        description: Date/heure d'insertion en base (UTC)
+      - name: validity_time
+        physicalType: TIMESTAMPTZ
+        logicalType: date
+        description: Date/heure de validité de la donnée (UTC), clé temporelle
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 2
+      - name: t
+        physicalType: REAL
+        logicalType: number
+        description: Température de l'air à 2 m au-dessus du sol
+        customProperties:
+          - property: unit
+            value: K
+        quality:
+          - rule: validValues
+            description: Température plausible en Kelvin (≈ -60°C à +55°C)
+            mustBeGreaterOrEqualTo: 213.15
+            mustBeLessOrEqualTo: 328.15
+            severity: error
+      - name: u
+        physicalType: INTEGER
+        logicalType: integer
+        description: Humidité relative à 2 m
+        customProperties:
+          - property: unit
+            value: '%'
+        quality:
+          - rule: validValues
+            description: Pourcentage d'humidité
+            mustBeGreaterOrEqualTo: 0
+            mustBeLessOrEqualTo: 100
+            severity: error
+      - name: dd
+        physicalType: INTEGER
+        logicalType: integer
+        description: Direction du vent moyen à 10 m
+        customProperties:
+          - property: unit
+            value: deg
+        quality:
+          - rule: validValues
+            description: Rose de 360
+            mustBeGreaterOrEqualTo: 0
+            mustBeLessOrEqualTo: 360
+            severity: error
+      - name: ff
+        physicalType: REAL
+        logicalType: number
+        description: Vitesse du vent moyen à 10 m
+        customProperties:
+          - property: unit
+            value: m/s
+        quality:
+          - rule: validValues
+            description: Record mondial de rafale ≈ 113 m/s, vent moyen en deçà
+            mustBeGreaterOrEqualTo: 0
+            mustBeLessOrEqualTo: 120
+            severity: error
+      - name: fxi10
+        physicalType: REAL
+        logicalType: number
+        description: Rafale maximale sur 10 minutes à 10 m
+        customProperties:
+          - property: unit
+            value: m/s
+      - name: dxi10
+        physicalType: INTEGER
+        logicalType: integer
+        description: Direction de la rafale maximale sur 10 minutes
+        customProperties:
+          - property: unit
+            value: deg
+      - name: rr_per
+        physicalType: REAL
+        logicalType: number
+        description: Précipitations sur les 6 dernières minutes
+        customProperties:
+          - property: unit
+            value: mm
+        quality:
+          - rule: validValues
+            description: Cumul 6 min physiquement plausible
+            mustBeGreaterOrEqualTo: 0
+            mustBeLessOrEqualTo: 100
+            severity: error
+      - name: t_10
+        physicalType: REAL
+        logicalType: number
+        description: Température à 10 cm sous le sol
+        customProperties:
+          - property: unit
+            value: K
+      - name: t_20
+        physicalType: REAL
+        logicalType: number
+        description: Température à 20 cm sous le sol
+        customProperties:
+          - property: unit
+            value: K
+      - name: t_50
+        physicalType: REAL
+        logicalType: number
+        description: Température à 50 cm sous le sol
+        customProperties:
+          - property: unit
+            value: K
+      - name: t_100
+        physicalType: REAL
+        logicalType: number
+        description: Température à 1 m sous le sol
+        customProperties:
+          - property: unit
+            value: K
+      - name: vv
+        physicalType: INTEGER
+        logicalType: integer
+        description: Visibilité horizontale
+        customProperties:
+          - property: unit
+            value: m
+      - name: etat_sol
+        physicalType: INTEGER
+        logicalType: integer
+        description: Code état du sol (table SOL, cf. docs MF)
+      - name: sss
+        physicalType: REAL
+        logicalType: number
+        description: Épaisseur totale de neige au sol
+        customProperties:
+          - property: unit
+            value: m
+    quality:
+      - rule: uniqueness
+        description: Une seule ligne par (geo_id_insee, validity_time)
+        severity: error
+      - rule: freshness
+        description: La donnée la plus récente doit dater de moins de 30 minutes
+        severity: warning
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+slaProperties:
+  - property: frequency
+    value: 6 minutes
+    description: Pas temporel nominal des observations
+  - property: retention
+    value: illimitée (hot), cold storage parquet envisagé
+    description: Politique de rétention
+
+customProperties:
+  - property: lineageJob
+    value: cron://infoclimat:cron.load_data_mf
+  - property: retroCompatLayer
+    value: include/MeteoFrance/infrahoraires.php
+  - property: fallbackSource
+    value: mariadb://mf_data (pattern dual-source — MySQL interrogé si TimescaleDB indisponible)
+  - property: fieldReference
+    value: include/MeteoFrance/docs/H_HTR_I_ITR.txt

@@ -1,0 +1,460 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:synop-metar-reseau-etranger
+name: Observations synoptiques et METAR — réseaux étrangers
+version: 0.1.0
+status: draft # validation contre les DDL réels à venir
+domain: observations
+dataProduct: observations-temps-reel
+
+description:
+  purpose: >-
+    Observations des réseaux synoptiques (SYNOP/BUFR) et aéronautiques (METAR) hors
+    réseau Infoclimat : NOAA, ARPA Piemonte/Liguria, AEMET, JMA, Met.no, Meteocentre,
+    INRA… Alimente les tableaux stations étrangers, les vignettes et les cartes
+    synoptiques.
+  usage: >-
+    Séries temporelles partitionnées à la main par année/mois/décade :
+    V5_data_{AAAA}.synop_{MM}_d{1|2|3} et metar_{MM}_d{1|2|3} (même partitionnement que
+    StatIC). Timestamps dh_utc en UTC. Unités conventionnelles Infoclimat : °C, hPa,
+    km/h, mm. La colonne source identifie le réseau/canal d'origine — la filtrer pour
+    isoler un réseau. METAR : température et point de rosée stockés en ENTIERS (tinyint),
+    précision dégradée par construction.
+  limitations: >-
+    Pas exclusivement « réseau étranger » : les tables synop_* reçoivent aussi des
+    insertions dérivées Météo-France (cron/image_mf.php:617 — radome, cron/mc/nivose.php).
+    Flux douteux à trancher : Ogimet via proxy legacy (oleg-192.16.167.24,
+    potentiellement décommissionné), scripts data/metars_synops/* schedulés dans
+    cron/crontab mais absents des clones. Couverture et fréquence hétérogènes selon les
+    réseaux (horaire, tri-horaire). Pas de purge horodatée trouvée côté tables MariaDB.
+
+tags:
+  - meteo
+  - time-series
+  - synop
+  - metar
+  - reseaux-etrangers
+  - mariadb
+
+servers:
+  - server: prod-mariadb
+    type: mysql
+    environment: production
+    host: ${DB_HOST}
+    port: 3306
+    database: V5_data_{AAAA}
+
+schema:
+  - name: synop_observations
+    physicalName: synop_{MM}_d{1|2|3} (bases V5_data_{AAAA})
+    physicalType: table
+    description: >-
+      Observations synoptiques décodées (AAXX/BBXX, BUFR). DDL versionné dans
+      cron/yearly/creer_tables_annee.php:135-169 — schéma exhaustif et fiable.
+    properties:
+      - name: id_station
+        physicalType: VARCHAR(12)
+        logicalType: string
+        description: Indicatif OMM de la station (réf. V5_data_params.stations.id)
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 1
+      - name: dh_utc
+        physicalType: DATETIME
+        logicalType: date
+        description: Date et heure de l'observation (UTC), clé temporelle
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 2
+      - name: temperature
+        physicalType: FLOAT
+        logicalType: number
+        description: Température sous abri
+        customProperties:
+          - property: unit
+            value: °C
+        quality:
+          - rule: validValues
+            description: Records mondiaux ≈ -89°C / +57°C élargis
+            mustBeGreaterOrEqualTo: -95
+            mustBeLessOrEqualTo: 60
+            severity: error
+      - name: pression
+        physicalType: FLOAT
+        logicalType: number
+        description: Pression ramenée au niveau de la mer
+        customProperties:
+          - property: unit
+            value: hPa
+        quality:
+          - rule: validValues
+            description: Records mondiaux ≈ 870–1084 hPa
+            mustBeGreaterOrEqualTo: 850
+            mustBeLessOrEqualTo: 1100
+            severity: error
+      - name: pression_variation_3h
+        physicalType: FLOAT
+        logicalType: number
+        description: Variation de pression mer sur 3 h
+        customProperties:
+          - property: unit
+            value: hPa
+      - name: humidite
+        physicalType: TINYINT
+        logicalType: integer
+        description: Humidité relative
+        customProperties:
+          - property: unit
+            value: '%'
+        quality:
+          - rule: validValues
+            description: Pourcentage
+            mustBeGreaterOrEqualTo: 0
+            mustBeLessOrEqualTo: 100
+            severity: error
+      - name: point_de_rosee
+        physicalType: FLOAT
+        logicalType: number
+        description: Température du point de rosée
+        customProperties:
+          - property: unit
+            value: °C
+      - name: visibilite
+        physicalType: FLOAT
+        logicalType: number
+        description: Visibilité horizontale
+        customProperties:
+          - property: unit
+            value: m
+      - name: vent_moyen
+        physicalType: FLOAT
+        logicalType: number
+        description: Vent moyen à 10 m
+        customProperties:
+          - property: unit
+            value: km/h
+        quality:
+          - rule: validValues
+            description: Vent moyen plausible
+            mustBeGreaterOrEqualTo: 0
+            mustBeLessOrEqualTo: 300
+            severity: error
+      - name: vent_rafales
+        physicalType: FLOAT
+        logicalType: number
+        description: Rafale maximale
+        customProperties:
+          - property: unit
+            value: km/h
+        quality:
+          - rule: validValues
+            description: Record mondial ≈ 408 km/h
+            mustBeGreaterOrEqualTo: 0
+            mustBeLessOrEqualTo: 450
+            severity: error
+      - name: vent_rafales_10min
+        physicalType: FLOAT
+        logicalType: number
+        description: Rafale maximale sur 10 min
+        customProperties:
+          - property: unit
+            value: km/h
+      - name: vent_direction
+        physicalType: MEDIUMINT
+        logicalType: integer
+        description: Direction du vent
+        customProperties:
+          - property: unit
+            value: deg
+        quality:
+          - rule: validValues
+            description: Rose de 360
+            mustBeGreaterOrEqualTo: 0
+            mustBeLessOrEqualTo: 360
+            severity: error
+      - name: temperature_min
+        physicalType: FLOAT
+        logicalType: number
+        description: Température minimale (fenêtre selon heure synoptique)
+        customProperties:
+          - property: unit
+            value: °C
+      - name: temperature_max
+        physicalType: FLOAT
+        logicalType: number
+        description: Température maximale (fenêtre selon heure synoptique)
+        customProperties:
+          - property: unit
+            value: °C
+      - name: pluie_1h
+        physicalType: FLOAT
+        logicalType: number
+        description: Précipitations sur 1 h
+        customProperties:
+          - property: unit
+            value: mm
+        quality:
+          - rule: validValues
+            description: Record mondial 1 h ≈ 305 mm
+            mustBeGreaterOrEqualTo: 0
+            mustBeLessOrEqualTo: 400
+            severity: error
+      - name: pluie_3h
+        physicalType: FLOAT
+        logicalType: number
+        description: Précipitations sur 3 h
+        customProperties:
+          - property: unit
+            value: mm
+      - name: pluie_6h
+        physicalType: FLOAT
+        logicalType: number
+        description: Précipitations sur 6 h
+        customProperties:
+          - property: unit
+            value: mm
+      - name: pluie_12h
+        physicalType: FLOAT
+        logicalType: number
+        description: Précipitations sur 12 h
+        customProperties:
+          - property: unit
+            value: mm
+      - name: pluie_24h
+        physicalType: FLOAT
+        logicalType: number
+        description: Précipitations sur 24 h
+        customProperties:
+          - property: unit
+            value: mm
+      - name: ensoleillement
+        physicalType: FLOAT
+        logicalType: number
+        description: Durée d'ensoleillement
+        customProperties:
+          - property: unit
+            value: hours
+      - name: temperature_sol
+        physicalType: FLOAT
+        logicalType: number
+        description: Température du sol
+        customProperties:
+          - property: unit
+            value: °C
+      - name: neige_au_sol
+        physicalType: FLOAT
+        logicalType: number
+        description: Épaisseur de neige au sol (groupe sss OMM — unité à confirmer)
+        customProperties:
+          - property: unit
+            value: cm
+      - name: nebulosite
+        physicalType: ENUM('0'-'8')
+        logicalType: string
+        description: Nébulosité totale
+        customProperties:
+          - property: unit
+            value: octa
+      - name: temps_omm
+        physicalType: SMALLINT
+        logicalType: integer
+        description: Code temps présent OMM (ww, cf. stations-meteo/ww.php)
+      - name: source
+        physicalType: TINYTEXT
+        logicalType: string
+        description: >-
+          Réseau/canal d'acquisition (wg-a pour decode_synop, bufr, arpa, aemet, jma,
+          metno, meteocentre, inra, mc-radome, mc-nivose…) — filtre du dataset
+        required: true
+      - name: temps_passe1
+        physicalType: TINYINT UNSIGNED
+        logicalType: integer
+        description: Code temps passé OMM W1
+      - name: temps_passe2
+        physicalType: TINYINT UNSIGNED
+        logicalType: integer
+        description: Code temps passé OMM W2
+      - name: etat_sol
+        physicalType: TINYINT UNSIGNED
+        logicalType: integer
+        description: Code état du sol OMM (E/E')
+      - name: plafond_nuageux
+        physicalType: TINYINT UNSIGNED
+        logicalType: integer
+        description: Code hauteur de la base des nuages (h, table OMM 1600)
+      - name: type_nuages
+        physicalType: VARCHAR(4)
+        logicalType: string
+        description: Codes genres de nuages CL/CM/CH
+      - name: raw_msg
+        physicalType: TEXT
+        logicalType: string
+        description: Message synoptique brut (AAXX/BBXX) tel que reçu
+        required: true
+    quality:
+      - rule: uniqueness
+        description: Une seule ligne par (id_station, dh_utc)
+        severity: error
+      - rule: freshness
+        description: >-
+          Pour le flux BUFR NOAA (récupération toutes les 2 min), la donnée la plus
+          récente doit dater de moins de 2 h (pas synoptique horaire/tri-horaire)
+        severity: warning
+
+  - name: metar_observations
+    physicalName: metar_{MM}_d{1|2|3} (bases V5_data_{AAAA})
+    physicalType: table
+    description: >-
+      Observations aéronautiques METAR décodées. DDL versionné dans
+      cron/yearly/creer_tables_annee.php:84-100. ATTENTION : température et point de
+      rosée en ENTIERS (précision dégradée par construction).
+    properties:
+      - name: id_station
+        physicalType: VARCHAR(4)
+        logicalType: string
+        description: Code OACI de l'aérodrome (4 lettres, ex. LFPG)
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 1
+      - name: dh_utc
+        physicalType: DATETIME
+        logicalType: date
+        description: Date et heure de l'observation (UTC), clé temporelle
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 2
+      - name: temperature
+        physicalType: TINYINT
+        logicalType: integer
+        description: Température sous abri — ENTIÈRE (codage METAR)
+        customProperties:
+          - property: unit
+            value: °C
+        quality:
+          - rule: validValues
+            description: Température plausible
+            mustBeGreaterOrEqualTo: -95
+            mustBeLessOrEqualTo: 60
+            severity: error
+      - name: pression
+        physicalType: MEDIUMINT
+        logicalType: integer
+        description: QNH — pression entière (codage METAR)
+        customProperties:
+          - property: unit
+            value: hPa
+        quality:
+          - rule: validValues
+            description: Records mondiaux ≈ 870–1084 hPa
+            mustBeGreaterOrEqualTo: 850
+            mustBeLessOrEqualTo: 1100
+            severity: error
+      - name: point_de_rosee
+        physicalType: TINYINT
+        logicalType: integer
+        description: Point de rosée — ENTIER (codage METAR)
+        customProperties:
+          - property: unit
+            value: °C
+      - name: visibilite
+        physicalType: MEDIUMINT
+        logicalType: integer
+        description: Visibilité horizontale dominante
+        customProperties:
+          - property: unit
+            value: m
+      - name: vent_moyen
+        physicalType: FLOAT
+        logicalType: number
+        description: Vent moyen (converti depuis les nœuds METAR)
+        customProperties:
+          - property: unit
+            value: km/h
+        quality:
+          - rule: validValues
+            description: Vent moyen plausible
+            mustBeGreaterOrEqualTo: 0
+            mustBeLessOrEqualTo: 300
+            severity: error
+      - name: vent_rafales_10min
+        physicalType: FLOAT
+        logicalType: number
+        description: Rafale maximale (groupe G du METAR)
+        customProperties:
+          - property: unit
+            value: km/h
+      - name: vent_direction
+        physicalType: MEDIUMINT
+        logicalType: integer
+        description: Direction du vent
+        customProperties:
+          - property: unit
+            value: deg
+        quality:
+          - rule: validValues
+            description: Rose de 360
+            mustBeGreaterOrEqualTo: 0
+            mustBeLessOrEqualTo: 360
+            severity: error
+      - name: nebulosite
+        physicalType: ENUM('0'-'8')
+        logicalType: string
+        description: Nébulosité totale reconstituée depuis les groupes nuageux
+        customProperties:
+          - property: unit
+            value: octa
+      - name: temps_omm
+        physicalType: TINYINT
+        logicalType: integer
+        description: Code temps présent OMM (traduit des groupes de temps METAR)
+      - name: source
+        physicalType: TINYTEXT
+        logicalType: string
+        description: Réseau/canal d'acquisition
+        required: true
+    quality:
+      - rule: uniqueness
+        description: Une seule ligne par (id_station, dh_utc)
+        severity: error
+      - rule: freshness
+        description: >-
+          La donnée la plus récente doit dater de moins de 90 min (METAR semi-horaires
+          ou horaires, récupération toutes les 20-26 min)
+        severity: warning
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+slaProperties:
+  - property: frequency
+    value: 2 minutes (BUFR NOAA) à 20-26 minutes (METAR/Ogimet) selon le flux
+    description: Fréquence de récupération — le pas des observations reste horaire/tri-horaire
+  - property: retention
+    value: fichiers transit 30 jours (data/cleanup.sh) ; tables MariaDB sans purge trouvée
+    description: Politique de rétention
+
+customProperties:
+  - property: lineageJob
+    value: >-
+      kestra://infoclimat:data.recuperation.bufr ; kestra://infoclimat:data.arpa.liguria ;
+      kestra://infoclimat:data.arpa.piemonte ; cron://infoclimat:cron.recuperation-bufr.mysql3
+  - property: retroCompatLayer
+    value: stations-meteo/tableaux.php (affichage), data/cartes/generation_cartes.php (cartes)
+  - property: partitioningScheme
+    value: >-
+      base V5_data_{AAAA}, tables synop|metar_{MM}_d{décade 1-3} — tables créées un mois
+      à l'avance par cron/yearly/creer_tables_annee.php ; à convertir en hypertables lors
+      de la migration TimescaleDB
+  - property: schemaSource
+    value: >-
+      DDL versionné cron/yearly/creer_tables_annee.php:84-169 (CREATE TABLE metar/synop) ;
+      sémantique croisée avec server5/decode_synop.php:27 et data/recuperation/synop/*.php
+  - property: transitFiles
+    value: file://datastore/data/synop et file://datastore/data/metar (tampons, purge 30 j)
