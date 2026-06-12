@@ -68,7 +68,8 @@ Certains documents référencent des repos internes de l'association (`site-info
 ## Contribuer
 
 Issues et pull requests bienvenues — en particulier sur les contrats ODCS, le catalogue et
-l'outillage. Toute MR touchant `contracts/` requiert la revue de l'owner du dataset concerné.
+l'outillage. Toute MR touchant `contracts/` requiert la revue de l'owner du pôle concerné :
+rôles, pôles et processus sont définis dans [GOVERNANCE.md](GOVERNANCE.md).
 
 ## Licence
 

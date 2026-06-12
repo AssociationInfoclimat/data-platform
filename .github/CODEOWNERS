@@ -1,0 +1,34 @@
+# Revue obligatoire par pôle de gouvernance — cf. GOVERNANCE.md
+# Tant que les owners métier n'ont pas de compte GitHub renseigné, le steward
+# (@citarf) couvre l'ensemble. Remplacer/compléter pôle par pôle à l'attribution.
+
+# Défaut : steward data
+* @citarf
+
+# ── Pôle Observations & opendata (owner : à attribuer) ──────────────────────
+/contracts/infrahoraire-mf.odcs.yaml              @citarf
+/contracts/horaire-mf-timescale.odcs.yaml         @citarf
+/contracts/static-stations-obs.odcs.yaml          @citarf
+/contracts/synop-metar-reseau-etranger.odcs.yaml  @citarf
+/contracts/foudre.odcs.yaml                       @citarf
+/contracts/opendata-export.odcs.yaml              @citarf
+
+# ── Pôle Climatologie & hydrologie (owner : à attribuer) ────────────────────
+/contracts/climato-mf-timescale.odcs.yaml         @citarf
+/contracts/quotidienne-mf-timescale.odcs.yaml     @citarf
+/contracts/climato-mariadb.odcs.yaml              @citarf
+/contracts/hydro-eaufrance-vigicrues.odcs.yaml    @citarf
+
+# ── Pôle Imagerie & modèles (owner : à attribuer) ───────────────────────────
+/contracts/radar-tuiles.odcs.yaml                 @citarf
+/contracts/satellite-tuiles-fichiers.odcs.yaml    @citarf
+/contracts/modeles-nwp-fichiers.odcs.yaml         @citarf
+
+# ── Pôle Prévision & vigilance (owner : à attribuer) ────────────────────────
+/contracts/previsions-bulletins.odcs.yaml         @citarf
+/contracts/vigilances-meteo.odcs.yaml             @citarf
+
+# ── Pôle Communauté (owner : à attribuer) ───────────────────────────────────
+/contracts/v5-comptes-utilisateurs.odcs.yaml      @citarf
+/contracts/photolive.odcs.yaml                    @citarf
+/contracts/forums2-ipboard.odcs.yaml              @citarf
