@@ -3,7 +3,7 @@ kind: DataContract
 id: urn:infoclimat:contract:v5-comptes-utilisateurs
 name: Comptes utilisateurs et observations rapides
 version: 0.1.0
-status: draft
+status: active # structure validée contre la prod le 2026-06-12 (tools/check_schema_mariadb.py)
 domain: communaute
 dataProduct: comptes-utilisateurs
 

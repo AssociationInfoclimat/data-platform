@@ -3,7 +3,7 @@ kind: DataContract
 id: urn:infoclimat:contract:vigilances-meteo
 name: Vigilances météo et signalements
 version: 0.1.0
-status: draft
+status: active # structure validée contre la prod le 2026-06-12 (tools/check_schema_mariadb.py)
 domain: vigilance
 dataProduct: vigilance-temps-reel
 
@@ -72,6 +72,9 @@ schema:
   - name: bulletins_speciaux_suivi
     physicalType: table
     description: Bulletins spéciaux de suivi, base V5_chroniques (9 colonnes, versionnés par revision)
+    customProperties:
+      - property: physicalDatabase
+        value: V5_chroniques
     properties:
       - name: id_bulletin
         physicalType: int
@@ -87,6 +90,9 @@ schema:
   - name: meteoalerte
     physicalType: table
     description: Signalements communautaires géolocalisés, base V5 (34 colonnes — un booléen par phénomène)
+    customProperties:
+      - property: physicalDatabase
+        value: V5
     properties:
       - name: id
         physicalType: int

@@ -66,6 +66,9 @@ schema:
   - name: static_observations
     physicalName: static_{MM}_d{1|2|3} (bases V5_data_{AAAA})
     physicalType: table
+    customProperties:
+      - property: physicalDatabase
+        value: V5_data_{AAAA}
     description: >-
       Séries temporelles d'observations StatIC, partitionnées manuellement par
       année (base), mois et décade (table). Pas nominal de 5 minutes.
@@ -138,9 +141,9 @@ schema:
           - property: unit
             value: °C
       - name: visibilite
-        physicalType: INT
-        logicalType: integer
-        description: Visibilité horizontale
+        physicalType: FLOAT
+        logicalType: number
+        description: Visibilité horizontale — constat prod 2026-06-12, type float et non int
         customProperties:
           - property: unit
             value: m

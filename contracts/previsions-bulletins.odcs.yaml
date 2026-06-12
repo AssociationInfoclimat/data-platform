@@ -3,7 +3,7 @@ kind: DataContract
 id: urn:infoclimat:contract:previsions-bulletins
 name: Prévisions et bulletins — production éditoriale
 version: 0.1.0
-status: draft
+status: active # structure validée contre la prod le 2026-06-12 (tools/check_schema_mariadb.py)
 domain: editorial
 dataProduct: previsions
 
@@ -67,6 +67,9 @@ schema:
   - name: bim
     physicalType: table
     description: Bulletins infos médias, base V5_chroniques (8 colonnes — texte, validité, auteur)
+    customProperties:
+      - property: physicalDatabase
+        value: V5_chroniques
   - name: bulletins_fichiers
     physicalType: files
     description: Bulletins publiés sur le webroot prévisions (bn_*.txt, bulletin{id}.prev, archives_pdf/, audio_mp3/)

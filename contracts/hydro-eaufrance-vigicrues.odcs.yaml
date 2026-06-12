@@ -3,7 +3,7 @@ kind: DataContract
 id: urn:infoclimat:contract:hydro-eaufrance-vigicrues
 name: Hydrologie — Eaufrance / Vigicrues
 version: 0.1.0
-status: draft
+status: active # structure validée contre la prod le 2026-06-12 (tools/check_schema_mariadb.py)
 domain: hydrologie
 dataProduct: hydrologie-temps-reel
 
@@ -64,6 +64,9 @@ schema:
   - name: stations_hydro
     physicalType: table
     description: Référentiel des stations hydrométriques (14 colonnes, base V5_data_params)
+    customProperties:
+      - property: physicalDatabase
+        value: V5_data_params
     properties:
       - name: id
         physicalType: varchar(50)

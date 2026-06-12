@@ -3,7 +3,7 @@ kind: DataContract
 id: urn:infoclimat:contract:synop-metar-reseau-etranger
 name: Observations synoptiques et METAR — réseaux étrangers
 version: 0.1.0
-status: draft # validation contre les DDL réels à venir
+status: active # structure validée contre la prod le 2026-06-12 (tools/check_schema_mariadb.py)
 domain: observations
 dataProduct: observations-temps-reel
 

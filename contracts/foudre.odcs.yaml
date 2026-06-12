@@ -3,7 +3,7 @@ kind: DataContract
 id: urn:infoclimat:contract:foudre
 name: Données foudre (impacts temps réel)
 version: 0.1.0
-status: draft # validation contre le DDL réel à venir
+status: active # structure validée contre la prod le 2026-06-12 (tools/check_schema_mariadb.py)
 domain: foudre
 dataProduct: foudre-temps-reel
 
