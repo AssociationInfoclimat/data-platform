@@ -145,6 +145,13 @@ customProperties:
     value: cron/climato_tiles.php (cartes), climato/mgetData.php (pages climato)
   - property: migrationTarget
     value: doublé progressivement par TimescaleDB (contrats climato-mf-timescale, quotidienne-mf-timescale) — pattern dual-source
+  - property: publicCartoExport
+    value: >-
+      historic_events (événements remarquables, production éditoriale) est exposé via un
+      endpoint carto PUBLIC (GeoJSON/JSON, sans clé) qui sert aussi les fonds enneigement
+      et la disponibilité des tuiles. Contenu éditorial public par nature (déjà affiché
+      sur le site). Surface relevée par la passe egress du 2026-06-12 (non cataloguée
+      jusque-là car endpoint en lecture seule, hors du balayage writer/pipeline initial).
   - property: dataLicense
     value: >-
       Hétérogène par table selon la source amont : dérivés StatIC (CC du propriétaire de

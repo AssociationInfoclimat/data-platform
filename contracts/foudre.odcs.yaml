@@ -175,6 +175,15 @@ customProperties:
     value: >-
       cron/recup_blitzortung.php:31 (INSERT INTO V5.foudre) + usages consommateurs
       (cartes/stats_foudre.php:35, cron/notif_foudre.php:88) — DDL réel attendu
+  - property: publicRealtimeFeed
+    value: >-
+      Feed carto temps réel PUBLIC (sans clé) : un endpoint GeoJSON sert les positions
+      des impacts des 120 dernières minutes — uniquement coordonnées + âge en minutes,
+      SANS intensité, SANS horodatage précis, SANS historique. Alimente la carte foudre
+      du site et la couche carto de l'appli mobile. Ne constitue pas une redistribution
+      brute du jeu de données (pas d'export massif/historique/intensité). Surface relevée
+      par la passe egress du 2026-06-12 ; à confirmer côté licences amont (Blitzortung/
+      Meteocentre) que l'affichage public des positions temps réel est autorisé.
   - property: dataLicense
     value: >-
       Sources privées, non libres (confirmé 2026-06-12) : Blitzortung (flux historique,
