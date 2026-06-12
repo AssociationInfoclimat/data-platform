@@ -50,7 +50,10 @@ C'est volontaire : un contrat non consommé est de la dette documentaire.
    information des consommateurs déclarés.
 3. **Les statuts `douteux`** des registres (`inventory/`) sont tranchés par l'owner du
    pôle, sur proposition du steward.
-4. **Litiges ou arbitrages inter-pôles** (un dataset consommé par plusieurs pôles,
+4. **Données personnelles** : toute table portant des données personnelles est marquée
+   `personal_data: true` dans `inventory/tables.yaml` et rattachée à un traitement du
+   registre RGPD (`audits/rgpd/`). La CI vérifie qu'aucune ne manque au registre.
+5. **Litiges ou arbitrages inter-pôles** (un dataset consommé par plusieurs pôles,
    politique de rétention coûteuse…) : remontée au bureau de l'association.
 
 ## Attribution

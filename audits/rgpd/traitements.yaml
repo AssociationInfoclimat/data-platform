@@ -1,0 +1,136 @@
+# Registre RGPD — source des traitements (volet data-platform)
+#
+# Recense OÙ vivent les données personnelles dans le SI, regroupées par finalité.
+# C'est la contribution technique de la data-platform au registre des traitements
+# de l'association (art. 30 RGPD) — les champs juridiques (base légale, durée de
+# conservation, mesures de sécurité) relèvent du bureau et restent à confirmer.
+#
+# Chaque table `personal_data: true` de inventory/tables.yaml DOIT figurer ici
+# (sinon `tools/build_rgpd_register.py` échoue). Réciproquement, retirer une table
+# de l'inventaire impose de la retirer ici.
+version: 1
+traitements:
+  - id: comptes-authentification
+    finalite: Gestion des comptes utilisateurs et de l'authentification
+    personnes: Membres inscrits du site
+    donnees: Identité (pseudo), secret (mot de passe haché), email de contact, IP et user-agent de connexion, jetons de session et de réinitialisation
+    base_legale: à confirmer (exécution du service / consentement à l'inscription)
+    conservation: à confirmer (jetons à expiration ; comptes ?)
+    contrat: v5-comptes-utilisateurs
+    tables:
+      - mariadb://V5/comptes
+      - mariadb://V5/comptes_pseudos
+      - mariadb://V5/comptes_reinitialisations
+      - mariadb://V5/comptes_statuts
+      - mariadb://V5/comptes_tokens
+      - mariadb://V5/connectes
+
+  - id: applications-mobiles
+    finalite: Notifications push et paramètres des applications mobiles
+    personnes: Utilisateurs des applications iOS/Android
+    donnees: Jetons d'appareil (APNS/FCM), paramètres applicatifs liés au compte
+    base_legale: à confirmer (consentement aux notifications)
+    conservation: à confirmer
+    contrat: null
+    tables:
+      - mariadb://V5/apns_devices
+      - mariadb://V5/gcm_devices
+      - mariadb://V5/appli_params
+      - mariadb://V5/appli_tokens
+
+  - id: contributions-communautaires
+    finalite: Contributions des membres (observations, photos, messages, lieux favoris)
+    personnes: Membres contributeurs
+    donnees: Lien compte (id_compte), géolocalisation des contributions, contenus, messages privés
+    base_legale: à confirmer
+    conservation: à confirmer
+    contrat: photolive
+    tables:
+      - mariadb://V5/personnes
+      - mariadb://V5/personnes_coordonnees
+      - mariadb://V5/lieux_preferes
+      - mariadb://V5/mp_mp
+      - mariadb://V5/electric_users
+
+  - id: vie-associative
+    finalite: Gestion des adhérents, cotisations et votes de l'association
+    personnes: Adhérents de l'association
+    donnees: Identité, coordonnées, paiements (dont HelloAsso), pouvoirs de vote
+    base_legale: à confirmer (obligation légale comptable / exécution de l'adhésion)
+    conservation: à confirmer (obligations comptables et statutaires)
+    contrat: null
+    tables:
+      - mariadb://asso/asso_adherants
+      - mariadb://asso/paiements
+      - mariadb://asso/paiements_helloasso
+      - mariadb://asso/pouvoirs
+
+  - id: boutique
+    finalite: Traitement des commandes de la boutique
+    personnes: Clients de la boutique
+    donnees: Identité, coordonnées de livraison, données de commande
+    base_legale: à confirmer (exécution du contrat de vente)
+    conservation: à confirmer (obligations comptables)
+    contrat: null
+    tables:
+      - mariadb://V5/boutique_commandes
+
+  - id: concours-rencontres
+    finalite: Participation aux concours de prévision et aux rencontres
+    personnes: Membres participants
+    donnees: Lien compte, inscriptions
+    base_legale: à confirmer
+    conservation: à confirmer
+    contrat: null
+    tables:
+      - mariadb://concoursprevi/participants_v5
+      - mariadb://V5_rencontres/participants_v5
+
+  - id: equipe-prevision
+    finalite: Habilitations de l'équipe prévision et bulletins
+    personnes: Prévisionnistes habilités
+    donnees: Lien compte, pseudo, périmètre d'habilitation
+    base_legale: à confirmer
+    conservation: à confirmer
+    contrat: previsions-bulletins
+    tables:
+      - mariadb://V5_prevs/previsionnistes
+      - mariadb://V5_chroniques/bqs_users
+
+  - id: reseau-stations
+    finalite: Rattachement des stations à leurs propriétaires et exploitation réseau
+    personnes: Propriétaires de stations
+    donnees: Lien compte propriétaire, adresses IP des stations
+    base_legale: à confirmer
+    conservation: à confirmer
+    contrat: static-stations-obs
+    tables:
+      - mariadb://V5_data_params/static_ip
+      - mariadb://V5_climato/postes
+
+  - id: services-techniques
+    finalite: Accès FTP de service
+    personnes: Comptes techniques / partenaires
+    donnees: Identifiants FTP
+    base_legale: à confirmer
+    conservation: à confirmer
+    contrat: null
+    tables:
+      - mariadb://proftpd/ftpuser
+
+  - id: forum
+    finalite: Forum communautaire (plateforme IPBoard)
+    personnes: Membres du forum
+    donnees: Profils et sessions des membres
+    base_legale: à confirmer
+    conservation: gérée par IPBoard — hors périmètre data-platform
+    contrat: forums2-ipboard
+    note: >-
+      Base applicative tierce (IPBoard), gestion autonome. Les tables forums/ibf_*
+      sont mortes (ancienne version, candidates à suppression — à confirmer côté RGPD).
+    tables:
+      - mariadb://forums2/core_members
+      - mariadb://forums2/core_sessions
+      - mariadb://forums/ibf_core_members
+      - mariadb://forums/ibf_members
+      - mariadb://forums/ibf_sessions
