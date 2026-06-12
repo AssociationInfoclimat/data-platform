@@ -199,6 +199,12 @@ customProperties:
     value: api://infoclimat:opendata-v2.export
   - property: upstreamContracts
     value: urn:infoclimat:contract:static-stations-obs, urn:infoclimat:contract:infrahoraire-mf
+  - property: scopeNote
+    value: >-
+      Ce contrat couvre l'export des OBSERVATIONS (CSV/JSON, clé API requise). Les
+      MÉTADONNÉES des stations (position, licence, dernière activité) ont un export
+      GeoJSON/JSON public sans clé — voir publicMetadataExport du contrat
+      static-stations-obs.
   - property: licenseEnforcement
     value: >-
       Exposition pilotée par static.licence (modèle dans le contrat static-stations-obs) :

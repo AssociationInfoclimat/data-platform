@@ -346,6 +346,15 @@ slaProperties:
     description: Politique de rétention
 
 customProperties:
+  - property: publicMetadataExport
+    value: >-
+      Métadonnées des stations exposées publiquement SANS clé API, en GeoJSON
+      (FeatureCollection) ou JSON, sur https://www.infoclimat.fr/opendata/ (endpoint
+      stations_xhr) : id, nom, altitude, licence, pays, département, dernière activité,
+      position. Couvre les stations StatIC et synop Météo-France. Filtre par défaut
+      licence IN (0,1,2) — exclut les fermées (3) et NULL ; paramètre display_closed
+      pour tout afficher. Distinct de l'export des OBSERVATIONS (contrat opendata-export,
+      CSV/JSON avec clé API). Signalé par erratum (bot Discord) le 2026-06-12.
   - property: licenseModel
     value: >-
       static.licence 0=Etalab / 1=commercial / 2=non-commercial / 3=fermé ; NULL=exclu.
