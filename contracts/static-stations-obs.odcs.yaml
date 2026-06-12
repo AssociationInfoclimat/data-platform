@@ -341,3 +341,9 @@ customProperties:
     value: base V5_data_{AAAA}, table static_{MM}_d{décade 1-3} — à convertir en hypertable lors de la migration TimescaleDB (phase 3)
   - property: personalData
     value: id_compte (lien station→compte) — à inscrire au registre RGPD (audits/rgpd)
+  - property: dataLicense
+    value: >-
+      Hétérogène par station : Creative Commons choisie par le propriétaire de chaque
+      station (champ `licence` du référentiel) ; stations appartenant à l'association :
+      Licence Ouverte (Etalab) 2.0, réutilisation commerciale incluse.
+      Référence : https://www.infoclimat.fr/opendata/

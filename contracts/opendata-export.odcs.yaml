@@ -201,3 +201,8 @@ customProperties:
     value: urn:infoclimat:contract:static-stations-obs, urn:infoclimat:contract:infrahoraire-mf
   - property: accessControl
     value: clé API / reCAPTCHA / whitelist (opendata-v2/authorized-stations.inc.php), licence commerciale ou non par station
+  - property: dataLicense
+    value: >-
+      Conditions opendata Infoclimat (https://www.infoclimat.fr/opendata/) : réutilisation
+      libre avec attribution ; le sous-ensemble de stations exposé respecte la licence
+      Creative Commons de chaque propriétaire (flag commercial / non commercial).

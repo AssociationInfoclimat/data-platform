@@ -83,3 +83,7 @@ customProperties:
     value: <namespace>:<job> # ex. cron://infoclimat:cron.load_data_mf — cf. lineage/namespaces.md
   - property: retroCompatLayer
     value: <chemin de la couche PHP dual-source, ex. include/MeteoFrance/infrahoraires.php>
+  - property: dataLicense
+    value: >-
+      <régime de réutilisation des données — licence source (ex. Licence Ouverte 2.0,
+      CC du propriétaire) et conditions de redistribution ; cf. https://www.infoclimat.fr/opendata/>

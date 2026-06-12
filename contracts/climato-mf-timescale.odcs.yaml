@@ -163,3 +163,9 @@ customProperties:
     value: >-
       REFRESH MATERIALIZED VIEW CONCURRENTLY requiert un index unique par vue ; surveiller
       les latences de refresh à mesure que les hypertables grossissent (cf. fiche catalogue)
+  - property: dataLicense
+    value: >-
+      Agrégats dérivés de données Météo-France sous Licence Ouverte (Etalab) 2.0 —
+      attribution Météo-France requise. L'exposition de la valeur ajoutée Infoclimat
+      (vues matérialisées) suit la politique opendata de l'association
+      (https://www.infoclimat.fr/opendata/).

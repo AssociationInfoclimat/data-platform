@@ -334,3 +334,7 @@ customProperties:
     value: mariadb://mf_data (pattern dual-source — MySQL interrogé si TimescaleDB indisponible)
   - property: fieldReference
     value: include/MeteoFrance/docs/H_HTR_I_ITR.txt
+  - property: dataLicense
+    value: >-
+      Données source Météo-France, diffusées en open data sous Licence Ouverte (Etalab) 2.0
+      (meteo.data.gouv.fr) — attribution Météo-France requise lors de toute réutilisation.

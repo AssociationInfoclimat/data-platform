@@ -458,3 +458,9 @@ customProperties:
       sémantique croisée avec server5/decode_synop.php:27 et data/recuperation/synop/*.php
   - property: transitFiles
     value: file://datastore/data/synop et file://datastore/data/metar (tampons, purge 30 j)
+  - property: dataLicense
+    value: >-
+      Hétérogène par fournisseur : NOAA = domaine public (œuvre fédérale US) ; agences
+      européennes et japonaise (ARPA, AEMET, Met.no, JMA, Meteocentre…) selon leurs
+      conditions open data respectives — à consolider fournisseur par fournisseur avant
+      toute redistribution brute.
