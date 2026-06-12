@@ -3,7 +3,7 @@ kind: DataContract
 id: urn:infoclimat:contract:horaire-mf-timescale
 name: Observations horaires Météo-France
 version: 0.1.0
-status: draft # validation contre le DDL complet à venir
+status: active # validé contre la prod le 2026-06-12 (datacontract test)
 domain: observations
 dataProduct: observations-temps-reel
 

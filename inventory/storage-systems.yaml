@@ -52,7 +52,7 @@ systems:
       « infoclimat » était fictif, corrigé le 2026-06-09 (aucune base `infoclimat` n'existe).
       Introspection du 2026-06-09 : 780,8 GiB, 4 hypertables + 25 tables + 12 matviews + ~30 vues.
       Socle dataclimat géré par l'infra interne, alimenté hors monolithe (ingestion MF/stations),
-      matviews rafraîchies par Kestra. Le projet DataForGood
+      matviews rafraîchies par Kestra. **Encodage base SQL_ASCII** (constat 2026-06-12) : les clients doivent forcer client_encoding=UTF8 ; point de vigilance qualité pour les champs texte accentués. Le projet DataForGood
       `dataforgoodfr/14_ValorisationDonneeMeteo` en est un **client** (consommateur en lecture,
       pas la source) — pressenti comme l'un des premiers à migrer vers la future data-platform.
 

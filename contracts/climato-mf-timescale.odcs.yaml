@@ -3,7 +3,7 @@ kind: DataContract
 id: urn:infoclimat:contract:climato-mf-timescale
 name: Vues matérialisées climatologiques (TimescaleDB)
 version: 0.1.0
-status: draft # schéma partiel par construction — colonnes à compléter après export du DDL (runbook §3)
+status: active # validé contre la prod le 2026-06-12 (datacontract test)
 domain: climato
 dataProduct: climatologie-temps-reel
 
@@ -45,90 +45,159 @@ servers:
 schema:
   - name: mv_quotidienne_realtime
     physicalType: view
+    properties:
+      - name: station_code
+        physicalType: CHAR(8)
+        description: Code station (NUM_POSTE)
+      - name: date
+        physicalType: TIMESTAMP
+        description: Jour agrégé
+      - name: tntxm
+        physicalType: REAL
+        description: Moyenne (TN+TX)/2
+      - name: tn
+        physicalType: REAL
+        description: Température minimale du jour
+      - name: tx
+        physicalType: REAL
+        description: Température maximale du jour
     description: >-
-      Vue matérialisée — agrégats quotidiens temps réel par station (tn/tx/rr présumés).
-      Colonnes non versionnées : à compléter après export du DDL.
+      Vue matérialisée — agrégats quotidiens temps réel par station
+      (colonnes relevées en prod le 2026-06-12).
     quality:
       - rule: freshness
         description: Rafraîchie toutes les 6 min (db.dataclimat.refresh-materialized-views)
         severity: warning
     customProperties:
       - property: schemaSource
-        value: définition en base uniquement — export DDL prévu (introspect_runbook.md §3)
+        value: définition en base — colonnes relevées par introspection le 2026-06-12
       - property: refreshFlow
         value: kestra://infoclimat:db.dataclimat.refresh-materialized-views (cron */6 min)
 
   - name: mv_mensuelle_realtime
     physicalType: view
+    properties:
+      - name: station_code
+        physicalType: CHAR(8)
+        description: Code station
+      - name: date
+        physicalType: TIMESTAMP
+        description: Mois agrégé
+      - name: tnn
+        physicalType: REAL
+        description: TN la plus basse du mois — datée par tnn_date
+      - name: txx
+        physicalType: REAL
+        description: TX la plus haute du mois — datée par txx_date
+      - name: tmm
+        physicalType: NUMERIC
+        description: Température moyenne mensuelle
     description: >-
       Vue matérialisée — agrégats mensuels temps réel par station.
-      Colonnes non versionnées : à compléter après export du DDL.
+      Colonnes relevées en prod le 2026-06-12.
     quality:
       - rule: freshness
         description: Rafraîchie toutes les 6 min (db.dataclimat.refresh-materialized-views)
         severity: warning
     customProperties:
       - property: schemaSource
-        value: définition en base uniquement — export DDL prévu (introspect_runbook.md §3)
+        value: définition en base — colonnes relevées par introspection le 2026-06-12
       - property: refreshFlow
         value: kestra://infoclimat:db.dataclimat.refresh-materialized-views (cron */6 min)
 
   - name: mv_records_absolus_par_mois
     physicalType: view
+    properties:
+      - name: station_code
+        physicalType: CHAR(8)
+        description: Code station
+      - name: month
+        physicalType: INTEGER
+        description: Mois calendaire (1-12)
+      - name: txx_max
+        physicalType: REAL
+        description: Record absolu de chaleur du mois — daté par txx_max_date
+      - name: tnn_min
+        physicalType: REAL
+        description: Record absolu de froid du mois — daté par tnn_min_date
     description: >-
       Vue matérialisée — records absolus par mois et par station.
-      Colonnes non versionnées : à compléter après export du DDL.
+      Colonnes relevées en prod le 2026-06-12.
     quality:
       - rule: freshness
         description: Rafraîchie toutes les 6 min (db.dataclimat.refresh-materialized-views)
         severity: warning
     customProperties:
       - property: schemaSource
-        value: définition en base uniquement — export DDL prévu (introspect_runbook.md §3)
+        value: définition en base — colonnes relevées par introspection le 2026-06-12
       - property: refreshFlow
         value: kestra://infoclimat:db.dataclimat.refresh-materialized-views (cron */6 min)
 
   - name: mv_itn_daily_all_years
     physicalType: view
+    properties:
+      - name: date
+        physicalType: TIMESTAMP
+        description: Jour
+      - name: year
+        physicalType: INTEGER
+      - name: month
+        physicalType: INTEGER
+      - name: day_of_month
+        physicalType: INTEGER
+      - name: is_fictive
+        physicalType: BOOLEAN
+        description: Valeur reconstituée (vs observée)
+      - name: itn
+        physicalType: REAL
+        description: Indicateur thermique national du jour
     description: >-
       Vue matérialisée — indicateur thermique national journalier, toutes années.
-      Colonnes non versionnées : à compléter après export du DDL.
+      Colonnes relevées en prod le 2026-06-12.
     quality:
       - rule: freshness
         description: Rafraîchie toutes les 6 min (db.dataclimat.refresh-materialized-views)
         severity: warning
     customProperties:
       - property: schemaSource
-        value: définition en base uniquement — export DDL prévu (introspect_runbook.md §3)
+        value: définition en base — colonnes relevées par introspection le 2026-06-12
       - property: refreshFlow
         value: kestra://infoclimat:db.dataclimat.refresh-materialized-views (cron */6 min)
 
   - name: mv_records_battus
     physicalType: view
+    properties:
+      - name: period_type
+        physicalType: TEXT
+        description: Granularité du record (jour/mois/année…)
+      - name: period_value
+        physicalType: TEXT
+      - name: record_type
+        physicalType: TEXT
+        description: Type de record (chaleur/froid…)
+      - name: station_code
+        physicalType: CHAR(8)
+      - name: station_name
+        physicalType: TEXT
+      - name: department
+        physicalType: INTEGER
+      - name: record_value
+        physicalType: REAL
+      - name: record_date
+        physicalType: TIMESTAMP
     description: >-
       Vue matérialisée — records battus (comparaison historique).
-      Colonnes non versionnées : à compléter après export du DDL.
+      Colonnes relevées en prod le 2026-06-12.
     quality:
       - rule: freshness
         description: Rafraîchie toutes les 15 min (db.dataclimat.refresh-mv-records-battus)
         severity: warning
     customProperties:
       - property: schemaSource
-        value: définition en base uniquement — export DDL prévu (introspect_runbook.md §3)
+        value: définition en base — colonnes relevées par introspection le 2026-06-12
       - property: refreshFlow
         value: kestra://infoclimat:db.dataclimat.refresh-mv-records-battus (cron */15 min)
 
-  - name: mv_records_battus_realtime
-    physicalType: view
-    description: >-
-      Vue matérialisée — records battus temps réel. OBSOLÈTE : le flow de refresh est
-      désactivé, la vue existe mais ses données sont figées. Ne pas consommer ;
-      candidate à suppression après arbitrage.
-    customProperties:
-      - property: schemaSource
-        value: définition en base uniquement — export DDL prévu (introspect_runbook.md §3)
-      - property: refreshFlow
-        value: kestra://infoclimat:db.dataclimat.refresh-mv-records-battus-realtime (DÉSACTIVÉ — status mort)
 
 team:
   - username: pam
@@ -169,3 +238,8 @@ customProperties:
       attribution Météo-France requise. L'exposition de la valeur ajoutée Infoclimat
       (vues matérialisées) suit la politique opendata de l'association
       (https://www.infoclimat.fr/opendata/).
+  - property: plannedObjects
+    value: >-
+      mv_records_battus_realtime — vue matérialisée planifiée, pas encore créée en base
+      (vérifié le 2026-06-12) ; référencée par le client DataForGood. À réintégrer au
+      schema à sa création.

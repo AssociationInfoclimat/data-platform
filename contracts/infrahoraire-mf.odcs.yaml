@@ -111,19 +111,14 @@ schema:
             mustBeGreaterOrEqualTo: 0
             mustBeLessOrEqualTo: 100
             severity: error
-      - name: T
-        physicalType: REAL
-        logicalType: number
-        description: Température sous abri instantanée (convention MF)
-        customProperties:
-          - property: unit
-            value: °C
-        quality:
-          - rule: validValues
-            description: Température plausible en France (records -41°C / +46°C élargis)
-            mustBeGreaterOrEqualTo: -60
-            mustBeLessOrEqualTo: 55
-            severity: error
+      - name: QRR
+        physicalType: INTEGER
+        logicalType: integer
+        description: >-
+          Indicateur qualité du cumul RR (codification Météo-France). Constat
+          datacontract test du 2026-06-12 : l'hypertable Infrahoraire ne porte que les
+          précipitations (RR + QRR) — la colonne T initialement supposée n'existe pas,
+          les températures infrahoraires vivent dans InfrahoraireTempsReel.
     quality:
       - rule: uniqueness
         description: Une seule ligne par (NUM_POSTE, AAAAMMJJHHMN)
