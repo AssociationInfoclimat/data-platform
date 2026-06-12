@@ -116,6 +116,12 @@ customProperties:
       fallback n'est de fait quasi plus écrit, ce qui accélère le dossier de
       décommissionnement (phase 6). Le check de fraîcheur seul ne le révèle pas (un MAX
       récent suffit à le satisfaire) : c'est la couverture par station qui le montre.
+      Précision du 2026-06-12 soir : l'unique écrivaine restante est la station VENTOUX
+      (Mont-Ventoux sommet, station de l'association, id non-MF 'VENTOUX' — pseudo-station
+      glissée dans mf_data, servie par un chemin opendata dédié en Licence Ouverte). Elle
+      n'a pas d'équivalent TimescaleDB, d'où les 0 stations communes du check. Éteindre
+      mf_data = reloger l'ingestion Ventoux (socle dataclimat ou StatIC), pas finir une
+      migration MF.
   - property: decommissionPlan
     value: extinction conditionnée au check de cohérence dual-source et à la migration des derniers lecteurs (phase 6 du chantier data)
   - property: excludedObjects
