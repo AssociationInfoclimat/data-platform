@@ -177,6 +177,6 @@ customProperties:
       (cartes/stats_foudre.php:35, cron/notif_foudre.php:88) — DDL réel attendu
   - property: dataLicense
     value: >-
-      Données tierces à régime restrictif : Blitzortung (flux historique, accès réservé aux
-      participants du réseau, source désormais fermée) ; Meteocentre (conditions à
-      confirmer). Pas de redistribution brute — usage interne (cartes, notifications).
+      Sources privées, non libres (confirmé 2026-06-12) : Blitzortung (flux historique,
+      accès réservé aux participants du réseau, source désormais fermée) et Meteocentre.
+      Pas de redistribution brute — usage interne (cartes, notifications).

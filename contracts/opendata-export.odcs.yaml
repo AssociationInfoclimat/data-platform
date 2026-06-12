@@ -203,6 +203,9 @@ customProperties:
     value: clé API / reCAPTCHA / whitelist (opendata-v2/authorized-stations.inc.php), licence commerciale ou non par station
   - property: dataLicense
     value: >-
-      Conditions opendata Infoclimat (https://www.infoclimat.fr/opendata/) : réutilisation
-      libre avec attribution ; le sous-ensemble de stations exposé respecte la licence
-      Creative Commons de chaque propriétaire (flag commercial / non commercial).
+      Conditions opendata Infoclimat (https://www.infoclimat.fr/opendata/) : accès
+      automatisé via clé d'API (compte requis). Certaines données ne sont pas disponibles
+      pour les réutilisations à but commercial — l'éligibilité de chaque station découle
+      de la licence définie par son propriétaire (flag commercial / non commercial) ;
+      stations de l'association : Licence Ouverte (Etalab), réutilisation commerciale
+      incluse.
