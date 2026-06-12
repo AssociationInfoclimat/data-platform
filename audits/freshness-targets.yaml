@@ -1,0 +1,68 @@
+# Cibles de contrôle de fraîcheur — SLA `frequency` des contrats rendus vérifiables.
+#
+# Chaque cible désigne un objet d'un contrat dont la fraîcheur est une promesse
+# (flux temps réel ou périodique), avec la colonne temporelle et le seuil au-delà
+# duquel la donnée est considérée en retard. `tools/check_freshness.py` calcule
+# now_utc - MAX(colonne) et compare au seuil.
+#
+# PROD-SAFE : sur MariaDB, la colonne DOIT être indexée en tête (sinon MAX = full
+# scan) — le check saute et signale toute colonne non indexée. Sur TimescaleDB, on
+# ne cible que la colonne de partitionnement (MAX par exclusion de chunks).
+# Seuils volontairement larges (tolèrent le retard normal d'ingestion).
+#
+# Toute cible doit référencer un objet existant d'un contrat (vérifié par l'outil).
+version: 1
+targets:
+  # ── TimescaleDB — flux temps réel ──────────────────────────────────────────
+  - contract: infrahoraire-mf
+    object: InfrahoraireTempsReel
+    column: validity_time
+    threshold: 2h
+  - contract: horaire-mf-timescale
+    object: HoraireTempsReel
+    column: validity_time
+    threshold: 3h
+  # ── TimescaleDB — consolidation historique (J+1) ───────────────────────────
+  - contract: infrahoraire-mf
+    object: Infrahoraire
+    column: AAAAMMJJHHMN
+    threshold: 48h
+  - contract: horaire-mf-timescale
+    object: Horaire
+    column: AAAAMMJJHH
+    threshold: 48h
+  # ── TimescaleDB — agrégats climato temps réel ──────────────────────────────
+  - contract: climato-mf-timescale
+    object: mv_quotidienne_realtime
+    column: date
+    threshold: 36h
+  - contract: climato-mf-timescale
+    object: mv_mensuelle_realtime
+    column: date
+    threshold: 40d
+  # ── MariaDB — flux horaires (colonnes indexées vérifiées) ──────────────────
+  - contract: mf-data-fallback
+    object: mf_data_{AAAA}_{MM}
+    column: dh_utc
+    threshold: 3h
+  - contract: static-stations-obs
+    object: static_{MM}_d{1|2|3} (bases V5_data_{AAAA})
+    column: dh_utc
+    threshold: 3h
+  - contract: synop-metar-reseau-etranger
+    object: synop_{MM}_d{1|2|3} (bases V5_data_{AAAA})
+    column: dh_utc
+    threshold: 6h
+  - contract: synop-metar-reseau-etranger
+    object: metar_{MM}_d{1|2|3} (bases V5_data_{AAAA})
+    column: dh_utc
+    threshold: 6h
+
+# Hors cibles, et pourquoi (constats du 2026-06-12, à ne pas transformer en alerte) :
+# - V5.radar.dh : dernière valeur 2014 — table de suivi morte, les tuiles fichiers
+#   sont le flux vivant (cf. contrat radar-tuiles, note deadTrackingTable).
+# - V5_climato.vigilances_mf.dh_vigi : écrit seulement en épisode de vigilance
+#   (pas de SLA de fraîcheur continu) ; writer historique vigi_mf.php mort.
+# - V5_climato.hydro.dh_utc : colonne non indexée — pas de check (éviter un full scan
+#   sur ~622 M lignes) ; ajouter un index avant d'activer un suivi de fraîcheur.
+# - V5.meteoalerte.dh : signalements déclaratifs sporadiques, pas de fréquence nominale.

@@ -56,6 +56,15 @@ C'est volontaire : un contrat non consommé est de la dette documentaire.
 5. **Litiges ou arbitrages inter-pôles** (un dataset consommé par plusieurs pôles,
    politique de rétention coûteuse…) : remontée au bureau de l'association.
 
+## Contrôles automatisés
+
+- **En CI GitHub** (sans accès base) : validité ODCS des contrats, cohérence du
+  registre RGPD, tests de l'outillage.
+- **Depuis le réseau interne** (compte lecture seule) : conformité de schéma contre
+  la prod, fraîcheur des données (SLA `frequency` vérifiés), domaine des licences
+  opendata. Voir [`tools/README.md`](tools/README.md). Ces contrôles ont vocation à
+  devenir un job interne récurrent.
+
 ## Attribution
 
 L'attribution des owners se fait en réunion d'équipe, un pôle pouvant être couvert par

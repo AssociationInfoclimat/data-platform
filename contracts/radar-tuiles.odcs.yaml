@@ -42,7 +42,10 @@ servers:
 schema:
   - name: radar
     physicalType: table
-    description: Suivi des composites radar par échéance (14 colonnes)
+    description: >-
+      Suivi des composites radar par échéance (14 colonnes). Constat 2026-06-12 :
+      dernière écriture en 2014 (MAX(dh)) — table de suivi gelée, le flux radar
+      vivant passe par les tuiles fichiers (cf. deadTrackingTable).
     properties:
       - name: dh
         physicalType: datetime
@@ -100,6 +103,8 @@ slaProperties:
     description: Politique de rétention
 
 customProperties:
+  - property: deadTrackingTable
+    value: V5.radar non écrite depuis 2014 (constat fraîcheur 2026-06-12) — suivi mort, les tuiles fichiers font foi pour le flux radar
   - property: lineageJob
     value: cron://infoclimat:cron.radarmf (pilote lineage) ; cron://infoclimat:cron.compo_new_1 ; kestra://infoclimat:data.meteorology.download-and-convert-radar
   - property: downstreamConsumers

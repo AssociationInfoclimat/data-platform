@@ -199,6 +199,12 @@ customProperties:
     value: api://infoclimat:opendata-v2.export
   - property: upstreamContracts
     value: urn:infoclimat:contract:static-stations-obs, urn:infoclimat:contract:infrahoraire-mf
+  - property: licenseEnforcement
+    value: >-
+      Exposition pilotée par static.licence (modèle dans le contrat static-stations-obs) :
+      requête commerciale → licence <= 1 ; non commerciale → licence <= 2 ; jamais
+      licence 3 (fermée) ni NULL pour un tiers. Conformité du domaine vérifiée par
+      tools/check_license_conformity.py.
   - property: accessControl
     value: clé API / reCAPTCHA / whitelist (opendata-v2/authorized-stations.inc.php), licence commerciale ou non par station
   - property: dataLicense

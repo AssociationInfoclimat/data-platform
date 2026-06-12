@@ -60,8 +60,18 @@ schema:
       - name: licence
         physicalType: INT
         logicalType: integer
-        description: Niveau de licence d'exposition (commerciale / non commerciale), pilote l'opendata
-        required: true
+        description: >-
+          Niveau de licence d'exposition opendata, défini par le propriétaire de la
+          station. Codes : 0 = Licence Ouverte (Etalab, réutilisation commerciale
+          incluse) ; 1 = commerciale autorisée ; 2 = non commerciale uniquement ;
+          3 = fermée (jamais exposée). NULL = non renseignée → exclue de l'opendata
+          (comportement par défaut fermé). L'export sélectionne `licence <= seuil`
+          selon la nature commerciale ou non de la requête.
+        quality:
+          - rule: validValues
+            description: Domaine de licence connu (0-3) — une valeur hors domaine casserait le filtre d'exposition
+            mustBeIn: [0, 1, 2, 3]
+            severity: error
 
   - name: static_observations
     physicalName: static_{MM}_d{1|2|3} (bases V5_data_{AAAA})
@@ -336,6 +346,12 @@ slaProperties:
     description: Politique de rétention
 
 customProperties:
+  - property: licenseModel
+    value: >-
+      static.licence 0=Etalab / 1=commercial / 2=non-commercial / 3=fermé ; NULL=exclu.
+      Constat 2026-06-12 : 1023 NULL (exclues de l'opendata), 107 fermées (3), 577 non
+      commerciales (2), 618 commerciales (1). Stations de l'association sélectionnées par
+      id_compte (hors champ licence). Vérifié par tools/check_license_conformity.py.
   - property: lineageJob
     value: cron://infoclimat:cron.ingest_static
   - property: retroCompatLayer
