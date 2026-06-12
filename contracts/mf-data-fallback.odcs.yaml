@@ -105,7 +105,17 @@ customProperties:
   - property: lineageJob
     value: cron://infoclimat:cron.load_data_mf (écrivain historique) — voir pipelines.yaml
   - property: dualSourceCounterpart
-    value: timescaledb — contrats infrahoraire-mf et horaire-mf-timescale (source prioritaire)
+    value: >-
+      timescaledb — équivalent de granularité = Horaire (contrat horaire-mf-timescale),
+      jointure directe id_station = NUM_POSTE. Infrahoraire (6 min) n'a pas d'équivalent
+      MariaDB. Source prioritaire.
+  - property: writeAbandonment
+    value: >-
+      Constat 2026-06-12 (tools/check_dual_source.py, fenêtre 7 j) : 1 seule station
+      alimentée côté MariaDB vs ~2580 côté TimescaleDB Horaire — couverture ~0 %. Le
+      fallback n'est de fait quasi plus écrit, ce qui accélère le dossier de
+      décommissionnement (phase 6). Le check de fraîcheur seul ne le révèle pas (un MAX
+      récent suffit à le satisfaire) : c'est la couverture par station qui le montre.
   - property: decommissionPlan
     value: extinction conditionnée au check de cohérence dual-source et à la migration des derniers lecteurs (phase 6 du chantier data)
   - property: excludedObjects

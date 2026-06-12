@@ -1,0 +1,34 @@
+# Cibles de contrôle dual-source — appariements MariaDB ↔ TimescaleDB.
+#
+# Le pattern dual-source maintient une donnée des deux côtés (TimescaleDB prioritaire,
+# MariaDB fallback). `tools/check_dual_source.py` compare la COUVERTURE et les COMPTES
+# par station/jour sur une fenêtre récente : c'est la métrique de readiness au
+# décommissionnement du fallback (cf. mf-data-fallback.odcs.yaml, decommissionPlan).
+#
+# PROD-SAFE : deux agrégats GROUP BY bornés par la fenêtre, sur des colonnes temps
+# indexées des deux côtés (MariaDB : index en tête ; TimescaleDB : colonne de
+# partitionnement → exclusion de chunks). Pas de scan de valeurs.
+#
+# Chaque (contract, object) doit référencer un objet existant d'un contrat.
+version: 1
+window_days: 7
+
+pairs:
+  - name: mf-horaire
+    description: Observations horaires Météo-France — fallback MariaDB vs source TimescaleDB
+    mariadb:
+      contract: mf-data-fallback
+      object: mf_data_{AAAA}_{MM}   # partitionné par mois d'ingestion (contient un historique glissant)
+      key: id_station               # = NUM_POSTE (8 car.), jointure directe
+      time: dh_utc                  # datetime UTC, indexé en tête
+    timescaledb:
+      contract: horaire-mf-timescale
+      object: Horaire
+      key: NUM_POSTE
+      time: AAAAMMJJHH              # colonne de partitionnement
+    # Seuils du mode --check :
+    min_coverage_pct: 80     # couverture MariaDB ÷ TimescaleDB attendue (stations communes / TS)
+    max_count_delta_pct: 5   # écart de comptes toléré par (station, jour) appariée
+
+# Note : Infrahoraire (6 min, TimescaleDB) n'a pas d'équivalent MariaDB à cette
+# granularité — pas d'appariement dual-source. Seul l'horaire est doublé.

@@ -27,6 +27,7 @@ récurrent (cron / Kestra) qui publiera son résultat.
 | `check_schema_mariadb.py` | Présence + type des colonnes vs `information_schema` | métadonnées seules — sûr partout |
 | `check_freshness.py [--check]` | Fraîcheur : `now - MAX(colonne)` vs seuil des cibles | saute les colonnes MariaDB non indexées (pas de full scan) |
 | `check_license_conformity.py [--check]` | Domaine du champ `static.licence` + distribution | un `GROUP BY` sur un référentiel |
+| `check_dual_source.py [--check]` | Couverture/comptes MariaDB ↔ TimescaleDB par station/jour (cibles `audits/dual-source-targets.yaml`) | 2 agrégats bornés par fenêtre, colonnes indexées des deux côtés |
 | `volumetrie_audit.py` | Inventaire de volumétrie des bases | lecture `information_schema` |
 
 Prérequis Python : `pip install pymysql 'psycopg[binary]' pyyaml 'datacontract-cli[postgres,mysql]'`.
