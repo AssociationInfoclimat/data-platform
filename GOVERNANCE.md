@@ -18,7 +18,7 @@ fichiers et de la CI).
 | **Observations & opendata** | infrahoraire-mf, horaire-mf-timescale, static-stations-obs, synop-metar-reseau-etranger, foudre, opendata-export, dataclimat-socle-stations, mf-data-fallback | *à attribuer* | pam |
 | **Climatologie & hydrologie** | climato-mf-timescale, quotidienne-mf-timescale, climato-mariadb, hydro-eaufrance-vigicrues | *à attribuer* | pam |
 | **Imagerie & modèles** | radar-tuiles, satellite-tuiles-fichiers, modeles-nwp-fichiers | *à attribuer* | pam |
-| **Prévision & vigilance** | previsions-bulletins, vigilances-meteo | *à attribuer* | pam |
+| **Prévision & vigilance** | previsions-bulletins, vigilances-meteo, previsions-api-opendata | *à attribuer* | pam |
 | **Communauté** | v5-comptes-utilisateurs, photolive, forums2-ipboard | *à attribuer* | pam |
 
 Tant qu'un pôle n'a pas d'owner attribué, le steward assure l'intérim — c'est l'état

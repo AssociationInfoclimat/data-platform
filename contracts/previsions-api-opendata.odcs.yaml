@@ -1,0 +1,132 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:previsions-api-opendata
+name: API de prévision point (opendata)
+version: 0.1.0
+status: draft
+domain: previsions
+dataProduct: previsions-modeles
+
+description:
+  purpose: >-
+    API HTTP publique de prévision météo en un point (latitude/longitude) issue des
+    modèles numériques exploités par l'association. Sert une série temporelle de
+    paramètres prévus par échéance, à partir des sorties modèles (méthode `gfs` :
+    modèle global ; méthode `wrf` : AROME haute résolution). C'est l'un des produits
+    opendata de l'association, ouvert y compris aux réutilisations commerciales.
+  usage: >-
+    Requête HTTP GET sur l'endpoint public avec un point (lat/lon), une méthode
+    (`gfs` ou `wrf`) et un format de sortie (`json`, `xml`, `csv`, `iframeSLIDE`).
+    L'accès automatisé nécessite une clé d'API (obtention via le site). La réponse
+    porte un état de requête (`request_state`) et, par échéance, les paramètres
+    météorologiques (températures, vent, précipitations, nébulosité, paramètres
+    d'altitude et indices de convection).
+  limitations: >-
+    Prévision de modèle, non une observation : exactitude décroissante avec
+    l'échéance, dépendante de la disponibilité du dernier run. La couverture en
+    paramètres dépend de la méthode (AROME ≠ GFS). Périmètre et profondeur d'échéance
+    bornés par les runs disponibles. L'authentification, le quota et la plomberie
+    interne (cache, runs) ne relèvent pas de ce contrat.
+
+tags:
+  - previsions
+  - modeles
+  - api
+  - opendata
+  - nwp
+
+servers:
+  - server: previsions-api
+    type: api
+    environment: production
+    location: https://www.infoclimat.fr/opendata/
+
+schema:
+  - name: prevision_point
+    physicalType: object
+    description: >-
+      Réponse de l'API pour un point : une enveloppe (état de requête + métadonnées
+      de run) et une série de pas de temps, chaque pas portant les paramètres prévus.
+      Les noms de paramètres ci-dessous sont ceux des sorties JSON.
+    properties:
+      - name: request_state
+        physicalType: TEXT
+        required: true
+        description: Code d'état de la requête (succès / erreur)
+      - name: echeance
+        physicalType: TEXT
+        required: true
+        description: Pas de temps de prévision (horodatage de validité)
+      - name: t2m
+        physicalType: REAL
+        description: Température à 2 m (°C)
+      - name: tsol
+        physicalType: REAL
+        description: Température du sol (°C)
+      - name: hr
+        physicalType: REAL
+        description: Humidité relative à 2 m (%)
+      - name: pres
+        physicalType: REAL
+        description: Pression réduite au niveau de la mer (hPa)
+      - name: vent
+        physicalType: REAL
+        description: Vent moyen à 10 m (km/h) — direction vdir, composantes u10m/v10m
+      - name: rafales
+        physicalType: REAL
+        description: Rafales de vent (km/h)
+      - name: pluie_1h
+        physicalType: REAL
+        description: Précipitations sur 1 h (mm) — cumul dérivé de pluie_cumul
+      - name: neige
+        physicalType: REAL
+        description: Précipitations neigeuses (cumul converti)
+      - name: nebul
+        physicalType: REAL
+        description: Nébulosité totale (%) — couches détaillées low/mid/hig_cloud
+      - name: iso0
+        physicalType: REAL
+        description: Altitude de l'isotherme 0 °C (m)
+      - name: cape
+        physicalType: REAL
+        description: Énergie potentielle de convection disponible (J/kg) — indices associés cin, li, kindex
+    quality:
+      - rule: documented
+        description: >-
+          Liste complète des paramètres par méthode (gfs/wrf) à publier dans une fiche
+          catalogue dédiée — le code de sérialisation fait foi en attendant.
+        severity: info
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat (intérim, pôle Prévision & vigilance)
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+slaProperties:
+  - property: frequency
+    value: par run de modèle (GFS ~4×/j, AROME ~selon les runs Météo-France)
+    description: Fréquence de rafraîchissement des prévisions servies
+  - property: retention
+    value: dernier run disponible servi ; pas d'archive de prévisions exposée
+    description: Politique de rétention
+
+customProperties:
+  - property: methods
+    value: gfs (modèle global), wrf (AROME haute résolution)
+  - property: formats
+    value: json, xml, csv, iframeSLIDE
+  - property: upstreamDatasets
+    value: modeles-nwp-fichiers (sorties modèles brutes) — l'API en dérive des prévisions ponctuelles
+  - property: accessControl
+    value: clé d'API requise pour l'accès automatisé (obtention via le site) — modalités hors contrat
+  - property: dataLicense
+    value: >-
+      Opendata Infoclimat, réutilisation autorisée y compris à des fins commerciales
+      (précisions du conseil, 2026-06-12) — voir https://www.infoclimat.fr/opendata/.
+      Attribution Infoclimat attendue. Les modèles sources amont conservent leurs
+      propres licences (cf. contrat modeles-nwp-fichiers).

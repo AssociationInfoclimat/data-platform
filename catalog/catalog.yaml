@@ -422,3 +422,16 @@ datasets:
           - "mf_data_{AAAA}_{MM}"
     owner: pam
     status: active
+
+  - id: previsions-api-opendata
+    name: API de prévision point (opendata)
+    domain: previsions
+    contract: contracts/previsions-api-opendata.odcs.yaml
+    sheet: catalog/datasets/previsions-api-opendata.md
+    storage:
+      - system: api
+        location: https://www.infoclimat.fr/opendata/
+    upstream:
+      - dataset: modeles-nwp-fichiers
+    owner: pam
+    status: draft

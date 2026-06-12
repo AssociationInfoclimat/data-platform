@@ -29,6 +29,7 @@
 # ── Pôle Prévision & vigilance (owner : à attribuer) ────────────────────────
 /contracts/previsions-bulletins.odcs.yaml         @citarf
 /contracts/vigilances-meteo.odcs.yaml             @citarf
+/contracts/previsions-api-opendata.odcs.yaml      @citarf
 
 # ── Pôle Communauté (owner : à attribuer) ───────────────────────────────────
 /contracts/v5-comptes-utilisateurs.odcs.yaml      @citarf
