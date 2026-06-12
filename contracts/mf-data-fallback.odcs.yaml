@@ -103,7 +103,10 @@ slaProperties:
 
 customProperties:
   - property: lineageJob
-    value: cron://infoclimat:cron.load_data_mf (écrivain historique) — voir pipelines.yaml
+    value: >-
+      webhook://infoclimat:ventoux.uplink — unique écrivain VIVANT (push temps réel de la
+      station Ventoux, cf. pipelines.yaml, priorité haute au mapping lineage).
+      cron://infoclimat:cron.load_data_mf = écrivain historique, mort.
   - property: dualSourceCounterpart
     value: >-
       timescaledb — équivalent de granularité = Horaire (contrat horaire-mf-timescale),

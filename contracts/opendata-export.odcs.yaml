@@ -198,7 +198,10 @@ customProperties:
   - property: lineageJob
     value: api://infoclimat:opendata-v2.export
   - property: upstreamContracts
-    value: urn:infoclimat:contract:static-stations-obs, urn:infoclimat:contract:infrahoraire-mf
+    value: >-
+      urn:infoclimat:contract:static-stations-obs, urn:infoclimat:contract:infrahoraire-mf,
+      urn:infoclimat:contract:mf-data-fallback (chemin dédié station Ventoux — l'export
+      opendata de ses horaires lit V5_data_mf)
   - property: scopeNote
     value: >-
       Ce contrat couvre l'export des OBSERVATIONS (CSV/JSON, clé API requise). Les
