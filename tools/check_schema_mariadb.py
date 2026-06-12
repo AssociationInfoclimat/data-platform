@@ -52,10 +52,13 @@ def concretize(name: str, today: datetime.date) -> str | None:
     if '{' not in name:
         return name
     m = re.match(r'([a-z]+)_\{MM\}_d\{1\|2\|3\}', name)
-    if not m:
-        return None  # template non reconnu : signalé non testable
-    decade = min((today.day - 1) // 10 + 1, 3)
-    return f"{m.group(1)}_{today.month:02d}_d{decade}"
+    if m:
+        decade = min((today.day - 1) // 10 + 1, 3)
+        return f"{m.group(1)}_{today.month:02d}_d{decade}"
+    m = re.match(r'([a-z_]+)_\{AAAA\}_\{MM\}', name)
+    if m:
+        return f"{m.group(1)}_{today.year}_{today.month:02d}"
+    return None  # template non reconnu : signalé non testable
 
 
 def template_db(db: str, today: datetime.date) -> str:

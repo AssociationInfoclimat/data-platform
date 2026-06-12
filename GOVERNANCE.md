@@ -15,7 +15,7 @@ fichiers et de la CI).
 
 | Pôle | Datasets (contrats) | Owner métier | Steward |
 |---|---|---|---|
-| **Observations & opendata** | infrahoraire-mf, horaire-mf-timescale, static-stations-obs, synop-metar-reseau-etranger, foudre, opendata-export | *à attribuer* | pam |
+| **Observations & opendata** | infrahoraire-mf, horaire-mf-timescale, static-stations-obs, synop-metar-reseau-etranger, foudre, opendata-export, dataclimat-socle-stations, mf-data-fallback | *à attribuer* | pam |
 | **Climatologie & hydrologie** | climato-mf-timescale, quotidienne-mf-timescale, climato-mariadb, hydro-eaufrance-vigicrues | *à attribuer* | pam |
 | **Imagerie & modèles** | radar-tuiles, satellite-tuiles-fichiers, modeles-nwp-fichiers | *à attribuer* | pam |
 | **Prévision & vigilance** | previsions-bulletins, vigilances-meteo | *à attribuer* | pam |
@@ -25,6 +25,20 @@ Tant qu'un pôle n'a pas d'owner attribué, le steward assure l'intérim — c'e
 actuel (`owner: pam` dans les contrats et le catalogue), à résorber : un chantier de
 gouvernance porté par une seule personne est le principal risque identifié de cette
 data-platform.
+
+## Ce qui mérite un contrat
+
+Un dataset est contractualisé s'il remplit l'un de ces critères :
+- il est **exposé à un consommateur externe** (opendata, client conventionné type
+  DataForGood, API) — le contrat est la promesse qui lui est faite ;
+- il est une **source de vérité non reconstructible** (observations, saisies,
+  production éditoriale, données personnelles) ;
+- il est un **pivot de migration** (les deux côtés d'un dual-source doivent être
+  sous contrat pour que les écarts soient mesurables).
+
+Le reste — caches, tuiles d'affichage, index de recherche, artefacts dérivés
+reconstructibles — vit dans les registres d'inventaire (`inventory/`) sans contrat.
+C'est volontaire : un contrat non consommé est de la dette documentaire.
 
 ## Processus
 

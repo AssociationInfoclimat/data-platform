@@ -12,6 +12,8 @@
 /contracts/synop-metar-reseau-etranger.odcs.yaml  @citarf
 /contracts/foudre.odcs.yaml                       @citarf
 /contracts/opendata-export.odcs.yaml              @citarf
+/contracts/dataclimat-socle-stations.odcs.yaml    @citarf
+/contracts/mf-data-fallback.odcs.yaml             @citarf
 
 # ── Pôle Climatologie & hydrologie (owner : à attribuer) ────────────────────
 /contracts/climato-mf-timescale.odcs.yaml         @citarf

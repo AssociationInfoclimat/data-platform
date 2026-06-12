@@ -1,0 +1,116 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:mf-data-fallback
+name: Observations Météo-France MariaDB (fallback dual-source)
+version: 0.1.0
+status: active # structure validée contre la prod le 2026-06-12 (tools/check_schema_mariadb.py)
+domain: observations
+dataProduct: observations-temps-reel
+
+description:
+  purpose: >-
+    Côté MariaDB du pattern dual-source : les observations Météo-France historiques en
+    tables mensuelles V5_data_mf.mf_data_{AAAA}_{MM} (2010 → pré-créées 2027). C'est la
+    source interrogée quand TimescaleDB est indisponible (contrats infrahoraire-mf et
+    horaire-mf-timescale). Ce contrat existe pour rendre le décommissionnement
+    mesurable : tant qu'un consommateur le lit, MariaDB ne peut pas être éteint.
+  usage: >-
+    Lecture via la couche dual-source (include/MeteoFrance/, fallback MySQL). Une table
+    par mois, clé (id_station char(12), dh_utc datetime UTC). ~90 colonnes en
+    conventions mixtes : noms Infoclimat (temperature, pression, pluie_1h, humidite…)
+    et codes Météo-France suffixés _H (FXI_H, TSV_H, PMERMIN_H…). Unités
+    conventionnelles Infoclimat (°C, hPa, km/h, mm).
+  limitations: >-
+    Dataset en fin de vie planifiée : remplacé par TimescaleDB au fil de la migration —
+    ne pas y brancher de nouveau consommateur. Le check de cohérence dual-source
+    (comptes/checksums MariaDB ↔ TimescaleDB) reste à mettre en place, prérequis du
+    décommissionnement. Une table legacy non partitionnée mf_data subsiste dans la
+    base (remplacée par la famille mensuelle, hors contrat).
+
+tags:
+  - meteo
+  - meteofrance
+  - time-series
+  - mariadb
+  - legacy
+  - dual-source
+
+servers:
+  - server: prod-mariadb
+    type: mysql
+    environment: production
+    host: ${DB_HOST}
+    port: 3306
+    database: V5_data_mf
+
+schema:
+  - name: mf_data_mensuelle
+    physicalName: mf_data_{AAAA}_{MM}
+    physicalType: table
+    description: >-
+      Observations MF du mois (famille de 259 tables, une par mois 2010-2027).
+      ~90 colonnes — clés et paramètres cœur déclarés, structure complète dans
+      schemas/mariadb/schema.sql.gz.
+    customProperties:
+      - property: physicalDatabase
+        value: V5_data_mf
+    properties:
+      - name: id_station
+        physicalType: char(12)
+        description: Identifiant de la station Météo-France
+      - name: dh_utc
+        physicalType: datetime
+        description: Horodatage de l'observation (UTC)
+      - name: temperature
+        physicalType: float
+        description: Température sous abri (°C) — min/max en temperature_min/max avec heures HTN/HTX
+      - name: pluie_1h
+        physicalType: float
+        description: Précipitations sur 1 h (mm)
+      - name: vent_moyen
+        physicalType: double
+        description: Vent moyen (km/h) — direction vent_direction, rafales vent_rafales
+      - name: pression
+        physicalType: float
+        description: Pression mer (hPa) — station PSTAT_H, min PMERMIN_H
+      - name: humidite
+        physicalType: double
+        description: Humidité relative (%)
+      - name: nebulosite
+        physicalType: tinyint
+        description: Nébulosité totale (octas) — couches N1-N4_H
+      - name: neige_au_sol
+        physicalType: double
+        description: Hauteur de neige au sol
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat (intérim, pôle Observations & opendata)
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+slaProperties:
+  - property: frequency
+    value: horaire (gel progressif au fil de la migration TimescaleDB)
+    description: Pas de mise à jour nominal
+  - property: retention
+    value: historique 2010+ conservé jusqu'au décommissionnement ; tables 2027 pré-créées
+    description: Politique de rétention
+
+customProperties:
+  - property: lineageJob
+    value: cron://infoclimat:cron.load_data_mf (écrivain historique) — voir pipelines.yaml
+  - property: dualSourceCounterpart
+    value: timescaledb — contrats infrahoraire-mf et horaire-mf-timescale (source prioritaire)
+  - property: decommissionPlan
+    value: extinction conditionnée au check de cohérence dual-source et à la migration des derniers lecteurs (phase 6 du chantier data)
+  - property: excludedObjects
+    value: mf_data (table legacy non partitionnée, remplacée par la famille mensuelle)
+  - property: dataLicense
+    value: >-
+      Données source Météo-France, diffusées en open data sous Licence Ouverte (Etalab) 2.0
+      (meteo.data.gouv.fr) — attribution Météo-France requise lors de toute réutilisation.

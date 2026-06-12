@@ -1,0 +1,398 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:dataclimat-socle-stations
+name: Socle dataclimat — référentiel stations et vues intermédiaires
+version: 0.1.0
+status: active # validé contre la prod le 2026-06-12 (datacontract test, 212 checks)
+domain: observations
+dataProduct: dataclimat
+
+description:
+  purpose: >-
+    Socle de la plateforme dataclimat (TimescaleDB) : référentiel des stations
+    (identité, positions et paramètres historisés, typologie, classement qualité),
+    correspondances d'identifiants, et vues matérialisées intermédiaires qui
+    alimentent les calculs de records et de normales. C'est le périmètre consommé
+    en lecture par le projet DataForGood `dataforgoodfr/14_ValorisationDonneeMeteo`
+    — premier client externe identifié de la data-platform.
+  usage: >-
+    Lecture seule pour les clients. Clé de jointure : le code station sur
+    8 caractères (`Station.id`, `station_code` des matviews, format NUM_POSTE
+    Météo-France). Les attributs de station sont historisés par périodes
+    (dateDebut/dateFin) dans Producteur, Position, Parametre, TypePoste et
+    station_classe. Les matviews mv_* sont des étapes de calcul : préférer les
+    vues finales du contrat climato-mf-timescale quand elles suffisent.
+  limitations: >-
+    Alimentation et schéma gérés hors monolithe (infra interne dataclimat) :
+    ingestion et refresh Kestra non instrumentés en lineage à ce stade. Base en
+    encodage SQL_ASCII — forcer client_encoding=UTF8 (champs texte accentués).
+    Tables techniques hors contrat : _prisma_migrations (reliquat d'outillage),
+    station_creation_date_bak (sauvegarde morte, purgeable). La colonne
+    StationTempsReel.Pack (enum métier) n'est pas testée (type custom).
+
+tags:
+  - meteo
+  - stations
+  - referentiel
+  - timescaledb
+  - dataclimat
+
+servers:
+  - server: prod-timescaledb
+    type: postgres
+    environment: production
+    host: ${TIMESCALEDB_HOST}
+    port: 5432
+    database: postgres
+    schema: public
+
+schema:
+  - name: station
+    physicalName: Station
+    physicalType: table
+    description: Référentiel des stations du socle (identité, position, type, visibilité)
+    properties:
+      - name: createdAt
+        physicalType: TIMESTAMP
+      - name: updatedAt
+        physicalType: TIMESTAMP
+      - name: id
+        physicalType: CHAR(8)
+      - name: nom
+        physicalType: TEXT
+      - name: departement
+        physicalType: INTEGER
+      - name: frequence
+        physicalType: TEXT
+      - name: posteOuvert
+        physicalType: BOOLEAN
+      - name: typePoste
+        physicalType: INTEGER
+      - name: lon
+        physicalType: REAL
+      - name: lat
+        physicalType: REAL
+      - name: alt
+        physicalType: REAL
+      - name: postePublic
+        physicalType: BOOLEAN
+  - name: stationtempsreel
+    physicalName: StationTempsReel
+    physicalType: table
+    description: Stations du flux temps réel (identifiants MF/OMM, position) — colonne Pack (enum métier, type custom) omise
+    properties:
+      - name: Id_station
+        physicalType: CHAR(8)
+      - name: Id_omm
+        physicalType: CHAR(5)
+      - name: Nom_usuel
+        physicalType: TEXT
+      - name: Latitude
+        physicalType: REAL
+      - name: Longitude
+        physicalType: REAL
+      - name: Altitude
+        physicalType: INTEGER
+      - name: Date_ouverture
+        physicalType: TIMESTAMP
+  - name: informationstation
+    physicalName: InformationStation
+    physicalType: table
+    description: Métadonnées descriptives des stations (lieu-dit, bassin, période)
+    properties:
+      - name: createdAt
+        physicalType: TIMESTAMP
+      - name: updatedAt
+        physicalType: TIMESTAMP
+      - name: id
+        physicalType: CHAR(8)
+      - name: nom
+        physicalType: TEXT
+      - name: lieuDit
+        physicalType: TEXT
+      - name: bassin
+        physicalType: TEXT
+      - name: dateDebut
+        physicalType: TIMESTAMP
+      - name: dateFin
+        physicalType: TIMESTAMP
+  - name: commandestation
+    physicalName: CommandeStation
+    physicalType: table
+    description: Commandes/abonnements de données par station et période
+    properties:
+      - name: createdAt
+        physicalType: TIMESTAMP
+      - name: updatedAt
+        physicalType: TIMESTAMP
+      - name: id
+        physicalType: TEXT
+      - name: status
+        physicalType: TEXT
+      - name: dateDebPeriode
+        physicalType: TIMESTAMP
+      - name: dateFinPeriode
+        physicalType: TIMESTAMP
+      - name: idStation
+        physicalType: CHAR(8)
+      - name: frequence
+        physicalType: TEXT
+  - name: producteur
+    physicalName: Producteur
+    physicalType: table
+    description: Producteurs de données rattachés aux stations (historisé)
+    properties:
+      - name: id
+        physicalType: INTEGER
+      - name: nom
+        physicalType: TEXT
+      - name: dateDebut
+        physicalType: TIMESTAMP
+      - name: dateFin
+        physicalType: TIMESTAMP
+      - name: stationId
+        physicalType: CHAR(8)
+  - name: position
+    physicalName: Position
+    physicalType: table
+    description: Historique des positions/altitudes des stations
+    properties:
+      - name: id
+        physicalType: INTEGER
+      - name: altitude
+        physicalType: REAL
+      - name: latitude
+        physicalType: REAL
+      - name: longitude
+        physicalType: REAL
+      - name: dateDebut
+        physicalType: TIMESTAMP
+      - name: dateFin
+        physicalType: TIMESTAMP
+      - name: stationId
+        physicalType: CHAR(8)
+  - name: parametre
+    physicalName: Parametre
+    physicalType: table
+    description: Paramètres mesurés par station (historisé)
+    properties:
+      - name: id
+        physicalType: INTEGER
+      - name: nom
+        physicalType: TEXT
+      - name: dateDebut
+        physicalType: TIMESTAMP
+      - name: dateFin
+        physicalType: TIMESTAMP
+      - name: stationId
+        physicalType: CHAR(8)
+  - name: typeposte
+    physicalName: TypePoste
+    physicalType: table
+    description: Typologie de poste par station (historisé)
+    properties:
+      - name: id
+        physicalType: INTEGER
+      - name: type
+        physicalType: INTEGER
+      - name: dateDebut
+        physicalType: TIMESTAMP
+      - name: dateFin
+        physicalType: TIMESTAMP
+      - name: stationId
+        physicalType: CHAR(8)
+  - name: ommid
+    physicalName: ommid
+    physicalType: table
+    description: Correspondance identifiants Météo-France ↔ OMM
+    properties:
+      - name: mfid
+        physicalType: CHAR(8)
+      - name: stid
+        physicalType: TEXT
+  - name: ref_department_region
+    physicalName: ref_department_region
+    physicalType: table
+    description: Référentiel département → région
+    properties:
+      - name: departement
+        physicalType: INTEGER
+      - name: region
+        physicalType: TEXT
+  - name: station_classe
+    physicalName: station_classe
+    physicalType: table
+    description: Classement qualité des stations (historisé)
+    properties:
+      - name: station_code
+        physicalType: CHAR(8)
+      - name: classe
+        physicalType: INTEGER
+      - name: date_debut
+        physicalType: TIMESTAMP
+      - name: date_fin
+        physicalType: TIMESTAMP
+  - name: station_creation_date
+    physicalName: station_creation_date
+    physicalType: table
+    description: Dates de création/fermeture des stations
+    properties:
+      - name: station_code
+        physicalType: CHAR(8)
+      - name: date_de_creation
+        physicalType: TIMESTAMP
+      - name: date_de_fermeture
+        physicalType: TIMESTAMP
+  - name: saveprogress
+    physicalName: SaveProgress
+    physicalType: table
+    description: Suivi de progression des jobs d'ingestion
+    properties:
+      - name: name
+        physicalType: TEXT
+      - name: updatedAt
+        physicalType: TIMESTAMP
+  - name: mv_records_battus_meta
+    physicalName: mv_records_battus_meta
+    physicalType: table
+    description: Métadonnées de calcul de mv_records_battus (date de coupure)
+    properties:
+      - name: cutoff_date
+        physicalType: DATE
+  - name: mv_quotidienne_tn
+    physicalName: mv_quotidienne_tn
+    physicalType: view
+    description: Matview intermédiaire — TN quotidiennes par station (alimente les vues records)
+    properties:
+      - name: station_code
+        physicalType: CHAR(8)
+      - name: date
+        physicalType: TIMESTAMP
+      - name: month
+        physicalType: INTEGER
+      - name: day
+        physicalType: INTEGER
+      - name: tn
+        physicalType: REAL
+  - name: mv_quotidienne_tx
+    physicalName: mv_quotidienne_tx
+    physicalType: view
+    description: Matview intermédiaire — TX quotidiennes par station
+    properties:
+      - name: station_code
+        physicalType: CHAR(8)
+      - name: date
+        physicalType: TIMESTAMP
+      - name: month
+        physicalType: INTEGER
+      - name: day
+        physicalType: INTEGER
+      - name: tx
+        physicalType: REAL
+  - name: mv_record_event_max_history
+    physicalName: mv_record_event_max_history
+    physicalType: view
+    description: Matview intermédiaire — historique des records de chaleur battus
+    properties:
+      - name: station_code
+        physicalType: CHAR(8)
+      - name: date
+        physicalType: TIMESTAMP
+      - name: month
+        physicalType: INTEGER
+      - name: day
+        physicalType: INTEGER
+      - name: record_value
+        physicalType: REAL
+      - name: previous_record_value
+        physicalType: REAL
+  - name: mv_record_event_min_history
+    physicalName: mv_record_event_min_history
+    physicalType: view
+    description: Matview intermédiaire — historique des records de froid battus
+    properties:
+      - name: station_code
+        physicalType: CHAR(8)
+      - name: date
+        physicalType: TIMESTAMP
+      - name: month
+        physicalType: INTEGER
+      - name: day
+        physicalType: INTEGER
+      - name: record_value
+        physicalType: REAL
+      - name: previous_record_value
+        physicalType: REAL
+  - name: mv_first_temperature_date
+    physicalName: mv_first_temperature_date
+    physicalType: view
+    description: Matview intermédiaire — première date de température par station
+    properties:
+      - name: station_code
+        physicalType: CHAR(8)
+      - name: first_temperature_date
+        physicalType: TIMESTAMP
+  - name: mv_itn_daily_1991_2020_real
+    physicalName: mv_itn_daily_1991_2020_real
+    physicalType: view
+    description: Matview intermédiaire — normales ITN quotidiennes 1991-2020
+    properties:
+      - name: date
+        physicalType: TIMESTAMP
+      - name: year
+        physicalType: INTEGER
+      - name: month
+        physicalType: INTEGER
+      - name: day_of_month
+        physicalType: INTEGER
+      - name: is_fictive
+        physicalType: BOOLEAN
+      - name: itn
+        physicalType: REAL
+  - name: mv_baseline_station_daily_mean_1991_2020
+    physicalName: mv_baseline_station_daily_mean_1991_2020
+    physicalType: view
+    description: Matview intermédiaire — baseline tntxm 1991-2020 par station et jour calendaire
+    properties:
+      - name: station_code
+        physicalType: CHAR(8)
+      - name: month
+        physicalType: INTEGER
+      - name: day
+        physicalType: INTEGER
+      - name: sample_count
+        physicalType: BIGINT
+      - name: baseline_mean_tntxm
+        physicalType: NUMERIC
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat (intérim, pôle Observations & opendata)
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+slaProperties:
+  - property: frequency
+    value: référentiel au fil de l'eau ; matviews rafraîchies par Kestra (6-15 min)
+    description: Pas de mise à jour nominal
+  - property: retention
+    value: référentiel conservé (historisation par périodes) ; matviews recalculées
+    description: Politique de rétention
+
+customProperties:
+  - property: lineageJob
+    value: ingestion hors monolithe (socle dataclimat) — à instrumenter ; refresh matviews kestra://infoclimat:db.dataclimat.*
+  - property: downstreamConsumers
+    value: dataforgoodfr/14_ValorisationDonneeMeteo (lecture seule, compte dédié) ; vues finales du contrat climato-mf-timescale
+  - property: excludedObjects
+    value: _prisma_migrations (reliquat outillage), station_creation_date_bak (mort, purgeable)
+  - property: dataLicense
+    value: >-
+      Référentiel de stations opéré par l'association ; données des stations de
+      l'association sous Licence Ouverte (Etalab) 2.0 (cf.
+      https://www.infoclimat.fr/opendata/). Accès direct à la base réservé aux
+      clients conventionnés (compte lecture seule dédié).

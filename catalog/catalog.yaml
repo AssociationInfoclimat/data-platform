@@ -10,13 +10,13 @@ datasets:
     sheet: catalog/datasets/infrahoraire-mf.md
     storage:
       - system: timescaledb
-        database: infoclimat
+        database: postgres
         tables:
           - Infrahoraire
           - InfrahoraireTempsReel
     fallback:
       - system: mariadb
-        database: mf_data
+        database: V5_data_mf
     owner: pam
     status: active
 
@@ -60,7 +60,7 @@ datasets:
     sheet: catalog/datasets/horaire-mf-timescale.md
     storage:
       - system: timescaledb
-        database: infoclimat
+        database: postgres
         tables:
           - Horaire
           - HoraireTempsReel
@@ -76,7 +76,7 @@ datasets:
     contract: contracts/quotidienne-mf-timescale.odcs.yaml
     storage:
       - system: timescaledb
-        database: infoclimat
+        database: postgres
         tables:
           - Quotidienne
           - QuotidienneAutresParametres
@@ -96,7 +96,7 @@ datasets:
     sheet: catalog/datasets/climato-mf-timescale.md
     storage:
       - system: timescaledb
-        database: infoclimat
+        database: postgres
         tables:
           - mv_quotidienne_realtime
           - mv_mensuelle_realtime
@@ -380,5 +380,45 @@ datasets:
     upstream:
       - cron.eaufrance-data
       - kestra.infoclimat.data.vigicrues
+    owner: pam
+    status: active
+
+  - id: dataclimat-socle-stations
+    name: Socle dataclimat — référentiel stations et vues intermédiaires
+    domain: observations
+    contract: contracts/dataclimat-socle-stations.odcs.yaml
+    sheet: null
+    storage:
+      - system: timescaledb
+        database: postgres
+        tables:
+          - Station
+          - StationTempsReel
+          - InformationStation
+          - CommandeStation
+          - Producteur
+          - Position
+          - Parametre
+          - TypePoste
+          - ommid
+          - ref_department_region
+          - station_classe
+          - station_creation_date
+          - SaveProgress
+          - mv_records_battus_meta
+          - "mv_* intermédiaires (tn, tx, records history, baselines)"
+    owner: pam
+    status: active
+
+  - id: mf-data-fallback
+    name: Observations Météo-France MariaDB (fallback dual-source)
+    domain: observations
+    contract: contracts/mf-data-fallback.odcs.yaml
+    sheet: null
+    storage:
+      - system: mariadb
+        database: V5_data_mf
+        tables:
+          - "mf_data_{AAAA}_{MM}"
     owner: pam
     status: active
