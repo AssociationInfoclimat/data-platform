@@ -1,0 +1,81 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:forums2-ipboard
+name: Forums IPBoard — frontière de lecture
+version: 0.1.0
+status: draft
+domain: communaute
+dataProduct: forums
+
+description:
+  purpose: >-
+    Contrat de frontière : la base forums2 appartient à l'application IPBoard
+    (gestion de schéma autonome, hôte dédié, **hors périmètre data-platform** —
+    décision du 2026-06-09). Ce contrat documente uniquement les trois tables que le
+    monolithe lit pour l'intégration site ↔ forums (menu, stats, fusion de comptes).
+  usage: >-
+    Lecture seule depuis site-infoclimat : core_members (lien compte site ↔ membre
+    forum, mon_compte/forum.php et fusion), core_sessions (compteur de présence,
+    stats_forums et menu), forums_topics (derniers sujets du menu). Aucune écriture
+    côté monolithe — IPBoard est seul écrivain de sa base.
+  limitations: >-
+    Le schéma est géré par IPBoard et évolue avec ses mises à jour : aucune garantie
+    de stabilité, pas de DDL versionné ici (base non introspectée). Toute évolution
+    de l'intégration doit passer par les API IPBoard plutôt que par de nouvelles
+    lectures SQL directes.
+
+tags:
+  - forums
+  - ipboard
+  - frontiere
+  - personal-data
+  - mariadb
+
+servers:
+  - server: prod-mariadb-forums
+    type: mysql
+    environment: production
+    host: ${FORUMS_DB_HOST}
+    port: 3306
+    database: forums2
+
+schema:
+  - name: core_members
+    physicalType: table
+    description: Membres IPBoard v4 — lecture seule (schéma géré par IPBoard, non versionné ici)
+  - name: core_sessions
+    physicalType: table
+    description: Sessions actives — lecture seule (compteur de présence)
+  - name: forums_topics
+    physicalType: table
+    description: Sujets des forums — lecture seule (derniers sujets du menu)
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat (côté lecture monolithe uniquement)
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+slaProperties:
+  - property: frequency
+    value: temps réel (lectures à la volée par le site)
+    description: Pas de mise à jour — IPBoard est seul écrivain
+  - property: retention
+    value: gérée par IPBoard — hors périmètre
+    description: Politique de rétention
+
+customProperties:
+  - property: boundaryContract
+    value: base applicative tierce (IPBoard), hors périmètre data-platform — seules les lectures du monolithe sont contractualisées
+  - property: lineageJob
+    value: lectures directes depuis include/ajax/getMenuV2.php, forums/stats_forums.php, mon_compte/forum.php
+  - property: personalData
+    value: core_members et core_sessions (profils et présence des membres) — traités par IPBoard, à référencer au registre RGPD
+  - property: dataLicense
+    value: >-
+      Contenus et données des membres du forum — aucune réutilisation ni redistribution.
+      Gestion et conditions d'utilisation portées par la plateforme forums (CGU du site).

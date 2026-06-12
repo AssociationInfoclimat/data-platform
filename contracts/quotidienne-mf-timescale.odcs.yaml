@@ -1,0 +1,142 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:quotidienne-mf-timescale
+name: Climatologie quotidienne à mensuelle Météo-France
+version: 0.1.0
+status: draft # validation contre le DDL complet à venir
+domain: climato
+dataProduct: climatologie-temps-reel
+
+description:
+  purpose: >-
+    Séries climatologiques élaborées Météo-France stockées dans TimescaleDB :
+    Quotidienne (~134 M lignes) et QuotidienneAutresParametres, Decadaire, DecadaireAgro,
+    Mensuelle. Socle des pages climatologie (normales, records, bilans) en complément des
+    agrégats calculés (contrat climato-mf-timescale).
+  usage: >-
+    Lecture via la couche dual-source du monolithe : include/MeteoFrance/quotidiennes.php,
+    decadaires.php, decadaires-agro.php, climato/mgetData.php — TimescaleDB prioritaire,
+    fallback MySQL. Clés : NUM_POSTE + AAAAMMJJ (quotidien) ou AAAAMM (décadaire/mensuel),
+    une colonne par paramètre avec indicateur qualité Q* (ou C* pour DecadaireAgro).
+  limitations: >-
+    Tables larges (55 à 159 colonnes) : seules les clés et quelques paramètres cœur sont
+    décrits ici, le DDL versionné fait foi. Couverture réseau Météo-France uniquement.
+    Ingestion gérée hors monolithe (socle dataclimat) — lineage à instrumenter.
+
+tags:
+  - meteo
+  - climatologie
+  - meteofrance
+  - timescaledb
+
+servers:
+  - server: prod-timescaledb
+    type: postgres
+    environment: production
+    host: ${TIMESCALEDB_HOST}
+    port: 5432
+    database: postgres
+    schema: public
+
+schema:
+  - name: quotidienne
+    physicalName: Quotidienne
+    physicalType: table
+    description: Climatologie quotidienne (55 colonnes — RR, TN/TX/TM avec heures, vent…)
+    properties:
+      - name: NUM_POSTE
+        physicalType: TEXT
+        required: true
+        description: Numéro Météo-France du poste sur 8 chiffres
+      - name: AAAAMMJJ
+        physicalType: TIMESTAMPTZ
+        required: true
+        description: Jour de la mesure (UTC), clé temporelle
+      - name: RR
+        physicalType: REAL
+        description: Cumul de précipitations quotidien (mm) — indicateur QRR
+      - name: TN
+        physicalType: REAL
+        description: Température minimale (°C) — heure HTN, indicateurs QTN/QHTN
+      - name: TX
+        physicalType: REAL
+        description: Température maximale (°C) — heure HTX, indicateurs QTX/QHTX
+  - name: quotidienne_autres_parametres
+    physicalName: QuotidienneAutresParametres
+    physicalType: table
+    description: Paramètres quotidiens complémentaires (85 colonnes — pression, rayonnement, ETP…)
+    properties:
+      - name: NUM_POSTE
+        physicalType: TEXT
+        required: true
+      - name: AAAAMMJJ
+        physicalType: TIMESTAMPTZ
+        required: true
+  - name: decadaire
+    physicalName: Decadaire
+    physicalType: table
+    description: Climatologie décadaire (154 colonnes — cumuls, nombres de jours seuils…)
+    properties:
+      - name: NUM_POSTE
+        physicalType: TEXT
+        required: true
+      - name: AAAAMM
+        physicalType: TIMESTAMPTZ
+        required: true
+        description: Mois (la décade est portée par une colonne dédiée)
+  - name: decadaire_agro
+    physicalName: DecadaireAgro
+    physicalType: table
+    description: Décadaire agrométéorologique (18 colonnes — RR, TN/TX, ETP, indicateurs C*)
+    properties:
+      - name: NUM_POSTE
+        physicalType: TEXT
+        required: true
+      - name: AAAAMM
+        physicalType: TIMESTAMPTZ
+        required: true
+      - name: ETP
+        physicalType: REAL
+        description: Évapotranspiration potentielle décadaire
+  - name: mensuelle
+    physicalName: Mensuelle
+    physicalType: table
+    description: Climatologie mensuelle (159 colonnes — cumuls, extrêmes datés, moyennes)
+    properties:
+      - name: NUM_POSTE
+        physicalType: TEXT
+        required: true
+      - name: AAAAMM
+        physicalType: TIMESTAMPTZ
+        required: true
+        description: Mois, clé temporelle
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+slaProperties:
+  - property: frequency
+    value: quotidienne (J+1) pour Quotidienne ; décadaire / mensuelle pour les agrégats MF
+    description: Pas de mise à jour nominal
+  - property: retention
+    value: illimitée (hot) — séries historiques depuis l'origine des postes
+    description: Politique de rétention
+
+customProperties:
+  - property: lineageJob
+    value: ingestion hors monolithe (socle dataclimat) — à instrumenter ; lecture via include/MeteoFrance/quotidiennes.php
+  - property: retroCompatLayer
+    value: include/MeteoFrance/{quotidiennes,decadaires,decadaires-agro}.php (pattern dual-source)
+  - property: fullSchema
+    value: schemas/timescaledb/schema.sql.gz — motif <PARAM> + Q<PARAM> (C<PARAM> pour DecadaireAgro)
+  - property: dataLicense
+    value: >-
+      Données source Météo-France, diffusées en open data sous Licence Ouverte (Etalab) 2.0
+      (meteo.data.gouv.fr) — attribution Météo-France requise lors de toute réutilisation.

@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Contrat** | Non défini (ajout au catalogue le 2026-06-07 — contrat candidat) |
+| **Contrat** | [`contracts/previsions-bulletins.odcs.yaml`](../../contracts/previsions-bulletins.odcs.yaml) (draft) |
 | **Domaine** | Prévisions |
 | **Stockage fichiers** | `previsions/` dans l'arbre web : `bn_*.txt` (bulletin national), `bulletin{id}.prev` (bulletins régionaux), `archives_pdf/`, `audio_mp3/` |
 | **Stockage MariaDB** | `V5_prevs.previsionnistes` (référentiel prévisionnistes — **personal_data**) ; `V5_chroniques.bim` (bulletins infos météo) |

@@ -1,0 +1,108 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:previsions-bulletins
+name: Prévisions et bulletins — production éditoriale
+version: 0.1.0
+status: draft
+domain: editorial
+dataProduct: previsions
+
+description:
+  purpose: >-
+    Production éditoriale de l'équipe prévision : bulletins de prévision texte
+    (nationaux et zonaux), bulletins archivés en PDF, bulletins audio, bulletin
+    infos médias (bim), et référentiel des prévisionnistes habilités avec leurs
+    zones et droits de publication.
+  usage: >-
+    Fichiers sous le webroot prévisions (bn_*.txt, bulletin{id}.prev, archives_pdf/,
+    audio_mp3/) écrits par gestion-prevs/. V5_prevs.previsionnistes : habilitations
+    (zones, droits bs/audio/upload, dernier bulletin). V5_chroniques.bim : bulletins
+    infos médias versionnés. Publication via gestion-prevs/ajax_publi.php.
+  limitations: >-
+    L'API de prévision automatique n'est pas couverte ici (production éditoriale
+    uniquement). Les fichiers du webroot ne sont pas versionnés — la trace de
+    publication vit en base. previsionnistes contient des liens compte
+    (donnée personnelle).
+
+tags:
+  - editorial
+  - previsions
+  - bulletins
+  - mariadb
+  - fichiers
+
+servers:
+  - server: prod-mariadb
+    type: mysql
+    environment: production
+    host: ${DB_HOST}
+    port: 3306
+    database: V5_prevs
+
+schema:
+  - name: previsionnistes
+    physicalType: table
+    description: Référentiel des prévisionnistes habilités (12 colonnes)
+    properties:
+      - name: id
+        physicalType: int
+        required: true
+        primaryKey: true
+      - name: id_compte
+        physicalType: int
+        required: true
+        description: Compte du prévisionniste — donnée personnelle indirecte
+      - name: zone
+        physicalType: varchar(255)
+        description: Zone de prévision couverte
+      - name: codes_depts
+        physicalType: varchar(255)
+        description: Départements couverts
+      - name: est_bs
+        physicalType: int
+        description: Habilitation bulletins spéciaux
+      - name: last_prev
+        physicalType: datetime
+        description: Dernière publication
+  - name: bim
+    physicalType: table
+    description: Bulletins infos médias, base V5_chroniques (8 colonnes — texte, validité, auteur)
+  - name: bulletins_fichiers
+    physicalType: files
+    description: Bulletins publiés sur le webroot prévisions (bn_*.txt, bulletin{id}.prev, archives_pdf/, audio_mp3/)
+    properties:
+      - name: path
+        physicalType: path
+        description: file://web/previsions/ — texte courant, archives PDF, audio MP3
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+slaProperties:
+  - property: frequency
+    value: quotidienne (bulletins) ; au fil de l'eau (bulletins spéciaux, bim)
+    description: Pas de publication nominal
+  - property: retention
+    value: archives PDF/audio conservées ; bulletins texte courants écrasés à chaque publication
+    description: Politique de rétention
+
+customProperties:
+  - property: lineageJob
+    value: api://infoclimat:gestion-prevs.publication (ajax_publi/ajax_sauv)
+  - property: personalData
+    value: previsionnistes.id_compte, bim.{id_compte,pseudo} — à inscrire au registre RGPD (audits/rgpd)
+  - property: catalogSheet
+    value: catalog/datasets/previsions-bulletins.md
+  - property: dataLicense
+    value: >-
+      Production éditoriale de l'association (bulletins rédigés par l'équipe
+      prévision) — diffusion sur le site ; réutilisation soumise à l'accord de
+      l'association. À distinguer de l'API de prévision automatique, en open data
+      complet (cf. https://www.infoclimat.fr/opendata/).

@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Contrat** | Non défini (prévu) |
+| **Contrat** | [`contracts/horaire-mf-timescale.odcs.yaml`](../../contracts/horaire-mf-timescale.odcs.yaml) (draft) |
 | **Domaine** | Observations |
 | **Stockage** | TimescaleDB (PostgreSQL) — tables `"Horaire"` (historique) et `"HoraireTempsReel"` (temps réel) |
 | **Pas temporel** | 1 heure |

@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Contrat** | Non défini (prévu) |
+| **Contrat** | [`contracts/radar-tuiles.odcs.yaml`](../../contracts/radar-tuiles.odcs.yaml) (draft) |
 | **Domaine** | Radar |
 | **Stockage** | MariaDB `V5` (tables `radar`, `cartes`, `cartes_tuiles`) + fichiers GeoTIFF/PNG `file://datastore/tiles/` |
 | **Fréquence** | Toutes les 3 min (Kestra Docker MF) ; toutes les 5 min (cron MF direct) |

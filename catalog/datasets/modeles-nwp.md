@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Contrat** | Non défini (prévu) |
+| **Contrat** | [`contracts/modeles-nwp-fichiers.odcs.yaml`](../../contracts/modeles-nwp-fichiers.odcs.yaml) (draft) |
 | **Domaine** | Modèles NWP |
 | **Stockage** | `file://srx-modeles-2/modeles/` (host-local srx-modeles-2) + `file://modeles/modeles.infoclimat.net` (NFS) |
 | **Formats** | GRIB2 (GFS, GEFS, ECMWF, GEM, GEMENS) ; GRIB2/NetCDF (AROME, ARPEGE) |

@@ -1,0 +1,153 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:climato-mariadb
+name: Climatologie communautaire MariaDB (V5_climato)
+version: 0.1.0
+status: draft
+domain: climato
+dataProduct: climatologie-communautaire
+
+description:
+  purpose: >-
+    Climatologie historique de la base V5_climato : agrégats quotidiens et mensuels toutes
+    sources (StatIC, Météo-France, réseaux étrangers, saisies), événements météo
+    remarquables (historic_*), indicateurs nationaux thermiques et pluviométriques.
+    C'est la mémoire climatologique du site, alimentée depuis 1996 et progressivement
+    doublée par TimescaleDB (contrats climato-mf-timescale, quotidienne-mf-timescale).
+  usage: >-
+    Agrégats : climato_journaliere_auto / climato_mensuelle_auto calculés par les crons
+    climato (cron/climato_annuelle.php), climato_journaliere_injectee chargée depuis
+    meteo.data.gouv.fr et MétéoSuisse, climato_journaliere_static saisie/corrigée à la
+    main. Événements : historic_events/values/records_* gérés depuis historic/add.php et
+    les crons records. Indicateurs : indicateur_national (TN/TX/TM France) et
+    indicateur_pluvio (lames d'eau départementales d01-d95, source COMEPHORE/radar).
+  limitations: >-
+    Sources hétérogènes par table — la qualité dépend du réseau d'origine (StatIC non
+    homogénéisé, séries MF élaborées, saisies manuelles). Pas de politique de purge
+    documentée. Les corrections manuelles (flag_locked, *_delete, climato_reviews) ne
+    sont pas journalisées en dehors de la base.
+
+tags:
+  - climatologie
+  - communautaire
+  - mariadb
+  - legacy
+
+servers:
+  - server: prod-mariadb
+    type: mysql
+    environment: production
+    host: ${DB_HOST}
+    port: 3306
+    database: V5_climato
+
+schema:
+  - name: climato_journaliere_auto
+    physicalType: table
+    description: Agrégats quotidiens calculés toutes stations (8 colonnes)
+    properties:
+      - name: id_station
+        physicalType: varchar(15)
+        required: true
+      - name: annee
+        physicalType: smallint
+        required: true
+      - name: mois
+        physicalType: tinyint
+        required: true
+      - name: jour
+        physicalType: tinyint
+        required: true
+      - name: tn
+        physicalType: float
+        description: Température minimale du jour (°C)
+      - name: tx
+        physicalType: float
+        description: Température maximale du jour (°C)
+      - name: rr
+        physicalType: float
+        description: Cumul de précipitations (mm)
+      - name: ens
+        physicalType: float
+        description: Ensoleillement (h)
+  - name: climato_mensuelle_auto
+    physicalType: table
+    description: Agrégats mensuels calculés (60 colonnes — moyennes, extrêmes datés, jours seuils ; flag_locked protège les corrections manuelles)
+    properties:
+      - name: id_station
+        physicalType: varchar(15)
+        required: true
+      - name: annee
+        physicalType: smallint
+        required: true
+      - name: mois
+        physicalType: tinyint
+        required: true
+      - name: flag_locked
+        physicalType: tinyint
+        description: Ligne verrouillée après correction manuelle (le recalcul ne l'écrase pas)
+  - name: climato_journaliere_injectee
+    physicalType: table
+    description: Quotidiens injectés depuis l'open data (meteo.data.gouv.fr QUOT/SQR, MétéoSuisse) — 20 colonnes, colonne source
+  - name: climato_journaliere_static
+    physicalType: table
+    description: Quotidiens StatIC corrigés à la main (19 colonnes, flags *_delete par paramètre)
+  - name: climato_reviews
+    physicalType: table
+    description: Journal des revues de données (5 colonnes, id_compte du relecteur)
+  - name: historic_events
+    physicalType: table
+    description: Événements météo remarquables, production éditoriale (22 colonnes — description, sources, tableaux croisés)
+  - name: historic_values
+    physicalType: table
+    description: Valeurs associées aux événements (12 colonnes, flags est_record/est_record_dpt)
+  - name: historic_records_depts
+    physicalType: table
+    description: Records départementaux par type (9 colonnes, recalculés par cron/records/records_depts.php)
+  - name: historic_records_nationaux
+    physicalType: table
+    description: Records nationaux par type (8 colonnes)
+  - name: historic_normales
+    physicalType: table
+    description: Normales de référence par point geonames (10 colonnes, station de référence et distance)
+  - name: historic_propose
+    physicalType: table
+    description: Propositions d'événements en attente de modération (14 colonnes)
+  - name: indicateur_national
+    physicalType: table
+    description: Indicateur thermique national quotidien (12 colonnes — TN/TX/TM, variantes MF et RTE)
+  - name: indicateur_pluvio
+    physicalType: table
+    description: Indicateur pluviométrique quotidien par département (103 colonnes d01-d95, source COMEPHORE)
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+slaProperties:
+  - property: frequency
+    value: quotidienne (crons climato) ; recalcul annuel complet (climato_annuelle)
+    description: Pas de mise à jour nominal
+  - property: retention
+    value: illimitée — historique depuis 1996, aucune purge documentée
+    description: Politique de rétention
+
+customProperties:
+  - property: lineageJob
+    value: cron://infoclimat:cron.climato_annuelle ; cron://infoclimat:cron.climato.mensuelle (pilote lineage) ; cron://infoclimat:cron.records
+  - property: retroCompatLayer
+    value: cron/climato_tiles.php (cartes), climato/mgetData.php (pages climato)
+  - property: migrationTarget
+    value: doublé progressivement par TimescaleDB (contrats climato-mf-timescale, quotidienne-mf-timescale) — pattern dual-source
+  - property: dataLicense
+    value: >-
+      Hétérogène par table selon la source amont : dérivés StatIC (CC du propriétaire de
+      chaque station), dérivés Météo-France et meteo.data.gouv.fr (Licence Ouverte 2.0,
+      attribution), événements historic_* (production éditoriale de l'association).
+      Réutilisation externe via l'export opendata uniquement (contrat opendata-export).

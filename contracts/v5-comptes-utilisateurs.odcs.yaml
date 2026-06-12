@@ -1,0 +1,127 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:v5-comptes-utilisateurs
+name: Comptes utilisateurs et observations rapides
+version: 0.1.0
+status: draft
+domain: communaute
+dataProduct: comptes-utilisateurs
+
+description:
+  purpose: >-
+    Référentiel des comptes du site et mécanismes d'authentification : profils
+    (V5.comptes), historique des pseudonymes, jetons de session et de réinitialisation,
+    statuts. Inclut temps_calme, les observations rapides géolocalisées publiées par
+    les membres (texte + photo, flux « temps calme » de l'accueil et du mobile).
+  usage: >-
+    Strictement interne au site et aux API mobiles : authentification
+    (include/connexion.php), profils (include/communs/infos_utilisateur.php),
+    inscription web et mobile. temps_calme est lu par l'accueil et mobile-api.
+    Toute jointure analytique passe par id_compte — jamais par les champs d'identité.
+  limitations: >-
+    Dataset à dominante **données personnelles** (pseudos, mdp hashés, IP de connexion,
+    jetons, géolocalisation des observations) : hors de tout export, opendata ou
+    partage. Les colonnes MA_* (héritage MeteoAlerte) et la cohabitation
+    id_forum/pseudo_forum (lien IPBoard) sont du legacy non normalisé.
+
+tags:
+  - communaute
+  - personal-data
+  - rgpd
+  - mariadb
+
+servers:
+  - server: prod-mariadb
+    type: mysql
+    environment: production
+    host: ${DB_HOST}
+    port: 3306
+    database: V5
+
+schema:
+  - name: comptes
+    physicalType: table
+    description: Profils des comptes (33 colonnes — identité, authentification, préférences, liens forum)
+    properties:
+      - name: id
+        physicalType: int
+        required: true
+        primaryKey: true
+      - name: pseudo
+        physicalType: varchar(30)
+        description: Pseudonyme public — donnée personnelle
+      - name: mdp
+        physicalType: tinytext
+        description: Mot de passe hashé — ne jamais exposer
+      - name: ip_derniere_connexion
+        physicalType: varchar(15)
+        description: IP de dernière connexion — donnée personnelle
+      - name: confidentialite
+        physicalType: enum
+        description: Niveau de confidentialité choisi par le membre (0-4)
+  - name: comptes_pseudos
+    physicalType: table
+    description: Historique des pseudonymes (5 colonnes)
+  - name: comptes_tokens
+    physicalType: table
+    description: Jetons de session (7 colonnes — token, IP et user-agent de création, expiration)
+  - name: comptes_reinitialisations
+    physicalType: table
+    description: Demandes de réinitialisation de mot de passe (9 colonnes — token, IP, user-agent)
+  - name: comptes_statuts
+    physicalType: table
+    description: Référentiel des statuts (4 colonnes, contient email_contact)
+  - name: temps_calme
+    physicalType: table
+    description: Observations rapides des membres (21 colonnes — texte, géolocalisation, photo liée, IP)
+    properties:
+      - name: id
+        physicalType: bigint
+        required: true
+        primaryKey: true
+      - name: id_compte
+        physicalType: int
+        required: true
+        description: Auteur — lien comptes
+      - name: dh_ajout
+        physicalType: datetime
+      - name: latitude
+        physicalType: float
+      - name: longitude
+        physicalType: float
+      - name: texte
+        physicalType: text
+        description: Contenu de l'observation (contribution du membre)
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+slaProperties:
+  - property: frequency
+    value: au fil de l'eau (activité des membres)
+    description: Pas de mise à jour nominal
+  - property: retention
+    value: comptes conservés sans purge documentée ; jetons à expiration — politique RGPD à formaliser
+    description: Politique de rétention
+
+customProperties:
+  - property: lineageJob
+    value: api://infoclimat:mobile-api.* (inscription, publication-obs) ; écrivains web (inscription, connexion, mon_compte)
+  - property: personalData
+    value: >-
+      pseudo, mdp, ip_derniere_connexion, comptes_tokens.{token,ip_creation,uagent_creation},
+      comptes_reinitialisations.{token,ip,useragent}, comptes_statuts.email_contact,
+      temps_calme.{ip,latitude,longitude} — à inscrire au registre RGPD (audits/rgpd)
+  - property: dataLicense
+    value: >-
+      Données personnelles des membres — aucune réutilisation ni redistribution.
+      Traitement encadré par la politique de confidentialité du site et le registre
+      RGPD de l'association (audits/rgpd/). Les contributions temps_calme sont publiées
+      sur le site selon les CGU.

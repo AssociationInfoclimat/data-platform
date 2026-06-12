@@ -1,0 +1,83 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:satellite-tuiles-fichiers
+name: Imagerie satellite — tuiles et archives
+version: 0.1.0
+status: draft
+domain: cartes
+dataProduct: imagerie-temps-reel
+
+description:
+  purpose: >-
+    Imagerie satellite affichée par le site : tuiles temps réel multi-sources
+    (visible, infrarouge, composites couleur) et archives MODIS. Produites par les
+    chaînes de récupération satellite (UKMET, GOES, Himawari, Sat24, MODIS…) et
+    servies par le front via le datastore.
+  usage: >-
+    Tuiles sous file://datastore/tempsreel.infoclimat.net/tiles/ (convention
+    {jeu}/{z}/{x}/{y}, PNG/JPEG) ; archives MODIS sous file://datastore/satellite/modis
+    (une image quotidienne par date, table V5.satellites de la base data_cartes pour
+    l'index). La fraîcheur dépend du satellite et du canal (10-30 min en géostationnaire).
+  limitations: >-
+    Sources multiples avec des conditions d'usage distinctes — ce dataset est un
+    agrégat d'affichage, pas un produit redistribuable. Certaines chaînes legacy
+    (archives sat) ont des producteurs non versionnés (scripts hôtes), statut douteux
+    dans pipelines.yaml.
+
+tags:
+  - satellite
+  - tuiles
+  - imagerie
+  - fichiers
+
+servers:
+  - server: datastore-files
+    type: local
+    environment: production
+    path: file://datastore/
+    format: png
+
+schema:
+  - name: tiles_tempsreel
+    physicalType: files
+    description: Tuiles satellite temps réel (file://datastore/tempsreel.infoclimat.net/tiles/)
+    properties:
+      - name: path
+        physicalType: path
+        required: true
+        description: "{jeu}/{z}/{x}/{y} — PNG/JPEG par jeu de tuiles"
+  - name: archives_modis
+    physicalType: files
+    description: Archives MODIS quotidiennes (file://datastore/satellite/modis)
+    properties:
+      - name: path
+        physicalType: path
+        description: "{YYYY}/{date}.jpg — index en base data_cartes (table satellites)"
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+slaProperties:
+  - property: frequency
+    value: 10-30 minutes selon satellite et canal ; MODIS quotidien
+    description: Pas de mise à jour nominal
+  - property: retention
+    value: tuiles temps réel en rotation ; archives MODIS conservées (historique quotidien)
+    description: Politique de rétention
+
+customProperties:
+  - property: lineageJob
+    value: cron://infoclimat:cron.sat_modis ; chaînes sat des crontabs legacy (cf. pipelines.yaml, familles tiles sat)
+  - property: dataLicense
+    value: >-
+      Hétérogène par source : EUMETSAT/UKMET, NOAA GOES, JMA Himawari, NASA MODIS et
+      agrégateurs (Sat24) — chaque imagerie reste soumise aux conditions de son
+      producteur. Usage limité à l'affichage sur le site ; pas de redistribution brute
+      par l'association.

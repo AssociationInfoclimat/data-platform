@@ -56,7 +56,7 @@ datasets:
   - id: horaire-mf-timescale
     name: Observations horaires Météo-France (TimescaleDB)
     domain: observations
-    contract: null
+    contract: contracts/horaire-mf-timescale.odcs.yaml
     sheet: catalog/datasets/horaire-mf-timescale.md
     storage:
       - system: timescaledb
@@ -73,7 +73,7 @@ datasets:
   - id: quotidienne-mf-timescale
     name: Observations quotidiennes / décadaires Météo-France (TimescaleDB)
     domain: observations
-    contract: null
+    contract: contracts/quotidienne-mf-timescale.odcs.yaml
     storage:
       - system: timescaledb
         database: infoclimat
@@ -113,7 +113,7 @@ datasets:
   - id: climato-mariadb
     name: Climatologie agrégée MariaDB (climato_journaliere_auto, climato_mensuelle_auto, historiques)
     domain: climato
-    contract: null
+    contract: contracts/climato-mariadb.odcs.yaml
     storage:
       - system: mariadb
         database: V5_climato
@@ -178,7 +178,7 @@ datasets:
   - id: radar-tuiles
     name: Données radar météo (Météo-France DPRadar + Meteomedia)
     domain: radar
-    contract: null
+    contract: contracts/radar-tuiles.odcs.yaml
     sheet: catalog/datasets/radar-tuiles.md
     storage:
       - system: mariadb
@@ -199,7 +199,7 @@ datasets:
   - id: vigilances-meteo
     name: Vigilances Météo-France et Vigicrues
     domain: vigilance
-    contract: null
+    contract: contracts/vigilances-meteo.odcs.yaml
     storage:
       - system: mariadb
         database: V5_climato
@@ -225,7 +225,7 @@ datasets:
   - id: v5-comptes-utilisateurs
     name: Comptes utilisateurs et authentification (V5)
     domain: autre
-    contract: null
+    contract: contracts/v5-comptes-utilisateurs.odcs.yaml
     storage:
       - system: mariadb
         database: V5
@@ -246,7 +246,7 @@ datasets:
   - id: photolive
     name: Photos météo live (galerie V5_photolive)
     domain: autre
-    contract: null
+    contract: contracts/photolive.odcs.yaml
     storage:
       - system: mariadb
         database: V5_photolive
@@ -266,7 +266,7 @@ datasets:
   - id: forums2-ipboard
     name: Forums IPBoard (forums2)
     domain: forums
-    contract: null
+    contract: contracts/forums2-ipboard.odcs.yaml
     storage:
       - system: mariadb
         database: forums2
@@ -284,7 +284,7 @@ datasets:
   - id: modeles-nwp-fichiers
     name: Modèles NWP — fichiers GRIB/NetCDF (srx-modeles-2 + NFS modeles)
     domain: modeles
-    contract: null
+    contract: contracts/modeles-nwp-fichiers.odcs.yaml
     sheet: catalog/datasets/modeles-nwp.md
     storage:
       - system: file
@@ -323,7 +323,7 @@ datasets:
   - id: satellite-tuiles-fichiers
     name: Images satellite — tuiles GeoTIFF et PNG (UKMET, GOES, Himawari, MODIS)
     domain: satellite
-    contract: null
+    contract: contracts/satellite-tuiles-fichiers.odcs.yaml
     storage:
       - system: file
         location: file://datastore/tempsreel.infoclimat.net/tiles/
@@ -341,7 +341,7 @@ datasets:
   - id: previsions-bulletins
     name: Bulletins de prévision rédigés (national, régionaux, BIM, audio)
     domain: previsions
-    contract: null
+    contract: contracts/previsions-bulletins.odcs.yaml
     sheet: catalog/datasets/previsions-bulletins.md
     storage:
       - system: file
@@ -366,7 +366,7 @@ datasets:
   - id: hydro-eaufrance-vigicrues
     name: Données hydrologiques EauFrance / Vigicrues
     domain: vigilance
-    contract: null
+    contract: contracts/hydro-eaufrance-vigicrues.odcs.yaml
     storage:
       - system: mariadb
         database: V5_climato

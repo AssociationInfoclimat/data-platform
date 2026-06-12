@@ -1,0 +1,112 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:radar-tuiles
+name: Radar — composites et tuiles
+version: 0.1.0
+status: draft
+domain: cartes
+dataProduct: imagerie-temps-reel
+
+description:
+  purpose: >-
+    Chaîne radar du site : composites nationaux générés depuis le flux radar
+    Météo-France, tuiles cartographiques servies au front, et tables de suivi
+    (fraîcheur des cartes, valeurs par tuile). Alimente la carte radar temps réel
+    et les cumuls de lame d'eau (python-climate-services).
+  usage: >-
+    V5.radar : une ligne par échéance (dh) avec les compteurs de pixels par classe
+    d'intensité p0-p11 + ptot (suivi de l'activité). V5.cartes : horodatage de dernière
+    génération par carte (fraîcheur). V5.cartes_tuiles : valeurs associées aux tuiles
+    (clé nom). Tuiles fichiers sous file://datastore/tiles/radar (GeoTIFF/PNG,
+    convention {z}/{x}/{y}).
+  limitations: >-
+    Les tables MariaDB sont du suivi de chaîne, pas la donnée radar elle-même (les
+    tuiles fichiers font foi pour l'affichage). Dépend de la disponibilité du flux
+    radar amont ; pas d'historique long en base (suivi roulant).
+
+tags:
+  - radar
+  - tuiles
+  - cartes
+  - meteofrance
+  - mariadb
+
+servers:
+  - server: prod-mariadb
+    type: mysql
+    environment: production
+    host: ${DB_HOST}
+    port: 3306
+    database: V5
+
+schema:
+  - name: radar
+    physicalType: table
+    description: Suivi des composites radar par échéance (14 colonnes)
+    properties:
+      - name: dh
+        physicalType: datetime
+        required: true
+        description: Échéance du composite (clé)
+      - name: p0
+        physicalType: mediumint
+        description: Compteur de pixels classe 0 (idem p1…p11 par intensité croissante)
+      - name: ptot
+        physicalType: mediumint
+        description: Total de pixels précipitants
+  - name: cartes
+    physicalType: table
+    description: Fraîcheur des cartes générées (2 colonnes — nom, derniere)
+    properties:
+      - name: nom
+        physicalType: varchar(255)
+        required: true
+      - name: derniere
+        physicalType: datetime
+        description: Dernière génération
+  - name: cartes_tuiles
+    physicalType: table
+    description: Valeurs associées aux jeux de tuiles (2 colonnes — nom, donnees)
+    properties:
+      - name: nom
+        physicalType: varchar(255)
+        required: true
+      - name: donnees
+        physicalType: varchar(255)
+  - name: tiles_radar
+    physicalType: files
+    description: Tuiles radar sur le datastore (file://datastore/tiles/radar — GeoTIFF/PNG)
+    properties:
+      - name: path
+        physicalType: path
+        description: Arborescence tiles/radar/{jeu}/{z}/{x}/{y}
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+slaProperties:
+  - property: frequency
+    value: 5 minutes (échéances radar)
+    description: Pas de génération nominal
+  - property: retention
+    value: tuiles purgées par rotation ; tables de suivi roulantes
+    description: Politique de rétention
+
+customProperties:
+  - property: lineageJob
+    value: cron://infoclimat:cron.radarmf (pilote lineage) ; cron://infoclimat:cron.compo_new_1 ; kestra://infoclimat:data.meteorology.download-and-convert-radar
+  - property: downstreamConsumers
+    value: python-climate-services (pluviometrie — cumuls GeoTIFF), cartes temps réel du site
+  - property: dataLicense
+    value: >-
+      Flux radar source Météo-France (données libres, Licence Ouverte/Etalab 2.0 —
+      attribution Météo-France). Les composites et tuiles dérivés sont produits par
+      l'association pour l'affichage du site ; réutilisation externe : se référer à
+      https://www.infoclimat.fr/opendata/.

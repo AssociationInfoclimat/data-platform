@@ -1,0 +1,137 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:vigilances-meteo
+name: Vigilances météo et signalements
+version: 0.1.0
+status: draft
+domain: vigilance
+dataProduct: vigilance-temps-reel
+
+description:
+  purpose: >-
+    État de vigilance météorologique et signalements terrain : vigilance Météo-France
+    par département (couleur + phénomènes), historique des cartes de vigilance,
+    vigilance crues (tronçons Vigicrues), bulletins spéciaux de suivi rédigés par
+    l'équipe prévision, et signalements communautaires MeteoAlerte (observations
+    d'événements par les contributeurs, géolocalisées).
+  usage: >-
+    V5_climato.vigilance_direct : état courant par département (écrasé à chaque cycle).
+    V5_climato.vigilances_mf : historique horodaté (payload vigi en texte, compteurs
+    orange/rouge). V5_chroniques.bulletins_speciaux_suivi : bulletins versionnés
+    (type vigi/suivi/previ). V5.meteoalerte : un signalement par ligne, géolocalisé,
+    34 colonnes dont une par phénomène (tornade, inondation, verglas…).
+  limitations: >-
+    Écrivain historique cron/vigi_mf.php prouvé mort (le flux actif passe par
+    include/Vigilances/vigilances.php, flow Kestra data.meteofrance.vigilance) — la
+    chaîne de mise à jour est en cours de migration. MeteoAlerte est déclaratif
+    (qualité non contrôlée, modération a posteriori) et contient idc (lien compte).
+
+tags:
+  - vigilance
+  - meteofrance
+  - communautaire
+  - mariadb
+
+servers:
+  - server: prod-mariadb
+    type: mysql
+    environment: production
+    host: ${DB_HOST}
+    port: 3306
+    database: V5_climato
+
+schema:
+  - name: vigilance_direct
+    physicalType: table
+    description: État de vigilance courant par département (3 colonnes, table écrasée)
+    properties:
+      - name: departement
+        physicalType: varchar(10)
+        required: true
+      - name: couleur
+        physicalType: tinyint
+        description: Niveau de vigilance (1-4)
+      - name: types
+        physicalType: varchar(20)
+        description: Phénomènes concernés (codes concaténés)
+  - name: vigilances_mf
+    physicalType: table
+    description: Historique des vigilances (7 colonnes)
+    properties:
+      - name: dh_vigi
+        physicalType: datetime
+        required: true
+        description: Échéance de la carte de vigilance
+      - name: vigi
+        physicalType: text
+        description: Payload sérialisé de la carte
+      - name: nb_orange
+        physicalType: mediumint
+      - name: nb_rouge
+        physicalType: mediumint
+  - name: bulletins_speciaux_suivi
+    physicalType: table
+    description: Bulletins spéciaux de suivi, base V5_chroniques (9 colonnes, versionnés par revision)
+    properties:
+      - name: id_bulletin
+        physicalType: int
+        required: true
+      - name: dh_pub
+        physicalType: datetime
+      - name: texte
+        physicalType: longtext
+        description: Contenu éditorial du bulletin
+      - name: type
+        physicalType: enum
+        description: vigi / suivi / previ / vigi_ancien
+  - name: meteoalerte
+    physicalType: table
+    description: Signalements communautaires géolocalisés, base V5 (34 colonnes — un booléen par phénomène)
+    properties:
+      - name: id
+        physicalType: int
+        required: true
+      - name: dh
+        physicalType: datetime
+        required: true
+      - name: idc
+        physicalType: int
+        description: Compte contributeur (lien V5.comptes — donnée personnelle indirecte)
+      - name: latitude
+        physicalType: float
+      - name: longitude
+        physicalType: float
+      - name: countrycode
+        physicalType: char(2)
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+slaProperties:
+  - property: frequency
+    value: cycle vigilance Météo-France (6 h + mises à jour) ; MeteoAlerte au fil de l'eau
+    description: Pas de mise à jour nominal
+  - property: retention
+    value: vigilance_direct écrasée ; historiques conservés sans purge documentée
+    description: Politique de rétention
+
+customProperties:
+  - property: lineageJob
+    value: kestra://infoclimat:data.meteofrance.vigilance ; webhook://infoclimat:meteoalerte.gateway
+  - property: deadWriterCaveat
+    value: cron/vigi_mf.php (mort prouvé, encore schedulé sur l'hôte legacy) — flux actif via include/Vigilances/vigilances.php
+  - property: personalData
+    value: meteoalerte.idc et bulletins (id_compte rédacteur) — liens vers comptes, à inscrire au registre RGPD
+  - property: dataLicense
+    value: >-
+      Vigilance source Météo-France (open data, Licence Ouverte/Etalab 2.0, attribution) ;
+      vigilance crues Vigicrues (Licence Ouverte 2.0) ; signalements MeteoAlerte =
+      contributions communautaires et bulletins = production éditoriale de l'association —
+      réutilisation externe : se référer à https://www.infoclimat.fr/opendata/.

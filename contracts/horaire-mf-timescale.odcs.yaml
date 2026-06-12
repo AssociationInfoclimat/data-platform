@@ -1,0 +1,129 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:horaire-mf-timescale
+name: Observations horaires Météo-France
+version: 0.1.0
+status: draft # validation contre le DDL complet à venir
+domain: observations
+dataProduct: observations-temps-reel
+
+description:
+  purpose: >-
+    Observations horaires des stations Météo-France, stockées dans TimescaleDB :
+    historique climatologique (`Horaire`, hypertable, ~590 M lignes) et flux temps réel
+    (`HoraireTempsReel`). Complète l'infrahoraire (pas 6 min) pour les tableaux
+    climatologiques, les graphes et les agrégats.
+  usage: >-
+    Lecture via la couche dual-source du monolithe (include/MeteoFrance/combined.php,
+    quotidiennes/climato : climato/mgetData.php) — TimescaleDB prioritaire, fallback
+    MySQL mf_data. `Horaire` : clé temporelle AAAAMMJJHH (UTC), une colonne par paramètre
+    avec son indicateur qualité Q* associé. `HoraireTempsReel` : clé validity_time,
+    partition 31 j.
+  limitations: >-
+    Couverture limitée au réseau Météo-France (pas de StatIC). Le flux temps réel et
+    l'historique ont des conventions différentes (unités SI côté temps réel, identifiants
+    geo_id_insee vs NUM_POSTE). Ingestion gérée hors monolithe (socle dataclimat) :
+    le lineage de l'alimentation reste à instrumenter.
+
+tags:
+  - meteo
+  - time-series
+  - meteofrance
+  - timescaledb
+
+servers:
+  - server: prod-timescaledb
+    type: postgres
+    environment: production
+    host: ${TIMESCALEDB_HOST}
+    port: 5432
+    database: postgres
+    schema: public
+
+schema:
+  - name: horaire
+    physicalName: Horaire
+    physicalType: hypertable
+    description: Historique horaire Météo-France (201 colonnes — une par paramètre + indicateur qualité Q*)
+    properties:
+      - name: NUM_POSTE
+        physicalType: TEXT
+        required: true
+        description: Numéro Météo-France du poste sur 8 chiffres
+      - name: NOM_USUEL
+        physicalType: TEXT
+        description: Nom usuel du poste
+      - name: AAAAMMJJHH
+        physicalType: TIMESTAMPTZ
+        required: true
+        description: Date et heure de la mesure (UTC), clé temporelle de l'hypertable
+      - name: RR1
+        physicalType: REAL
+        description: Précipitations sur 1 h (mm) — indicateur qualité QRR1
+      - name: T
+        physicalType: REAL
+        description: Température sous abri (°C) — indicateur qualité QT
+      - name: FF
+        physicalType: REAL
+        description: Vent moyen (m/s) — direction DD, indicateurs QFF/QDD
+    customProperties:
+      - property: fullSchema
+        value: schemas/timescaledb/schema.sql.gz — 201 colonnes, motif <PARAM> + Q<PARAM>
+  - name: horaire_temps_reel
+    physicalName: HoraireTempsReel
+    physicalType: hypertable
+    description: Flux temps réel horaire (30 colonnes, purge implicite par partitions)
+    properties:
+      - name: geo_id_insee
+        physicalType: TEXT
+        required: true
+        description: ID du point au format ddnnnpp (département, commune, poste)
+      - name: reference_time
+        physicalType: TIMESTAMPTZ
+        description: Date/heure de production de la donnée (UTC)
+      - name: insert_time
+        physicalType: TIMESTAMPTZ
+        description: Date/heure d'insertion en base (UTC)
+      - name: validity_time
+        physicalType: TIMESTAMPTZ
+        required: true
+        description: Date/heure de validité (UTC), clé temporelle de l'hypertable
+      - name: t
+        physicalType: REAL
+        description: Température (K — unités SI sur le flux temps réel)
+      - name: ff
+        physicalType: REAL
+        description: Vent moyen (m/s) — direction dd
+    customProperties:
+      - property: fullSchema
+        value: schemas/timescaledb/schema.sql.gz — 30 colonnes
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+slaProperties:
+  - property: frequency
+    value: horaire
+    description: Pas temporel nominal des observations
+  - property: retention
+    value: illimitée (hot) pour l'historique ; temps réel purgé par partitions (31 j)
+    description: Politique de rétention
+
+customProperties:
+  - property: lineageJob
+    value: ingestion hors monolithe (socle dataclimat) — à instrumenter ; lecture via include/MeteoFrance/combined.php
+  - property: retroCompatLayer
+    value: include/MeteoFrance/combined.php (pattern dual-source, fallback mariadb://mf_data)
+  - property: fallbackSource
+    value: mariadb://mf_data (MySQL interrogé si TimescaleDB indisponible)
+  - property: dataLicense
+    value: >-
+      Données source Météo-France, diffusées en open data sous Licence Ouverte (Etalab) 2.0
+      (meteo.data.gouv.fr) — attribution Météo-France requise lors de toute réutilisation.

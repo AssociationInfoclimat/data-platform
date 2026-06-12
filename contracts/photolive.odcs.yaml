@@ -1,0 +1,106 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:photolive
+name: Photolive — photos météo communautaires
+version: 0.1.0
+status: draft
+domain: communaute
+dataProduct: photolive
+
+description:
+  purpose: >-
+    Photothèque météo communautaire : photos soumises par les membres, géolocalisées et
+    datées, avec leur chaîne de modération (avis des modérateurs) et d'évaluation
+    (votes). electric_photolive relie les photos aux impacts de foudre signalés
+    (module Electric). L'un des contenus emblématiques du site.
+  usage: >-
+    V5_photolive.photos : une ligne par photo (métadonnées EXIF light, lieu/geonames,
+    titre/description, état de modération) — les fichiers images vivent sur le
+    stockage du site, photo_url fait foi. evaluations : un vote par compte et par photo.
+    moderation_avis : avis horodatés des modérateurs. Publication via
+    photolive/publication_db.php, modération via admin-photolive/.
+  limitations: >-
+    Les photographies restent la propriété intellectuelle de leurs auteurs — la base ne
+    porte que les métadonnées et le droit d'affichage accordé au site. id_compte
+    présent dans les trois tables (donnée personnelle indirecte). Modération a
+    posteriori : des contenus non validés transitent en base.
+
+tags:
+  - communaute
+  - photos
+  - personal-data
+  - mariadb
+
+servers:
+  - server: prod-mariadb
+    type: mysql
+    environment: production
+    host: ${DB_HOST}
+    port: 3306
+    database: V5_photolive
+
+schema:
+  - name: photos
+    physicalType: table
+    description: Métadonnées des photos (34 colonnes)
+    properties:
+      - name: id
+        physicalType: int
+        required: true
+        primaryKey: true
+      - name: id_compte
+        physicalType: int
+        required: true
+        description: Auteur — lien V5.comptes (donnée personnelle indirecte)
+      - name: photo_url
+        physicalType: varchar(48)
+        description: Chemin du fichier image (le binaire vit hors base)
+      - name: dh_prise
+        physicalType: datetime
+        description: Date/heure de prise de vue
+      - name: latitude
+        physicalType: double
+      - name: longitude
+        physicalType: double
+      - name: titre
+        physicalType: varchar(255)
+      - name: description
+        physicalType: text
+  - name: evaluations
+    physicalType: table
+    description: Votes des membres (5 colonnes — vote, saquage)
+  - name: moderation_avis
+    physicalType: table
+    description: Avis de modération (6 colonnes — id_moderateur, avis, commentaire)
+  - name: electric_photolive
+    physicalType: table
+    description: Liens photo ↔ impact de foudre, base V5 (6 colonnes, module Electric)
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+slaProperties:
+  - property: frequency
+    value: au fil de l'eau (publications des membres, pics en épisode météo)
+    description: Pas de mise à jour nominal
+  - property: retention
+    value: photos conservées sans purge (photothèque historique) — droit de retrait des auteurs à formaliser côté RGPD
+    description: Politique de rétention
+
+customProperties:
+  - property: lineageJob
+    value: api://infoclimat:photolive.publication ; webhook://infoclimat:admin-photolive.valide (modération)
+  - property: personalData
+    value: id_compte (auteur, votant, modérateur), géolocalisation des prises de vue — à inscrire au registre RGPD (audits/rgpd)
+  - property: dataLicense
+    value: >-
+      Les photographies sont la propriété de leurs auteurs (publication sur le site
+      selon les CGU) — aucune réutilisation sans l'accord de l'auteur. Les métadonnées
+      sont à usage interne du site ; pas d'export opendata.

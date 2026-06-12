@@ -1,0 +1,89 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:modeles-nwp-fichiers
+name: Modèles numériques de prévision — fichiers bruts
+version: 0.1.0
+status: draft
+domain: modeles
+dataProduct: modeles-nwp
+
+description:
+  purpose: >-
+    Sorties brutes des modèles numériques de prévision téléchargées par l'hôte modèles
+    (GRIB2), matière première des cartes modèles du site (chaîne NCL modeles-ncl) :
+    AROME, AROMEhr, AROME Antilles, ARPEGE (Météo-France), GFS/GFSHD/GFS1deg, GEFS (NOAA),
+    ECMWF open data, GEM et GEMENS (Environnement Canada).
+  usage: >-
+    Arborescence file://srx-modeles-2/modeles/{MODELE}/{date}{run}/ — un répertoire par
+    run, fichiers GRIB2 par échéance. Les downloaders (modeles-ncl, modeles-php)
+    alimentent des files de travail (workerN.queue) qui déclenchent la génération des
+    cartes ; current_run.json publie l'état du run courant sur le vhost modeles.
+    La vue NFS file://modeles expose les sorties aux frontaux.
+  limitations: >-
+    Rétention courte (purge ~2 j après traitement) : ce dataset est un tampon, pas une
+    archive. Plusieurs flux sont à l'arrêt ou en double commande cron/Kestra (flows
+    forecast.* désactivés côté Kestra) — voir pipelines.yaml pour le statut par modèle.
+    Volumes et fréquences dépendants des centres producteurs.
+
+tags:
+  - modeles
+  - nwp
+  - grib2
+  - fichiers
+
+servers:
+  - server: modeles-files
+    type: local
+    environment: production
+    path: file://srx-modeles-2/modeles/
+    format: grib
+
+schema:
+  - name: runs_modeles
+    physicalType: files
+    description: Répertoires de runs par modèle (GRIB2)
+    properties:
+      - name: path
+        physicalType: path
+        required: true
+        description: "{MODELE}/{date}{run}/ — ex. AROME/2026061100/"
+      - name: format
+        physicalType: GRIB2
+        description: Fichiers par échéance, conventions de nommage propres à chaque centre
+      - name: current_run
+        physicalType: JSON
+        description: current_run.json — état du run courant publié sur le vhost modeles
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+slaProperties:
+  - property: frequency
+    value: par run modèle (00/06/12/18Z selon le modèle)
+    description: Pas de récupération nominal
+  - property: retention
+    value: ~2 jours (purge après génération des cartes) — tampon, pas une archive
+    description: Politique de rétention
+
+customProperties:
+  - property: lineageJob
+    value: cron://infoclimat:cron.recup-arome ; cron://infoclimat:cron.recup-arpege ; chaînes worker modeles-php (cf. pipelines.yaml, famille srx-modeles-2)
+  - property: downstreamConsumers
+    value: modeles-ncl (génération cartes), vhost modeles.infoclimat.net, mapserver
+  - property: catalogSheet
+    value: catalog/datasets/modeles-nwp.md (statut par modèle)
+  - property: dataLicense
+    value: >-
+      Hétérogène par centre producteur : GFS/GFSHD/GEFS (NOAA) = domaine public (œuvre
+      fédérale US) ; AROME/AROMEhr/ARPEGE (Météo-France via meteo.data.gouv.fr) =
+      Licence Ouverte (Etalab) 2.0, attribution ; ECMWF open data = CC BY 4.0,
+      attribution ECMWF ; GEM/GEMENS (Environnement Canada) = licence ouverte du
+      gouvernement du Canada. Les fichiers bruts ne sont pas redistribués par
+      l'association (tampon interne).
