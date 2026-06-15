@@ -178,9 +178,9 @@ schema:
             value: °C
         quality:
           - rule: validValues
-            description: Température plausible (-60°C à +55°C)
-            mustBeGreaterOrEqualTo: -60
-            mustBeLessOrEqualTo: 55
+            description: Température plausible (-90°C à +60°C) — rejette les sentinelles
+            mustBeGreaterOrEqualTo: -90
+            mustBeLessOrEqualTo: 60
             severity: error
       - name: u
         physicalType: INTEGER
@@ -217,7 +217,9 @@ schema:
             value: m/s
         quality:
           - rule: validValues
-            description: Record mondial de rafale ≈ 113 m/s, vent moyen en deçà
+            description: Vent en m/s — record mondial de rafale ≈ 113 m/s, vent moyen en deçà
+            mustBeGreaterOrEqualTo: 0
+            mustBeLessOrEqualTo: 120
             mustBeGreaterOrEqualTo: 0
             mustBeLessOrEqualTo: 120
             severity: error
@@ -294,6 +296,63 @@ schema:
         customProperties:
           - property: unit
             value: m
+      - name: td
+        physicalType: REAL
+        logicalType: number
+        description: Point de rosée à 2 m
+        customProperties:
+          - property: unit
+            value: °C
+        quality:
+          - rule: validValues
+            description: Point de rosée plausible (-90°C à +60°C)
+            mustBeGreaterOrEqualTo: -90
+            mustBeLessOrEqualTo: 60
+      - name: pres
+        physicalType: REAL
+        logicalType: number
+        description: Pression à la station (niveau station, non réduite)
+        customProperties:
+          - property: unit
+            value: hPa
+        quality:
+          - rule: validValues
+            description: Pression station plausible (500 hPa altitude à 1085 hPa)
+            mustBeGreaterOrEqualTo: 500
+            mustBeLessOrEqualTo: 1085
+      - name: pmer
+        physicalType: REAL
+        logicalType: number
+        description: Pression réduite au niveau de la mer
+        customProperties:
+          - property: unit
+            value: hPa
+        quality:
+          - rule: validValues
+            description: Pression mer plausible (870 à 1085 hPa)
+            mustBeGreaterOrEqualTo: 870
+            mustBeLessOrEqualTo: 1085
+      - name: insolh
+        physicalType: REAL
+        logicalType: number
+        description: Durée d'insolation sur le pas de 6 minutes (vérifié en base 2026-06-15, 0–6)
+        customProperties:
+          - property: unit
+            value: min
+      - name: n
+        physicalType: INTEGER
+        logicalType: integer
+        description: Nébulosité totale — colonne peu alimentée en temps réel (NULL en base le 2026-06-15)
+        customProperties:
+          - property: unit
+            value: octa
+      - name: ray_glo01
+        physicalType: REAL
+        logicalType: number
+        description: Rayonnement global cumulé sur le pas de 6 minutes
+        customProperties:
+          - property: unit
+            value: J/m2
     quality:
       - rule: uniqueness
         description: Une seule ligne par (geo_id_insee, validity_time)

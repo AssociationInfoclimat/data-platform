@@ -20,6 +20,8 @@ description:
   limitations: >-
     Qualité hétérogène selon le matériel et l'installation (contrôles via
     gestion-donnees/auto_control.php). Trous fréquents (connectivité des contributeurs).
+    PIÈGE : valeurs aberrantes/sentinelles présentes en base (ex. température 127 / -99.9,
+    pression ~10, rosée 123.9, vent négatif) — filtrer aux bornes physiques avant usage.
     Le champ complements agrège des mesures additionnelles non normalisées (séparées
     par @). La licence (commerciale ou non) conditionne l'exposition opendata.
 
@@ -296,7 +298,7 @@ schema:
       - name: temperature_sol
         physicalType: DECIMAL
         logicalType: number
-        description: Température du sol
+        description: Température du sol — PIÈGE, colonne quasi non alimentée (NULL en base le 2026-06-15)
         customProperties:
           - property: unit
             value: °C

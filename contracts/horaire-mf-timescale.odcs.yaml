@@ -92,9 +92,19 @@ schema:
       - name: t
         physicalType: REAL
         description: Température sous abri à 2 m (°C ; vérifié en base le 2026-06-15)
+        quality:
+          - rule: validValues
+            description: Température plausible (-90°C à +60°C)
+            mustBeGreaterOrEqualTo: -90
+            mustBeLessOrEqualTo: 60
       - name: ff
         physicalType: REAL
-        description: Vent moyen (m/s) — direction dd
+        description: Vent moyen en m/s — direction dd
+        quality:
+          - rule: validValues
+            description: Vent plausible (0 à 120 m/s)
+            mustBeGreaterOrEqualTo: 0
+            mustBeLessOrEqualTo: 120
     customProperties:
       - property: fullSchema
         value: schemas/timescaledb/schema.sql.gz — 30 colonnes
