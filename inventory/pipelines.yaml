@@ -131,17 +131,17 @@ pipelines:
 
   - id: kestra.infoclimat.backups.forum-rsync-uploads
     repo: infrapilot
-    script: "roles/applications/scheduler/files/flows/infoclimat.backups-forum_rsync_uploads.yml"
+    script: "roles/applications/forum/templates/backup_forum.sh.j2"
     trigger:
       type: kestra
-      source: "infrapilot:roles/applications/scheduler/files/flows/infoclimat.backups-forum_rsync_uploads.yml"
-      schedule: ""
+      source: "infrapilot:roles/applications/scheduler/files/flows/infoclimat.backups-forum_backup.yml"
+      schedule: "26 3 * * *"
     host: ct-forum
     domain: infra
     status: actif
     inputs: []
     outputs: []
-    notes: "Backup des uploads/fichiers du forum (rsync). Famille kestra.infoclimat.backups.* — frontière forums, hors périmètre data. Id Kestra en underscores (forum_rsync_uploads). host présumé ct-forum (même famille que forum-backup) et schedule À CONFIRMER dans infrapilot. Ajouté 2026-06-15 (issue #1 : flow réel non inventorié)."
+    notes: "PAS un flow autonome : étape « copy uploads to pbs » (rsync de /opt/forums/data/uploads/ vers pbs) du flow forum-backup, dans backup_forum.sh.j2. Kestra le surface comme id distinct forum_rsync_uploads dans ses events (confirmé : 88 events #system-events). Le fichier infoclimat.backups-forum_rsync_uploads.yml annoncé en issue #1 N'EXISTE PAS dans infrapilot (vérifié en code le 2026-06-15) ; host ct-forum et schedule hérités de forum-backup, vérifiés. Frontière forums, hors périmètre data."
 
   - id: kestra.infoclimat.backups.gitlab-backup
     repo: infrapilot
