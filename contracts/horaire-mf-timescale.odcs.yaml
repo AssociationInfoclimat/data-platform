@@ -21,8 +21,9 @@ description:
     partition 31 j.
   limitations: >-
     Couverture limitée au réseau Météo-France (pas de StatIC). Le flux temps réel et
-    l'historique ont des conventions différentes (unités SI côté temps réel, identifiants
-    geo_id_insee vs NUM_POSTE). Ingestion gérée hors monolithe (socle dataclimat) :
+    l'historique partagent les conventions météo usuelles (°C, hPa, m/s ; vérifié en
+    base le 2026-06-15) mais diffèrent par les identifiants (geo_id_insee vs NUM_POSTE).
+    Ingestion gérée hors monolithe (socle dataclimat) :
     le lineage de l'alimentation reste à instrumenter.
 
 tags:
@@ -90,7 +91,7 @@ schema:
         description: Date/heure de validité (UTC), clé temporelle de l'hypertable
       - name: t
         physicalType: REAL
-        description: Température (K — unités SI sur le flux temps réel)
+        description: Température sous abri à 2 m (°C ; vérifié en base le 2026-06-15)
       - name: ff
         physicalType: REAL
         description: Vent moyen (m/s) — direction dd

@@ -15,9 +15,9 @@ description:
   usage: >-
     Lire via la couche include/MeteoFrance/infrahoraires.php (get_infrahoraires_from_at,
     get_infrahoraires_from_between) ou combined.php. Les timestamps sont en UTC ISO-8601.
-    ATTENTION aux unités : la table temps réel (InfrahoraireTempsReel) est en unités SI
-    (Kelvin, Pa, m/s), la table historique (Infrahoraire) suit les conventions MF
-    (°C et 1/10, mm et 1/10). Conversion à la charge du consommateur.
+    Unités : la table temps réel (InfrahoraireTempsReel) est en conventions météo
+    usuelles — °C, hPa, m/s (vérifié en base le 2026-06-15). La table historique
+    (Infrahoraire) suit les conventions MF (°C et 1/10, mm et 1/10).
   limitations: >-
     Couverture limitée aux stations MF. Les données temps réel peuvent être révisées par
     la passe historique. Pas de garantie de complétude par station (pannes capteurs).
@@ -129,7 +129,7 @@ schema:
     physicalType: table
     description: >-
       Données infrahoraires MF temps réel (paquets "observations" MF, pas 6 minutes).
-      Unités SI — Kelvin, Pa, m/s — différentes de la table historique.
+      Unités météo usuelles — °C, hPa, m/s (vérifié en base le 2026-06-15).
     properties:
       - name: geo_id_insee
         physicalType: TEXT
@@ -175,12 +175,12 @@ schema:
         description: Température de l'air à 2 m au-dessus du sol
         customProperties:
           - property: unit
-            value: K
+            value: °C
         quality:
           - rule: validValues
-            description: Température plausible en Kelvin (≈ -60°C à +55°C)
-            mustBeGreaterOrEqualTo: 213.15
-            mustBeLessOrEqualTo: 328.15
+            description: Température plausible (-60°C à +55°C)
+            mustBeGreaterOrEqualTo: -60
+            mustBeLessOrEqualTo: 55
             severity: error
       - name: u
         physicalType: INTEGER
@@ -254,28 +254,28 @@ schema:
         description: Température à 10 cm sous le sol
         customProperties:
           - property: unit
-            value: K
+            value: °C
       - name: t_20
         physicalType: REAL
         logicalType: number
         description: Température à 20 cm sous le sol
         customProperties:
           - property: unit
-            value: K
+            value: °C
       - name: t_50
         physicalType: REAL
         logicalType: number
         description: Température à 50 cm sous le sol
         customProperties:
           - property: unit
-            value: K
+            value: °C
       - name: t_100
         physicalType: REAL
         logicalType: number
         description: Température à 1 m sous le sol
         customProperties:
           - property: unit
-            value: K
+            value: °C
       - name: vv
         physicalType: INTEGER
         logicalType: integer
