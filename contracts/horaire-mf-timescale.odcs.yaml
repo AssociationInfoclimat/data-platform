@@ -91,7 +91,7 @@ schema:
         description: Date/heure de validité (UTC), clé temporelle de l'hypertable
       - name: t
         physicalType: REAL
-        description: Température sous abri à 2 m (°C ; vérifié en base le 2026-06-15)
+        description: Température sous abri à 2 m, en °C — PAS du Kelvin (l'API MF brute est en K, convertie en base ; vérifié 2026-06-15)
         quality:
           - rule: validValues
             description: Température plausible (-90°C à +60°C)

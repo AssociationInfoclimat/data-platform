@@ -172,7 +172,7 @@ schema:
       - name: t
         physicalType: REAL
         logicalType: number
-        description: Température de l'air à 2 m au-dessus du sol
+        description: Température de l'air à 2 m, en °C — PIÈGE, la base stocke des °C et NON du Kelvin (l'API MF brute est en K, convertie en base ; vérifié 2026-06-15)
         customProperties:
           - property: unit
             value: °C
@@ -299,7 +299,7 @@ schema:
       - name: td
         physicalType: REAL
         logicalType: number
-        description: Point de rosée à 2 m
+        description: Point de rosée à 2 m, en °C (PAS du Kelvin)
         customProperties:
           - property: unit
             value: °C
@@ -311,7 +311,7 @@ schema:
       - name: pres
         physicalType: REAL
         logicalType: number
-        description: Pression à la station (niveau station, non réduite)
+        description: Pression à la station (niveau station, non réduite), en hPa — PAS en Pa
         customProperties:
           - property: unit
             value: hPa
@@ -323,7 +323,7 @@ schema:
       - name: pmer
         physicalType: REAL
         logicalType: number
-        description: Pression réduite au niveau de la mer
+        description: Pression réduite au niveau de la mer, en hPa (PAS en Pa)
         customProperties:
           - property: unit
             value: hPa
