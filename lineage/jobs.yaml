@@ -32,6 +32,10 @@ jobs:
     job_namespace: "kestra://infoclimat"
     job_name: backups.forum-backup
     priority_t2: basse
+  - pipeline: kestra.infoclimat.backups.forum-rsync-uploads
+    job_namespace: "kestra://infoclimat"
+    job_name: backups.forum-rsync-uploads
+    priority_t2: basse
   - pipeline: kestra.infoclimat.backups.gitlab-backup
     job_namespace: "kestra://infoclimat"
     job_name: backups.gitlab-backup
