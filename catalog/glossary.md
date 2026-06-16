@@ -32,17 +32,17 @@ et temps réel se fait sur ces deux colonnes (cf. `include/MeteoFrance/infrahora
 
 | Mnémonique MF | Nom Infoclimat | Définition | Unité MF (historique) | Unité temps réel / StatIC |
 |---|---|---|---|---|
-| `T` / `t` | `temperature` | Température sous abri à 2 m | °C (et 1/10) | **K** (MF TR) / °C (StatIC) |
-| `TD` / `td` | `point_de_rosee` | Point de rosée | °C | K (MF TR) / °C (StatIC) |
-| `TN`, `TX` | `temperature_min/max` | Extrêmes de température sur la période | °C | K / °C |
+| `T` / `t` | `temperature` | Température sous abri à 2 m | °C (et 1/10) | °C (MF TR et StatIC, vérifié en base) |
+| `TD` / `td` | `point_de_rosee` | Point de rosée | °C | °C |
+| `TN`, `TX` | `temperature_min/max` | Extrêmes de température sur la période | °C | °C |
 | `U` / `u` | `humidite` | Humidité relative | % | % |
 | `RR1` / `rr1` | `pluie_1h` | Précipitations sur 1 h | mm (et 1/10) | mm |
 | `RR` / `rr_per` | — | Précipitations sur 6 min | mm | mm |
 | `FF` / `ff` | `vent_moyen` | Vent moyen 10 min à 10 m | m/s (et 1/10) | **m/s** (MF) / **km/h** (StatIC, opendata) |
 | `FXI` / `fxi` | `vent_rafales` | Rafale instantanée maximale | m/s | m/s (MF) / km/h (StatIC) |
 | `DD` / `dd` | `vent_direction` | Direction du vent (rose de 360) | deg | deg |
-| `PMER` / `pmer` | `pression` | Pression niveau mer | hPa (et 1/10) | **Pa** (MF TR) / hPa (StatIC) |
-| `PSTAT` / `pres` | — | Pression station | hPa | Pa |
+| `PMER` / `pmer` | `pression` | Pression niveau mer | hPa (et 1/10) | hPa (vérifié en base) |
+| `PSTAT` / `pres` | — | Pression station | hPa | hPa |
 | `VV` / `vv` | `visibilite` | Visibilité horizontale | m | m |
 | `N` / `n` | `nebulosite` | Nébulosité totale (9 = ciel invisible) | octa | octa |
 | `WW` | `temps_omm` | Code temps présent (OMM table 4677) | code | code |
@@ -53,9 +53,10 @@ et temps réel se fait sur ces deux colonnes (cf. `include/MeteoFrance/infrahora
 
 ## ⚠️ Pièges d'unités (source d'anomalies classiques)
 
-- **Kelvin vs Celsius** : les tables MF *temps réel* (`*TempsReel`) sont en **Kelvin** ;
-  les tables MF *historiques* et tout l'écosystème Infoclimat sont en **°C**.
-- **Pa vs hPa** : pression en **Pa** côté MF temps réel, **hPa** partout ailleurs.
+- **°C partout en base** : les tables MF — *historiques* ET *temps réel* (`*TempsReel`) —
+  stockent des **°C** (vérifié en base le 2026-06-15). PIÈGE : l'API MF *brute* sert du
+  Kelvin, mais la donnée est convertie en °C à l'insertion — ne pas confondre API et base.
+- **hPa en base** : pression en **hPa** partout en base (l'API MF brute peut être en Pa).
 - **m/s vs km/h** : vents MF en **m/s**, vents StatIC et opendata en **km/h**.
 - **« et 1/10 »** : les fichiers climatologiques MF expriment certaines grandeurs au dixième.
 - Les bornes de validité par paramètre sont déclarées dans les contrats ODCS
