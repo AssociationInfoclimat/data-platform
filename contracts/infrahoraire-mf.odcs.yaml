@@ -380,8 +380,18 @@ slaProperties:
     description: Politique de rétention
 
 customProperties:
+  - property: sourceRepo
+    value: >-
+      Infrahoraire (historique) ← telechargement-climatologie-meteo-data-gouv
+      (src/apps/save/saveInfrahorairesCSVsToDB.ts, archives open data data.gouv) ;
+      InfrahoraireTempsReel (flux) ← telechargement-climatologie-portail-api-meteofrance
+      (src/apps/infrahoraire/downloadAllLastInfrahorairesData.ts, API MF DPObs/DPPaquetObs
+      infrahoraire-6m). Repos intégrés le 2026-06-17.
   - property: lineageJob
-    value: cron://infoclimat:cron.load_data_mf
+    value: >-
+      Ingestion tracée (T+ 2026-06-17) : kestra.infoclimat.data.meteofrance.climatologie-meteo-data-gouv.daily
+      (→ Infrahoraire) et kestra.infoclimat.data.meteofrance.climatologie-portail-api.infrahoraires
+      (→ InfrahoraireTempsReel). Legacy MariaDB : cron://infoclimat:cron.load_data_mf (fallback mf_data).
   - property: retroCompatLayer
     value: include/MeteoFrance/infrahoraires.php
   - property: fallbackSource

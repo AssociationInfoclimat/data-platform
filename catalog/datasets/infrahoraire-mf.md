@@ -11,10 +11,17 @@
 
 ## Flux
 
+> Mise à jour 2026-06-17 : ingestion désormais tracée vers les repos dédiés (intégrés à l'inventaire).
+
 ```
-API/fichiers Météo-France
-  → include/MeteoFrance/load_data.php (ingestion)
-  → TimescaleDB "Infrahoraire" / "InfrahoraireTempsReel"
+api://meteofrance/meteo-data-gouv-daily   (archives object.files.data.gouv.fr/.../BASE/MN)
+  → repo telechargement-climatologie-meteo-data-gouv  (save/saveInfrahorairesCSVsToDB.ts)
+  → timescaledb://postgres/Infrahoraire             (historique, clé AAAAMMJJHHMN)
+
+api://meteofrance/climatologie-portail-api  (API MF DPObs/DPPaquetObs infrahoraire-6m)
+  → repo telechargement-climatologie-portail-api-meteofrance  (flux */3 + rattrapage 24 h)
+  → timescaledb://postgres/InfrahoraireTempsReel    (temps réel, clé validity_time)
+
   → include/MeteoFrance/infrahoraires.php + combined.php (lecture dual-source)
   → cartes/, stations-meteo/, mobile-api/, cron climato
 ```

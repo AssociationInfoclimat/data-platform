@@ -21,7 +21,8 @@ description:
   limitations: >-
     Tables larges (55 à 159 colonnes) : seules les clés et quelques paramètres cœur sont
     décrits ici, le DDL versionné fait foi. Couverture réseau Météo-France uniquement.
-    Ingestion gérée hors monolithe (socle dataclimat) — lineage à instrumenter.
+    Ingestion gérée hors monolithe (socle dataclimat) par le repo
+    telechargement-climatologie-meteo-data-gouv (archives open data data.gouv) — cf. customProperties.sourceRepo.
 
 tags:
   - meteo
@@ -130,8 +131,17 @@ slaProperties:
     description: Politique de rétention
 
 customProperties:
+  - property: sourceRepo
+    value: >-
+      Quotidienne, QuotidienneAutresParametres, Decadaire, DecadaireAgro, Mensuelle ←
+      telechargement-climatologie-meteo-data-gouv (src/apps/save/save*CSVsToDB.ts ;
+      archives open data object.files.data.gouv.fr/.../synchro_ftp/BASE/). Intégré le 2026-06-17.
   - property: lineageJob
-    value: ingestion hors monolithe (socle dataclimat) — à instrumenter ; lecture via include/MeteoFrance/quotidiennes.php
+    value: >-
+      Ingestion tracée (T+ 2026-06-17) : Mensuelle via
+      kestra.infoclimat.data.meteofrance.climatologie-meteo-data-gouv.monthly ; Quotidienne(+autres)
+      via ...-meteo-data-gouv.daily ; Decadaire/DecadaireAgro via les apps save/unzip-save-delete
+      (hors scripts cron). Lecture via include/MeteoFrance/quotidiennes.php.
   - property: retroCompatLayer
     value: include/MeteoFrance/{quotidiennes,decadaires,decadaires-agro}.php (pattern dual-source)
   - property: fullSchema

@@ -15,88 +15,125 @@ tables:
   - name: "timescaledb://postgres/Infrahoraire"
     partitioning: "none"
     engine_hint: null
-    writers: []
+    writers:
+      - "telechargement-climatologie-meteo-data-gouv:src/apps/save/saveInfrahorairesCSVsToDB.ts"
     readers:
       - "site-infoclimat:include/MeteoFrance/combined.php"
       - "site-infoclimat:include/MeteoFrance/infrahoraires.php"
     status: actif
     notes: >-
-      Observations infrahoraires MeteoFrance (6 min). Lecture seule via pdo.php (DATABASE='postgres'). Ingestion hors-repo.
+      Observations infrahoraires MeteoFrance (6 min). Lecture seule via pdo.php (DATABASE='postgres').
+      T+ 2026-06-17 : writer identifié — archives open data data.gouv ingérées par le repo
+      telechargement-climatologie-meteo-data-gouv (upsertMany Prisma).
   - name: "timescaledb://postgres/InfrahoraireTempsReel"
     partitioning: "none"
     engine_hint: null
-    writers: []
+    writers:
+      - "telechargement-climatologie-portail-api-meteofrance:src/apps/infrahoraire/downloadAllLastInfrahorairesData.ts"
+      - "telechargement-climatologie-portail-api-meteofrance:src/apps/infrahoraire/downloadAllStationsPrevious24InfrahorairesData.ts"
     readers:
       - "site-infoclimat:include/MeteoFrance/combined.php"
       - "site-infoclimat:include/MeteoFrance/infrahoraires.php"
     status: actif
     notes: >-
-      Temps réel infrahoraire MF. Lecture seule depuis le code cloné.
+      Temps réel infrahoraire MF (clé validity_time). T+ 2026-06-17 : writer identifié —
+      flux API MF DPObs/DPPaquetObs infrahoraire-6m ingéré par le repo
+      telechargement-climatologie-portail-api-meteofrance (flux */3 + rattrapage 24 h).
   - name: "timescaledb://postgres/Horaire"
     partitioning: "none"
     engine_hint: null
-    writers: []
+    writers:
+      - "telechargement-climatologie-meteo-data-gouv:src/apps/save/saveHorairesCSVsToDB.ts"
     readers:
       - "site-infoclimat:include/MeteoFrance/combined.php"
       - "site-infoclimat:climato/mgetData.php"
     status: actif
     notes: >-
-      Observations horaires MeteoFrance. Lecture seule.
+      Observations horaires MeteoFrance (hypertable historique). T+ 2026-06-17 : writer
+      identifié — archives data.gouv ingérées par telechargement-climatologie-meteo-data-gouv.
+      NB : distinct de HoraireTempsReel (flux API, autre repo).
   - name: "timescaledb://postgres/HoraireTempsReel"
     partitioning: "none"
     engine_hint: null
-    writers: []
+    writers:
+      - "telechargement-climatologie-portail-api-meteofrance:src/apps/horaire/downloadAllLastHorairesData.ts"
+      - "telechargement-climatologie-portail-api-meteofrance:src/apps/horaire/downloadAllDepartementsPrevious24HorairesData.ts"
     readers:
       - "site-infoclimat:include/MeteoFrance/combined.php"
     status: actif
     notes: >-
-      Temps réel horaire MF. Lecture seule.
+      Temps réel horaire MF (clé validity_time). T+ 2026-06-17 : writer identifié — flux
+      API MF DPObs/DPPaquetObs station/horaire ingéré par
+      telechargement-climatologie-portail-api-meteofrance (flux 13,43 + rattrapage 24 h).
   - name: "timescaledb://postgres/Quotidienne"
     partitioning: "none"
     engine_hint: null
-    writers: []
+    writers:
+      - "telechargement-climatologie-meteo-data-gouv:src/apps/save/saveQuotidiennesRRTVentCSVsToDB.ts"
     readers:
       - "site-infoclimat:include/MeteoFrance/quotidiennes.php"
     status: actif
+    notes: >-
+      T+ 2026-06-17 : writer identifié — paramètres QUOT RR-T-Vent des archives data.gouv,
+      ingérés par telechargement-climatologie-meteo-data-gouv.
   - name: "timescaledb://postgres/QuotidienneAutresParametres"
     partitioning: "none"
     engine_hint: null
-    writers: []
+    writers:
+      - "telechargement-climatologie-meteo-data-gouv:src/apps/save/saveQuotidiennesAutresParametresCSVsToDB.ts"
     readers:
       - "site-infoclimat:include/MeteoFrance/quotidiennes.php"
     status: actif
+    notes: >-
+      T+ 2026-06-17 : writer identifié — paramètres QUOT autres-parametres des archives
+      data.gouv, ingérés par telechargement-climatologie-meteo-data-gouv.
   - name: "timescaledb://postgres/Decadaire"
     partitioning: "none"
     engine_hint: null
-    writers: []
+    writers:
+      - "telechargement-climatologie-meteo-data-gouv:src/apps/save/saveDecadairesCSVsToDB.ts"
     readers:
       - "site-infoclimat:include/MeteoFrance/decadaires.php"
     status: actif
+    notes: >-
+      T+ 2026-06-17 : writer identifié (telechargement-climatologie-meteo-data-gouv).
+      Alimenté par les apps save/unzip-save-delete, hors scripts cron quotidien/mensuel.
   - name: "timescaledb://postgres/DecadaireAgro"
     partitioning: "none"
     engine_hint: null
-    writers: []
+    writers:
+      - "telechargement-climatologie-meteo-data-gouv:src/apps/save/saveDecadairesAgroCSVsToDB.ts"
     readers:
       - "site-infoclimat:include/MeteoFrance/decadaires-agro.php"
     status: actif
+    notes: >-
+      T+ 2026-06-17 : writer identifié (telechargement-climatologie-meteo-data-gouv).
+      Alimenté par les apps save/unzip-save-delete, hors scripts cron quotidien/mensuel.
   - name: "timescaledb://postgres/Mensuelle"
     partitioning: "none"
     engine_hint: null
-    writers: []
+    writers:
+      - "telechargement-climatologie-meteo-data-gouv:src/apps/save/saveMensuellesCSVsToDB.ts"
     readers:
       - "site-infoclimat:climato/mgetData.php"
     status: actif
+    notes: >-
+      T+ 2026-06-17 : writer identifié — archives MENS data.gouv ingérées par
+      telechargement-climatologie-meteo-data-gouv (scripts/update-monthly.sh, mensuel).
   - name: "timescaledb://postgres/Station"
     partitioning: "none"
     engine_hint: null
-    writers: []
+    writers:
+      - "telechargement-climatologie-portail-api-meteofrance:src/apps/downloadListesStations.ts"
     readers:
       - "site-infoclimat:include/MeteoFrance/combined.php"
       - "site-infoclimat:include/MeteoFrance/stations.php"
       - "site-infoclimat:include/MeteoFrance/quotidiennes.php"
     status: actif
     notes: >-
-      Référentiel stations MF (TimescaleDB). Lecture seule.
+      Référentiel stations MF (TimescaleDB), clé (id, frequence). T+ 2026-06-17 : writer
+      identifié — DPClim/v1/liste-stations ingéré par
+      telechargement-climatologie-portail-api-meteofrance (app download-listes-stations).
   - name: "mariadb://V5/api_previ_acces"
     partitioning: "none"
     engine_hint: null
@@ -1971,59 +2008,67 @@ tables:
   - name: "timescaledb://postgres/StationTempsReel"
     partitioning: "none"
     engine_hint: null
-    writers: []
+    writers:
+      - "telechargement-climatologie-portail-api-meteofrance:src/apps/downloadListesStations.ts"
     readers: []
     status: actif
-    notes: "Socle dataclimat — stations temps réel. Alimentation hors monolithe."
+    notes: "Socle dataclimat — stations temps réel (packs RADOME/ETENDU). T+ 2026-06-17 : writer = telechargement-climatologie-portail-api-meteofrance (DPPaquetObs liste-stations)."
   - name: "timescaledb://postgres/InformationStation"
     partitioning: "none"
     engine_hint: null
-    writers: []
+    writers:
+      - "telechargement-climatologie-portail-api-meteofrance:src/apps/information-station/downloadAllInformationsStations.ts"
     readers: []
     status: actif
-    notes: "Socle dataclimat — métadonnées station. Alimentation hors monolithe."
+    notes: "Socle dataclimat — métadonnées station. T+ 2026-06-17 : writer = telechargement-climatologie-portail-api-meteofrance (DPClim/v1/information-station ; écrit aussi TypePoste/Parametre/Producteur/Position via relations imbriquées)."
   - name: "timescaledb://postgres/CommandeStation"
     partitioning: "none"
     engine_hint: null
-    writers: []
+    writers:
+      - "telechargement-climatologie-portail-api-meteofrance:src/apps/horaire/downloadAllLastHorairesData.ts"
     readers: []
     status: actif
-    notes: "Socle dataclimat — commandes/abonnements station. Alimentation hors monolithe."
+    notes: "Socle dataclimat — commandes/abonnements station (statut pending/...). T+ 2026-06-17 : writer = telechargement-climatologie-portail-api-meteofrance (modèle CommandeStation, DPClim commande-station/commande/fichier)."
   - name: "timescaledb://postgres/Producteur"
     partitioning: "none"
     engine_hint: null
-    writers: []
+    writers:
+      - "telechargement-climatologie-portail-api-meteofrance:src/apps/information-station/downloadAllInformationsStations.ts"
     readers: []
     status: actif
-    notes: "Socle dataclimat — producteurs de données. Alimentation hors monolithe."
+    notes: "Socle dataclimat — producteurs de données. T+ 2026-06-17 : writer = telechargement-climatologie-portail-api-meteofrance (relation imbriquée d'InformationStation)."
   - name: "timescaledb://postgres/Position"
     partitioning: "none"
     engine_hint: null
-    writers: []
+    writers:
+      - "telechargement-climatologie-portail-api-meteofrance:src/apps/information-station/downloadAllInformationsStations.ts"
     readers: []
     status: actif
-    notes: "Socle dataclimat — positions/géolocalisation station. Alimentation hors monolithe."
+    notes: "Socle dataclimat — positions/géolocalisation station. T+ 2026-06-17 : writer = telechargement-climatologie-portail-api-meteofrance (relation imbriquée d'InformationStation)."
   - name: "timescaledb://postgres/Parametre"
     partitioning: "none"
     engine_hint: null
-    writers: []
+    writers:
+      - "telechargement-climatologie-portail-api-meteofrance:src/apps/information-station/downloadAllInformationsStations.ts"
     readers: []
     status: actif
-    notes: "Socle dataclimat — paramètres mesurés. Alimentation hors monolithe."
+    notes: "Socle dataclimat — paramètres mesurés. T+ 2026-06-17 : writer = telechargement-climatologie-portail-api-meteofrance (relation imbriquée d'InformationStation)."
   - name: "timescaledb://postgres/TypePoste"
     partitioning: "none"
     engine_hint: null
-    writers: []
+    writers:
+      - "telechargement-climatologie-portail-api-meteofrance:src/apps/information-station/downloadAllInformationsStations.ts"
     readers: []
     status: actif
-    notes: "Socle dataclimat — typologie de postes. Référentiel."
+    notes: "Socle dataclimat — typologie de postes. T+ 2026-06-17 : writer = telechargement-climatologie-portail-api-meteofrance (relation imbriquée d'InformationStation)."
   - name: "timescaledb://postgres/ommid"
     partitioning: "none"
     engine_hint: null
-    writers: []
+    writers:
+      - "telechargement-climatologie-portail-api-meteofrance:src/apps/downloadListesStations.ts"
     readers: []
     status: actif
-    notes: "Socle dataclimat — correspondance OMM id. Référentiel."
+    notes: "Socle dataclimat — correspondance OMM id (mfid → stid). T+ 2026-06-17 : writer = telechargement-climatologie-portail-api-meteofrance."
   - name: "timescaledb://postgres/ref_department_region"
     partitioning: "none"
     engine_hint: null
@@ -2055,10 +2100,16 @@ tables:
   - name: "timescaledb://postgres/_prisma_migrations"
     partitioning: "none"
     engine_hint: null
-    writers: []
+    writers:
+      - "telechargement-climatologie-portail-api-meteofrance:prisma/migrations/"
+      - "telechargement-climatologie-meteo-data-gouv:prisma/migrations/"
     readers: []
-    status: douteux
-    notes: "Table interne de migrations Prisma — reliquat d'outillage (le schéma courant est géré en SQL). À confirmer."
+    status: actif
+    notes: >-
+      Table interne de migrations Prisma. T+ 2026-06-17 : origine confirmée — les deux repos
+      d'ingestion MF (telechargement-climatologie-portail-api-meteofrance et
+      telechargement-climatologie-meteo-data-gouv) partagent le même schéma Prisma et gèrent
+      le DDL via `prisma migrate deploy`. N'est plus douteux : c'est l'outillage de schéma actif.
   - name: "timescaledb://postgres/mv_quotidienne_tn"
     partitioning: "none"
     engine_hint: null
@@ -2111,10 +2162,12 @@ tables:
   - name: "timescaledb://postgres/SaveProgress"
     partitioning: "none"
     engine_hint: null
-    writers: []
+    writers:
+      - "telechargement-climatologie-portail-api-meteofrance:src/save-progress/"
+      - "telechargement-climatologie-meteo-data-gouv:src/save-history/db/SaveHistoryRepository.ts"
     readers: []
     status: actif
-    notes: "Socle dataclimat — suivi de progression d'ingestion/jobs. Alimentation hors monolithe."
+    notes: "Socle dataclimat — suivi de progression d'ingestion (reprise idempotente). T+ 2026-06-17 : writers = les deux repos d'ingestion MF (modèle SaveProgress)."
   - name: "timescaledb://postgres/mv_records_battus_meta"
     partitioning: "none"
     engine_hint: null
