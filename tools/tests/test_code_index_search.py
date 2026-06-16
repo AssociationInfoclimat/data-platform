@@ -1,0 +1,58 @@
+"""Tests de la couche requête (code_index.search) : clause WHERE + mapping, sans réseau."""
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from code_index import search as search_mod
+from code_index.config import Config
+from code_index.search import Result, _where, search_code
+
+
+def test_where_clause_building() -> None:
+    assert _where(None, None) is None
+    assert _where(["a", "b"], None) == "repo IN ('a', 'b')"
+    assert _where(None, "php") == "lang = 'php'"
+    assert _where(["a"], "php") == "repo IN ('a') AND lang = 'php'"
+
+
+def test_where_escapes_quotes() -> None:
+    assert _where(["o'brien"], None) == "repo IN ('o''brien')"
+
+
+def _cfg() -> Config:
+    return Config(base_dir=Path("."), db_dir=Path("."), model="m", dim=None, api_key="k",
+                  batch_size=8, max_batch_chars=50_000, chunk_chars=3000, overlap_chars=1000,
+                  max_file_bytes=1, max_input_chars=100, min_interval_s=0.0, max_retries=1)
+
+
+def test_search_code_maps_rows(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(search_mod.embed, "make_client", lambda key: object())
+    monkeypatch.setattr(search_mod.embed, "embed_query", lambda *a, **k: [0.1, 0.2])
+    monkeypatch.setattr(search_mod.store, "connect", lambda d: object())
+    captured = {}
+
+    def _fake_search(db, qvec, *, k, where, **kw):  # noqa: ANN001
+        captured["k"] = k
+        captured["where"] = where
+        return [{"repo": "site-infoclimat", "path": "forums/index.php", "start_line": 1,
+                 "end_line": 20, "lang": "php", "text": "<?php …", "_distance": 0.12}]
+
+    monkeypatch.setattr(search_mod.store, "search", _fake_search)
+
+    results = search_code("routing forums", k=3, repos=["site-infoclimat"], lang="php",
+                          config=_cfg())
+    assert captured["k"] == 3
+    assert captured["where"] == "repo IN ('site-infoclimat') AND lang = 'php'"
+    assert len(results) == 1
+    r = results[0]
+    assert isinstance(r, Result)
+    assert r.location == "site-infoclimat/forums/index.php:1-20"
+    assert r.score == pytest.approx(0.12)
+
+
+def test_search_code_requires_api_key() -> None:
+    cfg = _cfg().__class__(**{**_cfg().__dict__, "api_key": None})
+    with pytest.raises(RuntimeError):
+        search_code("x", config=cfg)

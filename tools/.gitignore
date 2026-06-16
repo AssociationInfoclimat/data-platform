@@ -1,2 +1,5 @@
 .env.ini
 __pycache__/
+
+# Index code vectoriel (artefact local, regénérable via code_index.index)
+code_index/.lancedb/

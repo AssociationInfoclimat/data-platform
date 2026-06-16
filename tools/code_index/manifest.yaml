@@ -1,0 +1,68 @@
+# Périmètre d'indexation du code Infoclimat → embeddings → LanceDB.
+#
+# Les repos sont cherchés sous `base_dir` (défaut : le dossier parent de data-platform,
+# là où vivent les clones siblings ; surchargeable par CODE_INDEX_BASE_DIR).
+# Première itération : repos cœur. Ajouter une ligne à `repos` suffit pour étendre.
+
+base_dir: ".."
+
+repos:
+  - site-infoclimat
+  - infrapilot
+  - modeles-ncl
+  - modeles-php
+  - python-climate-services
+  - data-platform
+  - ic-data-bot
+
+# Extensions indexées (code, conf, docs). `.map` = mapfiles MapServer → conservés ;
+# les source-maps JS/CSS (`*.js.map`, `*.css.map`) sont retirées via exclude_globs.
+include_ext:
+  - .php
+  - .js
+  - .ts
+  - .py
+  - .ncl
+  - .sh
+  - .sql
+  - .yaml
+  - .yml
+  - .json
+  - .xml
+  - .jinja2
+  - .j2
+  - .conf
+  - .ini
+  - .toml
+  - .md
+  - .map
+
+# Dossiers jamais descendus (comparaison par nom de segment).
+exclude_dirs:
+  - .git
+  - node_modules
+  - vendor
+  - .venv
+  - venv
+  - __pycache__
+  - .pytest_cache
+  - .mypy_cache
+  - .idea
+  - .vscode
+  - dist
+  - build
+  - .lancedb        # index vectoriel lui-même (fichiers internes LanceDB)
+  - snapshot        # snapshot data-platform cloné par ic-data-bot (doublon)
+
+# Motifs de fichiers exclus (fnmatch sur le chemin relatif et sur le nom de base).
+exclude_globs:
+  - "*.min.js"
+  - "*.min.css"
+  - "*.js.map"          # source-maps JS (pas les mapfiles MapServer)
+  - "*.css.map"
+  - "*.bundle.js"
+  - "*.lock"
+  - "package-lock.json"
+  - "composer.lock"
+  - "uv.lock"
+  - "poetry.lock"
