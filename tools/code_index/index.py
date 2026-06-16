@@ -16,9 +16,9 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import embed, store, walk
+from . import context, embed, store, walk
 from .chunk import chunk_text
-from .config import Config, load_config, load_manifest
+from .config import EMBED_VERSION, Config, load_config, load_manifest
 
 PRICE_PER_MTOK = 0.15  # codestral-embed-2505, $ / million de tokens
 
@@ -42,11 +42,26 @@ def _read(src: walk.SourceFile) -> FileBlob | None:
     return FileBlob(src=src, sha=sha, text=text)
 
 
-def _build_rows(blob: FileBlob, cfg: Config) -> tuple[list[dict], list[str]]:
-    """Lignes (sans vecteur) + textes parallèles à embedder, pour un fichier."""
+def _build_rows(blob: FileBlob, cfg: Config, client: object | None,
+                throttle: embed.Throttle) -> tuple[list[dict], list[str]]:
+    """Lignes (sans vecteur) + textes contextualisés à embedder, pour un fichier.
+
+    `text` reste le chunk **brut** (affichage, n° de ligne exacts) ; `contextualized`
+    (= contexte préfixé) est ce qui est embeddé et indexé en BM25. Sans `client`
+    (dry-run), le mode `llm` retombe sur le contexte structurel pour estimer sans API.
+    """
+    chunks = chunk_text(blob.text, cfg.chunk_chars, cfg.overlap_chars)
+    mode = cfg.context_mode
+    if client is None and mode == "llm":
+        mode = "struct"  # proxy déterministe pour le dry-run (pas d'appel API)
+    ctxs = context.contexts_for_file(
+        client, blob.src.repo, blob.src.path, blob.src.lang, blob.text, chunks,
+        mode=mode, model=cfg.context_model, throttle=throttle,
+        max_retries=cfg.max_retries, max_file_chars=cfg.max_context_file_chars)
     rows: list[dict] = []
     texts: list[str] = []
-    for idx, ch in enumerate(chunk_text(blob.text, cfg.chunk_chars, cfg.overlap_chars)):
+    for idx, (ch, ctx) in enumerate(zip(chunks, ctxs)):
+        ctext = context.apply_context(ctx, ch.text)
         rows.append({
             "id": f"{blob.src.key}#{idx}",
             "key": blob.src.key,
@@ -57,8 +72,11 @@ def _build_rows(blob: FileBlob, cfg: Config) -> tuple[list[dict], list[str]]:
             "end_line": ch.end_line,
             "sha": blob.sha,
             "text": ch.text,
+            "context": ctx,
+            "contextualized": ctext,
+            "embed_ver": EMBED_VERSION,
         })
-        texts.append(ch.text)
+        texts.append(ctext)
     return rows, texts
 
 
@@ -91,20 +109,31 @@ def main(argv: list[str]) -> int:
 
     if args.dry_run:
         rows_all: list[dict] = []
+        dry_throttle = embed.Throttle(0.0)
         for b in blobs:
-            rows, _ = _build_rows(b, cfg)
+            rows, _ = _build_rows(b, cfg, None, dry_throttle)
             rows_all.extend(rows)
-        chars = sum(len(r["text"]) for r in rows_all)
+        chars = sum(len(r["contextualized"]) for r in rows_all)
         toks = chars / 4
+        ctx_note = ""
+        if cfg.context_mode == "llm":
+            ctx_note = (f" + ~{len(blobs)} appels contexte LLM ({cfg.context_model}, "
+                        f"1/fichier) ; chunks estimés au contexte structurel")
         print(f"[dry-run] {len(blobs)} fichiers, {len(rows_all)} chunks, "
-              f"~{toks/1e6:.2f} M tokens estimés, coût ~${toks/1e6*PRICE_PER_MTOK:.2f} "
+              f"~{toks/1e6:.2f} M tokens d'embedding estimés, coût ~"
+              f"${toks/1e6*PRICE_PER_MTOK:.2f}{ctx_note} "
               f"(plein index, sans tenir compte de l'existant).")
         return 0
 
     db = store.connect(cfg.db_dir)
     indexed = store.indexed_shas(db)
+    vers = store.indexed_vers(db)
 
-    to_index = [b for b in blobs if indexed.get(b.src.key) != b.sha]
+    def _needs_reindex(b: FileBlob) -> bool:
+        # Contenu modifié OU stratégie d'indexation (contexte/embedding) périmée.
+        return indexed.get(b.src.key) != b.sha or vers.get(b.src.key) != EMBED_VERSION
+
+    to_index = [b for b in blobs if _needs_reindex(b)]
     gone = [k for k in indexed
             if k.split("/", 1)[0] in walked_repos and k not in walked_keys]
     refresh = [b.src.key for b in to_index if b.src.key in indexed]
@@ -117,17 +146,22 @@ def main(argv: list[str]) -> int:
 
     rows_all = []
     texts_all: list[str] = []
-    for b in to_index:
-        rows, texts = _build_rows(b, cfg)
-        rows_all.extend(rows)
-        texts_all.extend(texts)
-
-    if rows_all:
+    if to_index:
         if not cfg.api_key:
             print("MISTRAL_API_KEY manquante : impossible d'embedder.", file=sys.stderr)
             return 2
         client = embed.make_client(cfg.api_key)
         throttle = embed.Throttle(cfg.min_interval_s)
+        # Même client pour le contexte (chat) et l'embedding ; None si pas de contexte LLM.
+        ctx_client = client if cfg.context_mode == "llm" else None
+        for i, b in enumerate(to_index, 1):
+            rows, texts = _build_rows(b, cfg, ctx_client, throttle)
+            rows_all.extend(rows)
+            texts_all.extend(texts)
+            if cfg.context_mode == "llm":
+                print(f"  contexte {i}/{len(to_index)} fichiers…", end="\r", file=sys.stderr)
+        if cfg.context_mode == "llm":
+            print(file=sys.stderr)
 
         def _progress(done: int, total: int) -> None:
             print(f"  embedding {done}/{total} chunks…", end="\r", file=sys.stderr)
@@ -141,8 +175,10 @@ def main(argv: list[str]) -> int:
             row["vector"] = vec
         for start in range(0, len(rows_all), 1000):
             store.add_rows(db, rows_all[start:start + 1000])
+        if cfg.hybrid:
+            store.ensure_fts_index(db)  # (re)construit le BM25 sur la colonne contextualisée
 
-    chars = sum(len(r["text"]) for r in rows_all)
+    chars = sum(len(r["contextualized"]) for r in rows_all)
     toks = chars / 4
     print(f"Indexé : {len(to_index)} fichiers (ré)indexés, {len(rows_all)} chunks, "
           f"{len(gone)} fichiers retirés. ~{toks/1e6:.2f} M tokens, "

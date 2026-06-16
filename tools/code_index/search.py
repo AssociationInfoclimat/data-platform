@@ -10,10 +10,12 @@ Usage CLI :
 from __future__ import annotations
 
 import argparse
+import json
 import sys
+import time
 from dataclasses import dataclass
 
-from . import embed, store
+from . import embed, rewrite, store
 from .config import Config, load_config
 
 
@@ -24,12 +26,65 @@ class Result:
     start_line: int
     end_line: int
     lang: str
-    score: float       # distance cosinus (plus petit = plus proche)
+    score: float       # vecteur seul : distance cosinus (petit = proche) ; hybride : score
+                       # de pertinence RRF (grand = pertinent). Affichage seulement.
     text: str
 
     @property
     def location(self) -> str:
         return f"{self.repo}/{self.path}:{self.start_line}-{self.end_line}"
+
+
+def _reranker(cfg: Config):
+    """RRFReranker LanceDB pour fusionner vecteur + BM25 (None si hybride désactivé/absent)."""
+    if not cfg.hybrid:
+        return None
+    try:
+        from lancedb.rerankers import RRFReranker
+        return RRFReranker()
+    except Exception:  # noqa: BLE001 — repli silencieux sur fusion par défaut
+        return None
+
+
+def _to_result(r: dict) -> Result:
+    score = float(r.get("_relevance_score", r.get("_distance", 0.0)))
+    return Result(repo=r["repo"], path=r["path"], start_line=r["start_line"],
+                  end_line=r["end_line"], lang=r["lang"], score=score, text=r["text"])
+
+
+def _llm_rerank(client, query: str, results: list[Result], k: int, cfg: Config,
+                throttle: embed.Throttle) -> list[Result]:
+    """Dernière passe : un chat Mistral réordonne les candidats (Mistral n'a pas d'endpoint
+    rerank dédié). Tout échec garde l'ordre RRF d'origine."""
+    cand = "\n".join(
+        f"[{i}] {r.location} ({r.lang}): " + " ".join(r.text.split())[:200]
+        for i, r in enumerate(results))
+    messages = [
+        {"role": "system", "content":
+            "Tu classes des extraits de code par pertinence pour une requête. Réponds en "
+            'JSON : {"order": [<indices du plus au moins pertinent>]}.'},
+        {"role": "user", "content": f"Requête : {query}\n\nCandidats :\n{cand}"},
+    ]
+    attempt = 0
+    while True:
+        throttle.wait()
+        try:
+            resp = client.chat.complete(model=cfg.context_model, messages=messages,
+                                        response_format={"type": "json_object"},
+                                        temperature=0.0)
+            order = json.loads(resp.choices[0].message.content or "{}").get("order", [])
+            seen, ranked = set(), []
+            for i in order:
+                if isinstance(i, int) and 0 <= i < len(results) and i not in seen:
+                    ranked.append(results[i])
+                    seen.add(i)
+            ranked.extend(r for i, r in enumerate(results) if i not in seen)
+            return ranked[:k]
+        except Exception as exc:  # noqa: BLE001
+            attempt += 1
+            if attempt > cfg.max_retries or not embed._is_rate_limit(exc):
+                return results[:k]
+            time.sleep(min(2 ** attempt, 30))
 
 
 def _where(repos: list[str] | None, lang: str | None) -> str | None:
@@ -44,23 +99,32 @@ def _where(repos: list[str] | None, lang: str | None) -> str | None:
 
 def search_code(question: str, k: int = 8, repos: list[str] | None = None,
                 lang: str | None = None, config: Config | None = None) -> list[Result]:
-    """Top-`k` chunks de code les plus proches de `question`, filtrables par repo/langage."""
+    """Top-`k` chunks les plus pertinents pour `question`, filtrables par repo/langage.
+
+    Pipeline (selon la config) : réécriture de la requête (chat) → embedding → recherche
+    hybride vecteur + BM25 fusionnée par RRF → rerank LLM optionnel. Le `text` renvoyé
+    reste le chunk **brut**. Signature stable (réutilisée par le wrapper MCP d'ic-data-bot)."""
     cfg = config or load_config()
     if not cfg.api_key:
         raise RuntimeError("MISTRAL_API_KEY manquante : impossible d'embedder la requête.")
     client = embed.make_client(cfg.api_key)
     throttle = embed.Throttle(cfg.min_interval_s)
-    qvec = embed.embed_query(client, question, model=cfg.model, dim=cfg.dim,
+    query = question
+    if cfg.query_rewrite:
+        query = rewrite.rewrite_query(client, question, model=cfg.context_model,
+                                      throttle=throttle, max_retries=cfg.max_retries)
+    qvec = embed.embed_query(client, query, model=cfg.model, dim=cfg.dim,
                              max_input_chars=cfg.max_input_chars, throttle=throttle,
                              max_retries=cfg.max_retries)
     db = store.connect(cfg.db_dir)
-    rows = store.search(db, qvec, k=k, where=_where(repos, lang))
-    return [
-        Result(repo=r["repo"], path=r["path"], start_line=r["start_line"],
-               end_line=r["end_line"], lang=r["lang"],
-               score=float(r.get("_distance", 0.0)), text=r["text"])
-        for r in rows
-    ]
+    over = k * 3 if cfg.rerank == "llm" else k   # sur-échantillonne avant le rerank LLM
+    rows = store.search(db, qvec, k=over, where=_where(repos, lang),
+                        query_text=query if cfg.hybrid else None,
+                        hybrid=cfg.hybrid, reranker=_reranker(cfg))
+    results = [_to_result(r) for r in rows]
+    if cfg.rerank == "llm" and len(results) > 1:
+        results = _llm_rerank(client, query, results, k, cfg, throttle)
+    return results[:k]
 
 
 def main(argv: list[str]) -> int:
@@ -78,7 +142,7 @@ def main(argv: list[str]) -> int:
               file=sys.stderr)
         return 1
     for i, r in enumerate(results, 1):
-        print(f"\n#{i}  {r.location}  ({r.lang}, distance {r.score:.3f})")
+        print(f"\n#{i}  {r.location}  ({r.lang}, score {r.score:.3f})")
         snippet = r.text if args.full else "\n".join(r.text.splitlines()[:15])
         print(snippet.rstrip())
     return 0

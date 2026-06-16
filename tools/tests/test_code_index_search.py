@@ -22,9 +22,13 @@ def test_where_escapes_quotes() -> None:
 
 
 def _cfg() -> Config:
+    # Pipeline simple (vecteur seul, sans réécriture/rerank) pour tester le mapping isolément ;
+    # les modes contextuel/hybride ont leurs propres tests.
     return Config(base_dir=Path("."), db_dir=Path("."), model="m", dim=None, api_key="k",
                   batch_size=8, max_batch_chars=50_000, chunk_chars=3000, overlap_chars=1000,
-                  max_file_bytes=1, max_input_chars=100, min_interval_s=0.0, max_retries=1)
+                  max_file_bytes=1, max_input_chars=100, min_interval_s=0.0, max_retries=1,
+                  context_mode="off", context_model="m", hybrid=False, rerank="none",
+                  query_rewrite=False, max_context_file_chars=40_000)
 
 
 def test_search_code_maps_rows(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -56,3 +60,31 @@ def test_search_code_requires_api_key() -> None:
     cfg = _cfg().__class__(**{**_cfg().__dict__, "api_key": None})
     with pytest.raises(RuntimeError):
         search_code("x", config=cfg)
+
+
+def test_search_code_rewrites_and_passes_hybrid(monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg = _cfg().__class__(**{**_cfg().__dict__, "query_rewrite": True, "hybrid": True,
+                              "rerank": "rrf"})
+    monkeypatch.setattr(search_mod.embed, "make_client", lambda key: object())
+    monkeypatch.setattr(search_mod, "_reranker", lambda c: "RRF")
+    monkeypatch.setattr(search_mod.rewrite, "rewrite_query",
+                        lambda client, q, **kw: "requête réécrite")
+    embedded = {}
+    monkeypatch.setattr(search_mod.embed, "embed_query",
+                        lambda client, text, **kw: embedded.setdefault("text", text) or [0.1])
+    monkeypatch.setattr(search_mod.store, "connect", lambda d: object())
+    captured = {}
+
+    def _fake_search(db, qvec, *, k, where, query_text=None, hybrid=False, reranker=None):
+        captured.update(query_text=query_text, hybrid=hybrid, reranker=reranker)
+        return [{"repo": "r", "path": "a.php", "start_line": 1, "end_line": 2, "lang": "php",
+                 "text": "code", "_relevance_score": 0.9}]
+
+    monkeypatch.setattr(search_mod.store, "search", _fake_search)
+    results = search_code("question", k=2, config=cfg)
+    # La requête réécrite est celle qu'on embedde ET qu'on passe au FTS.
+    assert embedded["text"] == "requête réécrite"
+    assert captured["query_text"] == "requête réécrite"
+    assert captured["hybrid"] is True
+    assert captured["reranker"] == "RRF"
+    assert results[0].score == pytest.approx(0.9)  # score de pertinence hybride

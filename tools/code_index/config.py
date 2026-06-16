@@ -21,6 +21,14 @@ DEFAULT_MANIFEST = _PKG_DIR / "manifest.yaml"
 DEFAULT_DB_DIR = _PKG_DIR / ".lancedb"
 TABLE_NAME = "code_chunks"
 EMBED_MODEL = "codestral-embed-2505"
+CONTEXT_MODEL = "mistral-small-latest"   # chat bon marché pour situer les chunks
+FTS_COLUMN = "contextualized"            # colonne indexée en BM25 (contexte + code)
+
+# Version de la stratégie d'indexation (contexte + texte embeddé). Stampée sur chaque
+# ligne (`embed_ver`). La bumper invalide l'index : tout fichier dont la version diffère
+# est ré-embeddé, même si son sha256 n'a pas changé (le diff par sha ne voit pas un
+# changement de stratégie de contexte).
+EMBED_VERSION = "ctx-v1"
 
 
 @dataclass(frozen=True)
@@ -38,6 +46,12 @@ class Config:
     max_input_chars: int          # garde-fou par chunk avant envoi à l'API
     min_interval_s: float         # espacement minimal entre appels API (throttle)
     max_retries: int              # tentatives sur 429 / erreur transitoire
+    context_mode: str             # contexte préfixé à l'embedding : llm | struct | off
+    context_model: str            # modèle chat Mistral pour le contexte LLM
+    hybrid: bool                  # recherche hybride vecteur + BM25 (sinon vecteur seul)
+    rerank: str                   # fusion/rerank : rrf | llm | none
+    query_rewrite: bool           # réécrire la requête (chat) avant recherche
+    max_context_file_chars: int   # taille max d'un fichier envoyé en un appel contexte
 
 
 def _env_int(name: str, default: int) -> int:
@@ -48,6 +62,18 @@ def _env_int(name: str, default: int) -> int:
 def _env_float(name: str, default: float) -> float:
     raw = os.environ.get(name)
     return float(raw) if raw else default
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None or raw == "":
+        return default
+    return raw.strip().lower() in ("1", "true", "yes", "on")
+
+
+def _env_choice(name: str, default: str, allowed: set[str]) -> str:
+    raw = (os.environ.get(name) or "").strip().lower()
+    return raw if raw in allowed else default
 
 
 def load_config() -> Config:
@@ -68,6 +94,12 @@ def load_config() -> Config:
         max_input_chars=_env_int("CODE_INDEX_MAX_INPUT_CHARS", 30_000),
         min_interval_s=_env_float("CODE_INDEX_MIN_INTERVAL_S", 0.5),
         max_retries=_env_int("CODE_INDEX_MAX_RETRIES", 5),
+        context_mode=_env_choice("CODE_INDEX_CONTEXT", "llm", {"llm", "struct", "off"}),
+        context_model=os.environ.get("CODE_INDEX_CONTEXT_MODEL", CONTEXT_MODEL),
+        hybrid=_env_bool("CODE_INDEX_HYBRID", True),
+        rerank=_env_choice("CODE_INDEX_RERANK", "rrf", {"rrf", "llm", "none"}),
+        query_rewrite=_env_bool("CODE_INDEX_QUERY_REWRITE", True),
+        max_context_file_chars=_env_int("CODE_INDEX_MAX_CONTEXT_FILE_CHARS", 40_000),
     )
 
 
