@@ -48,10 +48,24 @@ jobs:
     job_namespace: "kestra://infoclimat"
     job_name: analytics.realtime.compute-indicateur-realtime
     priority_t2: haute
+    # T+ 2026-06-17 : datasets déclarés depuis le repo calc-indicateur-realtime
+    inputs:
+      - namespace: "file://datastore"
+        name: tempsreel.infoclimat.net/tiles
+    outputs:
+      - namespace: "mariadb://V5_climato"
+        name: indicateur_pluvio
   - pipeline: kestra.infoclimat.analytics.yearly.compute-yearly-acc
     job_namespace: "kestra://infoclimat"
     job_name: analytics.yearly.compute-yearly-acc
     priority_t2: haute
+    # T+ 2026-06-17 : datasets déclarés depuis le repo calc-yearly-acc
+    inputs:
+      - namespace: "file://datastore"
+        name: tempsreel.infoclimat.net/tiles
+    outputs:
+      - namespace: "file://datastore"
+        name: tempsreel.infoclimat.net/tiles
   - pipeline: kestra.infoclimat.appli.notif.notif-foudre
     job_namespace: "kestra://infoclimat"
     job_name: appli.notif.notif-foudre
@@ -166,10 +180,30 @@ jobs:
     job_namespace: "kestra://infoclimat"
     job_name: data.meteorology.download-and-convert-radar
     priority_t2: haute
+    # T+ 2026-06-17 : datasets déclarés depuis le repo download-convert-and-generate-accumulations
+    inputs:
+      - namespace: "api://meteofrance"
+        name: radar
+      - namespace: "mariadb://V5"
+        name: cartes_tuiles
+    outputs:
+      - namespace: "file://datastore"
+        name: tempsreel.infoclimat.net/tiles
+      - namespace: "mariadb://V5"
+        name: cartes_tuiles
   - pipeline: kestra.infoclimat.data.oceanic.compute-sea-surface-temperature-podaac
     job_namespace: "kestra://infoclimat"
     job_name: data.oceanic.compute-sea-surface-temperature-podaac
     priority_t2: haute
+    # T+ 2026-06-17 : datasets déclarés depuis le repo podaac-sst-mur
+    inputs:
+      - namespace: "api://podaac"
+        name: sst-mur
+    outputs:
+      - namespace: "file://datastore"
+        name: tempsreel.infoclimat.net/tiles
+      - namespace: "mariadb://V5"
+        name: cartes_tuiles
   - pipeline: kestra.infoclimat.data.recuperation.bufr
     job_namespace: "kestra://infoclimat"
     job_name: data.recuperation.bufr
