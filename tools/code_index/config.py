@@ -52,6 +52,7 @@ class Config:
     rerank: str                   # fusion/rerank : rrf | llm | none
     query_rewrite: bool           # réécrire la requête (chat) avant recherche
     max_context_file_chars: int   # taille max d'un fichier envoyé en un appel contexte
+    concurrency: int              # appels de contexte LLM concurrents à l'indexation (I/O-bound)
 
 
 def _env_int(name: str, default: int) -> int:
@@ -91,7 +92,10 @@ def load_config() -> Config:
         chunk_chars=_env_int("CODE_INDEX_CHUNK_CHARS", 3000),
         overlap_chars=_env_int("CODE_INDEX_OVERLAP_CHARS", 1000),
         max_file_bytes=_env_int("CODE_INDEX_MAX_FILE_BYTES", 2_000_000),
-        max_input_chars=_env_int("CODE_INDEX_MAX_INPUT_CHARS", 30_000),
+        # ≤ 8192 : codestral-embed plafonne à 8192 tokens/entrée, et tokens ≤ caractères,
+        # donc tronquer à 8000 caractères garantit de ne jamais dépasser la limite (les
+        # chunks contextualisés normaux ~3,8k car. ne sont pas touchés).
+        max_input_chars=_env_int("CODE_INDEX_MAX_INPUT_CHARS", 8_000),
         min_interval_s=_env_float("CODE_INDEX_MIN_INTERVAL_S", 0.5),
         max_retries=_env_int("CODE_INDEX_MAX_RETRIES", 5),
         context_mode=_env_choice("CODE_INDEX_CONTEXT", "llm", {"llm", "struct", "off"}),
@@ -100,6 +104,7 @@ def load_config() -> Config:
         rerank=_env_choice("CODE_INDEX_RERANK", "rrf", {"rrf", "llm", "none"}),
         query_rewrite=_env_bool("CODE_INDEX_QUERY_REWRITE", True),
         max_context_file_chars=_env_int("CODE_INDEX_MAX_CONTEXT_FILE_CHARS", 40_000),
+        concurrency=max(1, _env_int("CODE_INDEX_CONCURRENCY", 1)),
     )
 
 
