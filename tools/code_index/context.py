@@ -157,7 +157,12 @@ def contexts_for_file(client: Any, repo: str, path: str, lang: str, file_text: s
                                max_file_chars=max_file_chars)
 
 
+# Un contexte = 1-2 phrases (~200 car.). On borne fermement pour qu'un LLM qui part en
+# vrille (réponse géante, recopie du fichier) ne puisse pas gonfler l'entrée d'embedding.
+MAX_CONTEXT_CHARS = 600
+
+
 def apply_context(context: str, text: str) -> str:
     """Texte effectivement embeddé/indexé en FTS : contexte préfixé au chunk brut."""
-    context = (context or "").strip()
+    context = (context or "").strip()[:MAX_CONTEXT_CHARS]
     return f"{context}\n\n{text}" if context else text

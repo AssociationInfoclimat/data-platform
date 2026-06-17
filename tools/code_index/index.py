@@ -144,8 +144,7 @@ def main(argv: list[str]) -> int:
 
     store.delete_keys(db, sorted(set(refresh) | set(gone)))
 
-    rows_all = []
-    texts_all: list[str] = []
+    total_rows = 0
     if to_index:
         if not cfg.api_key:
             print("MISTRAL_API_KEY manquante : impossible d'embedder.", file=sys.stderr)
@@ -154,35 +153,50 @@ def main(argv: list[str]) -> int:
         throttle = embed.Throttle(cfg.min_interval_s)
         # Même client pour le contexte (chat) et l'embedding ; None si pas de contexte LLM.
         ctx_client = client if cfg.context_mode == "llm" else None
-        for i, b in enumerate(to_index, 1):
-            rows, texts = _build_rows(b, cfg, ctx_client, throttle)
-            rows_all.extend(rows)
-            texts_all.extend(texts)
-            if cfg.context_mode == "llm":
-                print(f"  contexte {i}/{len(to_index)} fichiers…", end="\r", file=sys.stderr)
-        if cfg.context_mode == "llm":
-            print(file=sys.stderr)
 
-        def _progress(done: int, total: int) -> None:
-            print(f"  embedding {done}/{total} chunks…", end="\r", file=sys.stderr)
+        def _rows_for(batch_files: list[FileBlob]) -> tuple[list[dict], list[str]]:
+            """(lignes, textes contextualisés) pour un lot de fichiers. La génération de
+            contexte est I/O-bound (un appel réseau/fichier) : on la parallélise. Le Throttle
+            partagé (à verrou) borne le débit global. `concurrency=1` ⇒ séquentiel."""
+            if cfg.concurrency > 1 and ctx_client is not None and len(batch_files) > 1:
+                from concurrent.futures import ThreadPoolExecutor
+                with ThreadPoolExecutor(max_workers=cfg.concurrency) as ex:
+                    parts = list(ex.map(
+                        lambda b: _build_rows(b, cfg, ctx_client, throttle), batch_files))
+            else:
+                parts = [_build_rows(b, cfg, ctx_client, throttle) for b in batch_files]
+            rows: list[dict] = []
+            texts: list[str] = []
+            for r, t in parts:
+                rows.extend(r)
+                texts.extend(t)
+            return rows, texts
 
-        vectors = embed.embed_texts(
-            client, texts_all, model=cfg.model, dim=cfg.dim, batch_size=cfg.batch_size,
-            max_batch_chars=cfg.max_batch_chars, max_input_chars=cfg.max_input_chars,
-            throttle=throttle, max_retries=cfg.max_retries, on_batch=_progress)
-        print(file=sys.stderr)
-        for row, vec in zip(rows_all, vectors):
-            row["vector"] = vec
-        for start in range(0, len(rows_all), 1000):
-            store.add_rows(db, rows_all[start:start + 1000])
+        # Traitement par LOTS DE FICHIERS, persistés au fur et à mesure : l'index étant
+        # incrémental par sha, un échec (API, etc.) ne perd que le lot courant et un simple
+        # relancement REPREND là où ça s'est arrêté (les fichiers déjà écrits sont sautés).
+        # Borne aussi la mémoire (on ne garde pas 50k vecteurs en RAM).
+        BATCH_FILES = 200
+        for fstart in range(0, len(to_index), BATCH_FILES):
+            fbatch = to_index[fstart:fstart + BATCH_FILES]
+            rows_b, texts_b = _rows_for(fbatch)
+            if rows_b:
+                vectors = embed.embed_texts(
+                    client, texts_b, model=cfg.model, dim=cfg.dim, batch_size=cfg.batch_size,
+                    max_batch_chars=cfg.max_batch_chars, max_input_chars=cfg.max_input_chars,
+                    throttle=throttle, max_retries=cfg.max_retries)
+                for row, vec in zip(rows_b, vectors):
+                    row["vector"] = vec
+                for s in range(0, len(rows_b), 1000):
+                    store.add_rows(db, rows_b[s:s + 1000])
+                total_rows += len(rows_b)
+            print(f"  {min(fstart + BATCH_FILES, len(to_index))}/{len(to_index)} fichiers "
+                  f"indexés, {total_rows} chunks écrits…", flush=True, file=sys.stderr)
         if cfg.hybrid:
             store.ensure_fts_index(db)  # (re)construit le BM25 sur la colonne contextualisée
 
-    chars = sum(len(r["contextualized"]) for r in rows_all)
-    toks = chars / 4
-    print(f"Indexé : {len(to_index)} fichiers (ré)indexés, {len(rows_all)} chunks, "
-          f"{len(gone)} fichiers retirés. ~{toks/1e6:.2f} M tokens, "
-          f"coût ~${toks/1e6*PRICE_PER_MTOK:.2f}.")
+    print(f"Indexé : {len(to_index)} fichiers (ré)indexés, {total_rows} chunks, "
+          f"{len(gone)} fichiers retirés.")
     return 0
 
 

@@ -28,7 +28,7 @@ def _cfg() -> Config:
                   batch_size=8, max_batch_chars=50_000, chunk_chars=3000, overlap_chars=1000,
                   max_file_bytes=1, max_input_chars=100, min_interval_s=0.0, max_retries=1,
                   context_mode="off", context_model="m", hybrid=False, rerank="none",
-                  query_rewrite=False, max_context_file_chars=40_000)
+                  query_rewrite=False, max_context_file_chars=40_000, concurrency=1)
 
 
 def test_search_code_maps_rows(monkeypatch: pytest.MonkeyPatch) -> None:
