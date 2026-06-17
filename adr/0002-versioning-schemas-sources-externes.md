@@ -1,8 +1,12 @@
 # ADR-0002 — Versioning des schémas de sources externes comme faits de lineage (ODCS + détection + changelog)
 
-- Statut : proposée
+- Statut : acceptée
 - Date : 2026-06-17
 - Décideurs : data engineer (pam)
+
+> Tranche 1 (pilier A + tool-vue) implémentée et mergée le 2026-06-17 : les 11 sources MF sont
+> des contrats ODCS (`contracts/source-meteofrance-*.odcs.yaml`), le tool du bot est devenu une
+> vue (`topic="changes"` + `since`). Tranches 2 (C3) et 3 (C1+B) à suivre.
 
 > Une source externe (API Météo-France, archives data.gouv…) qui change de schéma est un
 > événement de lineage de PREMIÈRE CLASSE, au même rang qu'un changement de type ou de
