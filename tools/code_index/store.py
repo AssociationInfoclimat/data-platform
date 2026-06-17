@@ -51,11 +51,35 @@ def indexed_vers(db: Any) -> dict[str, str]:
 
 
 def ensure_fts_index(db: Any) -> None:
-    """(Re)construit l'index full-text BM25 sur la colonne contextualisée (idempotent)."""
+    """(Re)construit l'index full-text BM25 sur la colonne contextualisée (idempotent).
+
+    NB : le builder FTS natif de LanceDB **se bloque (deadlock)** sur une table
+    MULTI-FRAGMENT à l'échelle (~50k lignes) — l'indexation par lots en produit beaucoup.
+    Pour le build complet, utiliser `rebuild_with_fts()` qui compacte d'abord. Cette
+    fonction reste correcte sur une table déjà mono-fragment (petites tables, tests)."""
     tbl = open_table(db)
     if tbl is None or FTS_COLUMN not in tbl.schema.names:
         return
     tbl.create_fts_index(FTS_COLUMN, replace=True)
+
+
+def rebuild_with_fts(db: Any) -> None:
+    """Compacte la table en UN SEUL fragment puis construit l'index FTS BM25.
+
+    Le builder FTS natif de LanceDB 0.33 deadlock sur une table multi-fragment (vérifié :
+    OK mono-fragment, blocage à ~11 fragments même avec 8 workers Tokio ; `optimize()` ne
+    suffit pas). On réécrit donc la table via `to_arrow()` → `create_table` (un seul fichier,
+    <1M lignes ⇒ 1 fragment), puis on indexe. `rename_table` n'existe pas en LanceDB OSS, donc
+    drop + recreate ; sans risque ici car l'indexation écrit dans une base jetable, basculée
+    en live par swap de répertoire au déploiement. Charge toute la table en RAM le temps de la
+    réécriture (~quelques centaines de Mo pour ~50k chunks)."""
+    tbl = open_table(db)
+    if tbl is None or FTS_COLUMN not in tbl.schema.names:
+        return
+    data = tbl.to_arrow()
+    db.drop_table(TABLE_NAME)
+    new = db.create_table(TABLE_NAME, data=data)     # réécriture en un seul fragment
+    new.create_fts_index(FTS_COLUMN, replace=True)   # FTS sur mono-fragment → pas de deadlock
 
 
 def _esc(value: str) -> str:
