@@ -70,7 +70,7 @@ customProperties:
   - property: changelog
     value:
       - version: "1.0.0"
-        date: "2026-06-17"
+        date: "2026-06-10"
         type: initial
         severity: non-breaking
         fields: []

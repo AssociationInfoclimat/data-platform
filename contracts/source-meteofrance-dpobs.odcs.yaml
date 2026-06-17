@@ -156,7 +156,7 @@ customProperties:
           d'anomalie sur l'historique au 2026-06-15. Source : descripteur officiel MF
           (H_descriptif_champs.csv, champs FXI3S/DXI3S/HFXI3S) + portail-api Météo-France.
       - version: "1.0.0"
-        date: "2026-06-17"
+        date: "2026-06-10"
         type: initial
         severity: non-breaking
         fields: []

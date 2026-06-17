@@ -61,7 +61,7 @@ customProperties:
           + champs dxi3s/hfxi3s. Mêmes mnémoniques que DPObs. Source : descripteur officiel MF
           (H_descriptif_champs.csv) + portail-api Météo-France.
       - version: "1.0.0"
-        date: "2026-06-17"
+        date: "2026-06-10"
         type: initial
         severity: non-breaking
         fields: []
