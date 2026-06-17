@@ -1,0 +1,175 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:source-meteofrance-dpclim
+name: "Source Météo-France — Climatologie (DPClim, portail-api)"
+version: "1.0.0"
+status: active
+domain: climato
+tags: [source, meteofrance, api]
+
+description:
+  purpose: >-
+    Contrat de la SOURCE API DPClim (climatologie stations, données historiques sur commande)
+    — référentiel stations + commandes de fichiers CSV horaire / infrahoraire / quotidien /
+    mensuel / décadaire / décadaire-agro. Schéma en unités CONVENTIONNELLES (°C, 1/10, m/s).
+  usage: >-
+    Consommé par les pipelines d'ingestion climatologie. Workflow asynchrone : POST
+    /commande-station/{freq} → id de commande → GET /commande/fichier?id-cmde={id} → CSV.
+  limitations: >-
+    Données historiques sur commande (pas temps réel). Indicateurs qualité Q<PARAM> présents
+    dans les CSV. Fréquences disponibles dans le code : infrahoraire-6m, horaire, quotidienne
+    (mensuelle / décadaire / décadaire-agro documentées dans les descripteurs MF).
+
+servers:
+  - server: meteofrance-dpclim
+    type: api
+    environment: production
+    location: "https://public-api.meteofrance.fr/public/DPClim/v1"
+
+schema:
+  - name: poste-climatologique
+    physicalType: object
+    description: >-
+      Enregistrement CSV d'un poste climatologique MF (données horaires ou autre fréquence).
+      Champs principaux transcrits depuis H_descriptif_champs.csv. Liste exhaustive dans le
+      descriptor (60+ champs).
+    properties:
+      - name: NUM_POSTE
+        physicalType: TEXT
+        unit: "numéro sur 8 chiffres"
+        description: Numéro Météo-France du poste sur 8 chiffres.
+      - name: NOM_USUEL
+        physicalType: TEXT
+        unit: "-"
+        description: Nom usuel du poste.
+      - name: LAT
+        physicalType: REAL
+        unit: "degré (négatif au sud)"
+        description: "Latitude du poste, négative au sud (en degrés et millionièmes de degré)."
+      - name: LON
+        physicalType: REAL
+        unit: "degré (négatif à l'ouest de Greenwich)"
+        description: "Longitude du poste, négative à l'ouest de Greenwich."
+      - name: ALTI
+        physicalType: INTEGER
+        unit: m
+        description: "Altitude du pied de l'abri ou du pluviomètre si pas d'abri (en m)."
+      - name: AAAAMMJJHH
+        physicalType: TEXT
+        unit: "YYYYMMDDH (heure locale)"
+        description: "Date de la mesure (année mois jour heure) — clé temporelle pour les données horaires."
+      - name: T
+        physicalType: REAL
+        unit: "°C et 1/10"
+        description: "Température sous abri instantanée (en °C et 1/10)."
+      - name: TN
+        physicalType: REAL
+        unit: "°C et 1/10"
+        description: "Température minimale sous abri dans l'heure (en °C et 1/10)."
+      - name: TX
+        physicalType: REAL
+        unit: "°C et 1/10"
+        description: "Température maximale sous abri dans l'heure (en °C et 1/10)."
+      - name: RR1
+        physicalType: REAL
+        unit: "mm et 1/10 mm"
+        description: "Quantité de précipitation tombée en 1 heure (en mm et 1/10 mm)."
+      - name: U
+        physicalType: INTEGER
+        unit: "%"
+        description: "Humidité relative (en %)."
+      - name: PMER
+        physicalType: REAL
+        unit: "hPa et 1/10"
+        description: "Pression au niveau de la mer (en hPa et 1/10). Unité CONVENTIONNELLE (≠ DPObs SI en Pa)."
+      - name: FF
+        physicalType: REAL
+        unit: "m/s et 1/10"
+        description: "Force du vent moyenné sur 10 mn, mesurée à 10 m (en m/s et 1/10)."
+      - name: DD
+        physicalType: INTEGER
+        unit: "rose de 360"
+        description: Direction de FF (en rose de 360).
+      - name: FXY
+        physicalType: REAL
+        unit: "m/s et 1/10"
+        description: "Valeur maximale de FF dans l'heure (en m/s et 1/10)."
+      - name: DXY
+        physicalType: INTEGER
+        unit: "rose de 360"
+        description: Direction de FXY (rose de 360).
+      - name: FXI
+        physicalType: REAL
+        unit: "m/s et 1/10"
+        description: "Force maximale du vent instantané dans l'heure, mesurée à 10 m (en m/s et 1/10)."
+      - name: DXI
+        physicalType: INTEGER
+        unit: "rose de 360"
+        description: Direction de FXI (en rose de 360).
+      - name: FXI3S
+        physicalType: REAL
+        unit: "m/s et 1/10"
+        description: >-
+          Rafale — vent max moyenné sur 3 secondes dans l'heure (en m/s et 1/10).
+          Standard mondial WMO ; présent dans la climato MF de longue date (descripteur
+          daté ~2024). Distinct du changement de référence DPObs/DPPaquetObs (juin 2026).
+      - name: DXI3S
+        physicalType: INTEGER
+        unit: "rose de 360"
+        description: Direction de FXI3S (en rose de 360).
+
+customProperties:
+  - property: externalSource
+    value:
+      apiId: DPClim
+      host: public-api.meteofrance.fr
+      context: /public/DPClim/v1
+      urlTemplate: >-
+        /liste-stations/{freq}?id-departement={dept}
+        | /information-station?id-station={id}
+        | /commande-station/{freq}?id-station={id}&date-deb-periode={deb}&date-fin-periode={fin}
+        | /commande/fichier?id-cmde={id}
+      auth: token
+      probeUrl: "https://public-api.meteofrance.fr/public/DPClim/v1/liste-stations/horaire?id-departement=75"
+      verified: "✅ implémenté (telechargement-climatologie-portail-api-meteofrance)"
+      unitsNote: >-
+        Unités CONVENTIONNELLES (°C, 1/10, m/s) + indicateurs qualité Q<PARAM>.
+        ≠ DPObs temps réel (SI brut : K, Pa). Pression en hPa (≠ Pa dans DPObs).
+      descriptor: >-
+        docs/mf/donnees-{horaires,infrahoraires-6minutes,quotidiennes,mensuelles,decadaires,decadaires-agro}/*_descriptif_champs.csv
+        (repo telechargement-climatologie-portail-api-meteofrance)
+      quirks:
+        - >-
+          Workflow asynchrone sur deux appels : (1) POST/GET /commande-station/{freq} renvoie
+          un id de commande ; (2) GET /commande/fichier?id-cmde={id} récupère le CSV une fois
+          la commande prête. La commande peut être en attente (statut intermédiaire).
+        - >-
+          Référentiel stations en deux endpoints : /liste-stations/{freq}?id-departement={dept}
+          (liste par fréquence et département) et /information-station?id-station={id}
+          (métadonnées d'une station).
+        - >-
+          Fréquences implémentées dans le code : infrahoraire-6m, horaire, quotidienne.
+          Fréquences documentées dans les descripteurs MF mais non vérifiées dans le code :
+          mensuelle, décadaire, décadaire-agro.
+
+  - property: changelog
+    value:
+      - version: "1.0.0"
+        date: "2026-06-10"
+        type: initial
+        severity: non-breaking
+        fields: []
+        note: >-
+          Sourcé sur telechargement-climatologie-portail-api-meteofrance + descripteurs
+          officiels MF. FXI3S (rafale 3 s) déjà présent dans la climato de longue date
+          (descripteurs datés ~2024).
+
+team:
+  - username: pam
+    role: owner
+    description: "Data engineer de l'association — responsable du contrat."
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
