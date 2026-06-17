@@ -1,0 +1,90 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:source-meteofrance-dcpc-nwp
+name: "Source Météo-France — DCPC PréviNum (service NWP legacy)"
+version: "1.0.0"
+status: active
+domain: modeles
+tags: [source, meteofrance, api]
+
+description:
+  purpose: >-
+    Contrat de la SOURCE API DCPC PréviNum — service NWP legacy Météo-France
+    permettant de télécharger des paquets GRIB2 pour les modèles ARPEGE (grille
+    0.5°) et AROME (grille 0.01° France, grille 0.025° Antilles).
+  usage: >-
+    Consommé par les scripts PHP d'ingestion des modèles (recup_arpege05,
+    recup_arome13, recup_arome_antilles) sur srx-modeles-2. Non tabulaire —
+    les fichiers téléchargés sont des paquets GRIB2 consommés ensuite par NCL.
+  limitations: >-
+    Pas de schéma tabulaire. Service legacy HTTP (non-TLS). Le token est passé
+    en clair dans l'URL (?token=). Distinct du portail-api (DPPaquetARPEGE /
+    DPPaquetAROME).
+
+servers:
+  - server: meteofrance-dcpc-nwp
+    type: api
+    environment: production
+    location: "http://dcpc-nwp.meteo.fr/services/PS_GetCache_DCPCPreviNum"
+
+schema:
+  - name: nwp-grib
+    physicalType: object
+    description: "Produit GRIB2 (modèle NWP) — pas de schéma tabulaire."
+    properties: []
+
+customProperties:
+  - property: externalSource
+    value:
+      apiId: dcpc-nwp
+      host: dcpc-nwp.meteo.fr
+      context: /services/PS_GetCache_DCPCPreviNum
+      urlTemplate: >-
+        http://dcpc-nwp.meteo.fr/services/PS_GetCache_DCPCPreviNum
+        ?token={env TOKEN_MF}
+        &model={ARPEGE|AROME|AROME-OM-ANTIL}
+        &grid={0.5|0.01|0.025}
+        &package={SP1|SP2|IP1|IP2|IP4|HP1|SP3}
+        &time={échéances ex. 00H06H}
+        &referencetime={YYYY-MM-DD}T{HH}:00:00Z
+        [&format=grib2]
+      auth: token
+      probeUrl: "http://dcpc-nwp.meteo.fr/services/PS_GetCache_DCPCPreviNum?token={env TOKEN_MF}&model=ARPEGE&grid=0.5&package=SP1"
+      verified: "✅ consommé par modeles-php/GFS/script/recup_arpege05.async.php, recup_arome13.async.php, recup_arome_antilles.php"
+      unitsNote: "Produit GRIB2 (modèle NWP), pas de schéma tabulaire."
+      descriptor: >-
+        Modèles et grilles desservis :
+        - ARPEGE, grid=0.5 — paquets SP1, SP2, IP1, IP2, IP4 (IP3 commenté/désactivé)
+        - AROME, grid=0.01 (France métropolitaine ~1.3 km) — paquets SP1, SP2, HP1, SP3
+        - AROME-OM-ANTIL, grid=0.025 (Antilles) — paquets SP1, SP2, HP1, avec &format=grib2 explicite
+        Les temps de référence sont les runs 00Z/06Z/12Z/18Z selon modèle.
+        Le token est stocké en dur dans $PWD dans les scripts PHP (à migrer vers env).
+      quirks:
+        - "Service LEGACY DCPC PréviNum — distinct et DIFFÉRENT des APIs portail-api (DPPaquetARPEGE / DPPaquetAROME)."
+        - "Token passé en paramètre URL ?token= (non-TLS : HTTP uniquement, le token circule en clair)."
+        - "HTTP non-TLS (http://, pas https://) — pas de chiffrement transport."
+        - "Token hardcodé dans $PWD dans les scripts PHP (recup_arpege05, recup_arome13, recup_arome_antilles) — à migrer vers la variable d'environnement TOKEN_MF."
+        - "Le paramètre &format=grib2 n'est présent que dans recup_arome_antilles.php ; absent des autres scripts (format GRIB implicite)."
+        - "AROME-OM-ANTIL : script non-async (recup_arome_antilles.php) contrairement aux scripts ARPEGE et AROME France (*.async.php)."
+  - property: changelog
+    value:
+      - version: "1.0.0"
+        date: "2026-06-10"
+        type: initial
+        severity: non-breaking
+        fields: []
+        note: >-
+          Contrat initial issu de la réconciliation des consumers
+          modeles-php/GFS/script/recup_arpege05.async.php,
+          recup_arome13.async.php et recup_arome_antilles.php.
+          Service legacy DCPC PréviNum distinct du portail-api MF.
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat.
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
