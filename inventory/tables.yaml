@@ -248,9 +248,10 @@ tables:
     engine_hint: null
     writers:
       - "site-infoclimat:cron/mysqlconf.py"
-      - "site-infoclimat:include/Radar/generate-radaric-mf-values-accumulations/generate_radaric_mf_values_accumulations/tiles.py"
-      - "site-infoclimat:include/communs/jsontiles.php"
+      - "download-convert-and-generate-accumulations:generate-radaric-mf-values-accumulations/generate_radaric_mf_values_accumulations/tiles.py"
+      - "podaac-sst-mur:src/podaac_sst_MUR.php"
     readers:
+      - "download-convert-and-generate-accumulations:generate-radaric-mf-values-accumulations/generate_radaric_mf_values_accumulations/tiles.py"
       - "site-infoclimat:include/communs/jsontiles.php"
     status: actif
   - name: "mariadb://V5/codes_valid_email"
@@ -892,7 +893,7 @@ tables:
     engine_hint: null
     writers:
       - "site-infoclimat:cron/comephore/calc_indicateur_manual.php"
-      - "site-infoclimat:cron/comephore/calc_indicateur_realtime.php"
+      - "calc-indicateur-realtime:src/calc_indicateur_realtime.php"
     readers: []
     status: actif
   - name: "mariadb://V5_climato/normales"

@@ -174,8 +174,8 @@ pipelines:
 
   # ─── analytics ──────────────────────────────────────────
   - id: kestra.infoclimat.analytics.realtime.compute-indicateur-realtime
-    repo: infrapilot
-    script: "roles/applications/scheduler/files/flows/infoclimat.analytics.realtime-compute_indicateur_realtime_data3.yml"
+    repo: calc-indicateur-realtime
+    script: "src/main.php"
     trigger:
       type: kestra
       source: "infrapilot:roles/applications/scheduler/files/flows/infoclimat.analytics.realtime-compute_indicateur_realtime_data3.yml"
@@ -183,18 +183,23 @@ pipelines:
     host: vm-data-workers
     domain: observations
     status: actif
-    inputs: []
-    outputs: []
+    inputs:
+      - file://datastore/tempsreel.infoclimat.net/tiles
+    outputs:
+      - mariadb://V5_climato/indicateur_pluvio
     notes: >-
-      Image Docker ghcr.io/associationinfoclimat/calc-indicateur-realtime:1.0.1.
-      Le flow monte le datastore (générique, sans sous-chemin) et passe
-      DB_HOST=mariadb-master via env, mais aucun dataset précis n'est
-      identifiable depuis le flow seul. I/O non traçables (image privée) —
-      seuls les I/O visibles dans le flow (env/mounts) sont listés.
+      Déployé via l'image Docker ghcr.io/associationinfoclimat/calc-indicateur-realtime:1.0.1.
+      T+ 2026-06-17 : code mappé sur le repo public calc-indicateur-realtime
+      (src/main.php → src/calc_indicateur_realtime.php → poetry run calcul_indicateur_RR.py).
+      Lit les tuiles d'accumulation annuelle ac_yearly_comephore_*.tif et
+      ac_yearly_radaricval_*.tif (sous file://datastore/tempsreel.infoclimat.net/tiles) +
+      les contours GEOFLA départements (embarqués dans le repo) sur une fenêtre de 3 jours
+      glissants, et écrit INSERT INTO V5_climato.indicateur_pluvio. Maillon aval de
+      compute-yearly-acc. DB_HOST = mariadb-master.
 
   - id: kestra.infoclimat.analytics.yearly.compute-yearly-acc
-    repo: infrapilot
-    script: "roles/applications/scheduler/files/flows/infoclimat.analytics.yearly-compute_yearly_acc_data3.yml"
+    repo: calc-yearly-acc
+    script: "calc_yearly_acc/calc_yearly_acc.py"
     trigger:
       type: kestra
       source: "infrapilot:roles/applications/scheduler/files/flows/infoclimat.analytics.yearly-compute_yearly_acc_data3.yml"
@@ -202,13 +207,17 @@ pipelines:
     host: vm-data-workers
     domain: climato
     status: actif
-    inputs: []
-    outputs: []
+    inputs:
+      - file://datastore/tempsreel.infoclimat.net/tiles
+    outputs:
+      - file://datastore/tempsreel.infoclimat.net/tiles
     notes: >-
-      Image Docker ghcr.io/associationinfoclimat/calc-yearly-acc:1.0.2. Le flow
-      monte le datastore (générique, sans sous-chemin), aucun dataset précis
-      n'est identifiable depuis le flow seul. I/O non traçables (image privée)
-      — seuls les I/O visibles dans le flow (env/mounts) sont listés.
+      Déployé via l'image Docker ghcr.io/associationinfoclimat/calc-yearly-acc:1.0.2.
+      T+ 2026-06-17 : code mappé sur le repo public calc-yearly-acc (GDAL/osgeo,
+      MEDIA_FS=/media/datastore). Cumule les tuiles radar horaires ac60radaric_*.tif et
+      produit les tuiles d'accumulation annuelle ac_yearly_radaricval_*.tif — entrée et
+      sortie sur le même magasin file://datastore/tempsreel.infoclimat.net/tiles. Maillon
+      amont de compute-indicateur-realtime (qui consomme les ac_yearly_*).
 
   # ─── appli notif ─────────────────────────────────────────
   - id: kestra.infoclimat.appli.notif.notif-foudre
@@ -664,8 +673,8 @@ pipelines:
 
   # ─── data.meteorology (radar Docker) ──────────────────────────────────
   - id: kestra.infoclimat.data.meteorology.download-and-convert-radar
-    repo: infrapilot
-    script: "roles/applications/scheduler/files/flows/infoclimat.data.meteorology-download_and_convert_radar_data3.yml"
+    repo: download-convert-and-generate-accumulations
+    script: "src/download-and-convert-radar.php"
     trigger:
       type: kestra
       source: "infrapilot:roles/applications/scheduler/files/flows/infoclimat.data.meteorology-download_and_convert_radar_data3.yml"
@@ -675,18 +684,24 @@ pipelines:
     status: actif
     inputs:
       - api://meteofrance/radar
-    outputs: []
+      - mariadb://V5/cartes_tuiles
+    outputs:
+      - file://datastore/tempsreel.infoclimat.net/tiles
+      - mariadb://V5/cartes_tuiles
     notes: >-
-      Image Docker ghcr.io/associationinfoclimat/download-convert-and-generate-accumulations:1.0.3.
-      Input traçable : env APPLICATION_ID=MF_APPLICATION_ID visible dans le
-      flow (credentials MF radar). Output : le flow monte le datastore sans
-      sous-chemin explicite (/radar non visible dans le flow) — supprimé.
-      Seuls les I/O visibles dans le flow (env/mounts) sont listés.
+      Déployé via l'image Docker ghcr.io/associationinfoclimat/download-convert-and-generate-accumulations:1.0.3.
+      T+ 2026-06-17 : code mappé sur le repo public download-convert-and-generate-accumulations
+      (src/*.php pour téléchargement + conversion gdalwarp HDF5→CoGeoTIFF EPSG:3857, package
+      python generate-radaric-mf-values-accumulations pour les cumuls). Télécharge la lame
+      d'eau radar MF (DPRadar) et écrit les tuiles radar_MF_LAME_D_EAU / radaric_MF /
+      ac60radaric sous file://datastore/tempsreel.infoclimat.net/tiles (= /media/datastore,
+      lève le « /radar non traçable »). Lit et met à jour les timestamps de dernière tuile
+      dans V5.cartes_tuiles (REPLACE INTO / SELECT). APPLICATION_ID = credentials MF.
 
   # ─── data.oceanic ─────────────────────────────────────────
   - id: kestra.infoclimat.data.oceanic.compute-sea-surface-temperature-podaac
-    repo: infrapilot
-    script: "roles/applications/scheduler/files/flows/infoclimat.data.oceanic-compute_sea_surface_temperature_podaac_data3.yml"
+    repo: podaac-sst-mur
+    script: "src/main.php"
     trigger:
       type: kestra
       source: "infrapilot:roles/applications/scheduler/files/flows/infoclimat.data.oceanic-compute_sea_surface_temperature_podaac_data3.yml"
@@ -696,15 +711,17 @@ pipelines:
     status: actif
     inputs:
       - api://podaac/sst-mur
-    outputs: []
+    outputs:
+      - file://datastore/tempsreel.infoclimat.net/tiles
+      - mariadb://V5/cartes_tuiles
     notes: >-
-      Image Docker ghcr.io/associationinfoclimat/podaac-sst-mur:1.0.0. URL:
-      https://podaac.earthdata.nasa.gov/ (NASA PO.DAAC, SST MUR). Input
-      traçable : env CLIENT_ID/CLIENT_PASSWORD=NASA_API_USER/PASSWORD visible
-      dans le flow (credentials NASA PODAAC). Output : le flow monte
-      le datastore sans sous-chemin explicite (/sst non visible dans le
-      flow) — supprimé. Seuls les I/O visibles dans le flow (env/mounts) sont
-      listés.
+      Déployé via l'image Docker ghcr.io/associationinfoclimat/podaac-sst-mur:1.0.0.
+      T+ 2026-06-17 : code mappé sur le repo public podaac-sst-mur (src/podaac_sst_MUR.php).
+      S'authentifie sur NASA Earthdata URS, télécharge le SST MUR-JPL-L4-GLOB-v4.1 (.nc), en
+      tire une tuile colorée GHRSSTL4sstrgb_00_v00.tif écrite sous
+      file://datastore/tempsreel.infoclimat.net/tiles (lève le « /sst non traçable »), et
+      enregistre les métadonnées de tuiles en JSON dans V5.cartes_tuiles (INSERT … ON
+      DUPLICATE KEY UPDATE). CLIENT_ID/CLIENT_PASSWORD = credentials NASA PODAAC.
 
   # ─── data.recup-blitzortung ─────────────────────────────────────
   - id: kestra.infoclimat.data.recup-blitzortung
