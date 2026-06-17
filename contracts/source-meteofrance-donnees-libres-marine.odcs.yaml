@@ -1,0 +1,179 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: "urn:infoclimat:contract:source-meteofrance-donnees-libres-marine"
+name: "Source Météo-France — Données libres marine (bouées)"
+version: "1.0.0"
+status: active
+domain: observations
+tags: [source, meteofrance]
+
+description:
+  purpose: >-
+    Contrat de la SOURCE fichiers libres Marine (données horaires des bouées et
+    stations côtières marines) — CSV brut tel que distribué par
+    donneespubliques.meteofrance.fr, sans authentification.
+  usage: >-
+    Consommé par data/recuperation/mf-bouees.php (cron journalier) qui télécharge
+    le fichier CSV du jour courant et alimente les tables
+    V5_data_{YYYY}.bouees_{MM}_d{dd} (découpage en décades). Le fichier du mois
+    précédent est également alimenté pour les observations en retard.
+  limitations: >-
+    Pas d'API REST — simple téléchargement HTTP de fichier plat via file() PHP.
+    Valeur manquante encodée "mq" ou chaîne vide. Températures en Kelvin dans la
+    source (converties en °C par le consommateur avec offset -273.15). Vitesses
+    de vent en km/h (converties en m/s par le consommateur via /3.6). Pressions
+    en Pa (converties en hPa par le consommateur via /100).
+
+servers:
+  - server: meteofrance-donnees-libres-marine
+    type: api
+    environment: production
+    location: https://donneespubliques.meteofrance.fr/donnees_libres/Txt/Marine
+
+schema:
+  - name: bouee
+    physicalType: object
+    description: >-
+      Observation horaire d'une bouée ou station marine, CSV point-virgule.
+      Ligne d'en-tête "numer_sta" présente. Colonne finale ignorée (break sur
+      count-1 dans le consommateur).
+    properties:
+      - name: numer_sta
+        physicalType: string
+        description: "Identifiant de la station/bouée (numer_sta, 8 chiffres)."
+      - name: date
+        physicalType: string
+        description: "Date/heure UTC au format YYYYMMDDHHmm (10 ou 12 chars selon fichier)."
+      - name: lat
+        physicalType: numeric
+        unit: "deg"
+        description: "Latitude (degrés décimaux)."
+      - name: lon
+        physicalType: numeric
+        unit: "deg"
+        description: "Longitude (degrés décimaux)."
+      - name: t
+        physicalType: numeric
+        unit: K
+        description: "Température de l'air (K dans la source — consommateur applique -273.15 → °C)."
+      - name: pmer
+        physicalType: numeric
+        unit: Pa
+        description: "Pression au niveau de la mer (Pa dans la source — consommateur divise par 100 → hPa)."
+      - name: tend
+        physicalType: numeric
+        unit: Pa
+        description: "Variation de pression sur 3 h (Pa dans la source — consommateur divise par 100 → hPa)."
+      - name: u
+        physicalType: numeric
+        unit: "%"
+        description: "Humidité relative (%)."
+      - name: td
+        physicalType: numeric
+        unit: K
+        description: "Point de rosée (K dans la source — consommateur applique -273.15 → °C)."
+      - name: vv
+        physicalType: numeric
+        unit: m
+        description: "Visibilité horizontale (m)."
+      - name: ff
+        physicalType: numeric
+        unit: "km/h"
+        description: "Vent moyen (km/h dans la source — consommateur divise par 3.6 → m/s)."
+      - name: rafper
+        physicalType: numeric
+        unit: "km/h"
+        description: "Vitesse des rafales sur une période (km/h dans la source — consommateur divise par 3.6 → m/s)."
+      - name: dd
+        physicalType: numeric
+        unit: deg
+        description: "Direction du vent (degrés)."
+      - name: tmer
+        physicalType: numeric
+        unit: K
+        description: "Température de l'eau de mer (K dans la source — consommateur applique -273.15 → °C)."
+      - name: HwaHwa
+        physicalType: numeric
+        unit: m
+        description: "Hauteur significative des vagues (m)."
+      - name: Hw1Hw1
+        physicalType: numeric
+        unit: m
+        description: "Hauteur des vagues de houle (m)."
+      - name: PwaPwa
+        physicalType: numeric
+        unit: s
+        description: "Période des vagues de houle (s)."
+      - name: ww
+        physicalType: numeric
+        description: "Code temps présent OMM (ww)."
+      - name: cl
+        physicalType: numeric
+        description: "Genre de nuages bas (code OMM CL)."
+      - name: cm
+        physicalType: numeric
+        description: "Genre de nuages moyens (code OMM CM)."
+      - name: ch
+        physicalType: numeric
+        description: "Genre de nuages hauts (code OMM CH)."
+      - name: nbas
+        physicalType: numeric
+        description: "Nébulosité de la couche basse (octas, mappée vers nebulosite dans le INSERT)."
+
+customProperties:
+  - property: externalSource
+    value:
+      apiId: donnees-libres-marine
+      host: donneespubliques.meteofrance.fr
+      context: /donnees_libres/Txt/Marine
+      urlTemplate: "https://donneespubliques.meteofrance.fr/donnees_libres/Txt/Marine/marine.{YYYYMMDD}.csv"
+      auth: none
+      probeUrl: https://donneespubliques.meteofrance.fr/donnees_libres/Txt/Marine/
+      verified: "Code data/recuperation/mf-bouees.php — file() PHP sans token ni header d'auth"
+      unitsNote: >-
+        CSV point-virgule, header "numer_sta" sur la 1re ligne (détecté et parsé
+        dynamiquement par le consommateur — mapping colonnes par nom). Valeur
+        manquante = "mq" ou chaîne vide. Températures (t, td, tmer) en KELVIN
+        — offset -273.15 appliqué. Vitesses de vent (ff, rafper) en km/h —
+        division par 3.6 appliquée. Pressions (pmer, tend) en Pa — division par
+        100 appliquée. Les données brutes sont sérialisées JSON+gzip+base64 dans
+        raw_msg (préfixe "mfbuoy#").
+      descriptor: "Bouées marines et stations côtières RADOME marine actives"
+      quirks:
+        - >-
+          Le fichier du jour courant contient des observations de la décade
+          courante ET de la décade précédente / du mois précédent ; le
+          consommateur reroute les lignes hors-décade vers la table du mois
+          précédent (V5_data_{YYYY_p}.bouees_{MM_p}_d{dd_p}).
+        - >-
+          Le découpage en décades utilise la formule floor(d/10.5 + 1) — donne
+          1, 2 ou 3 (début, milieu, fin de mois).
+        - >-
+          La dernière colonne du CSV est ignorée par le consommateur (break sur
+          count($line0)-1 dans le parsing du header).
+        - >-
+          INVENTAIRE : external-sources.yaml indique auth=none / host=
+          donneespubliques.meteofrance.fr — cohérent avec le code. Pas de
+          discordance à noter pour cette source (contrairement à nivo).
+  - property: changelog
+    value:
+      - version: "1.0.0"
+        date: "2026-06-10"
+        type: initial
+        severity: non-breaking
+        fields: []
+        note: >-
+          Transcription depuis data/recuperation/mf-bouees.php (site-infoclimat).
+          21 champs CSV dérivés du mapping $columns[<nom>] et du INSERT SQL.
+          Unités brutes documentées (K, Pa, km/h) avec conversions appliquées
+          par le consommateur. Auth confirmée = none (file() sans token).
+
+team:
+  - username: pam
+    role: owner
+    description: "Data engineer de l'association — responsable du contrat."
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
