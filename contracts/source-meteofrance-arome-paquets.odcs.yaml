@@ -1,0 +1,90 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:source-meteofrance-arome-paquets
+name: "Modèle AROME — Paquets (DPPaquetAROME, métropole)"
+version: "1.0.0"
+status: active
+domain: modeles
+tags: [source, meteofrance, api]
+
+description:
+  purpose: >-
+    Contrat de la SOURCE API DPPaquetAROME — paquets GRIB2 AROME métropole (0.025°
+    ou 0.01°), segments temporels 6 h, 8 runs par jour.
+  usage: >-
+    Consommé par les pipelines de téléchargement AROME paquets. Découverte des
+    segments disponibles via GET .../packages/{PKG}?referencetime={RUN}.
+  limitations: >-
+    Segments en fenêtres 6 h (00H06H, 07H12H…). Volume IP1 ≈ 488 Mo par segment.
+    Filtrer au décodage.
+
+servers:
+  - server: meteofrance-arome-paquets
+    type: api
+    environment: production
+    location: https://public-api.meteofrance.fr/previnum/DPPaquetAROME/v1
+
+schema:
+  - name: arome-paquet
+    physicalType: GRIB2
+    description: "Paquet GRIB2 AROME multi-messages (surface et isobares)."
+    properties:
+      - name: "tp (SP1)"
+        physicalType: GRIB
+        unit: kg/m²
+        description: cumul précip total
+      - name: "tsnowp / tgrp (SP1)"
+        physicalType: GRIB
+        unit: kg/m²
+        description: "cumul neige / grésil (grésil servi ici, ≠ WCS)"
+      - name: "2t / 2d (SP1/SP2)"
+        physicalType: GRIB
+        unit: K
+        description: T 2 m / point de rosée 2 m
+      - name: "10u / 10v / max_i10fg"
+        physicalType: GRIB
+        unit: m/s
+        description: vent 10 m / rafale
+      - name: "z (IP1)"
+        physicalType: GRIB
+        unit: m²/s²
+        description: "géopotentiel (÷9.80665 → m), 24 niveaux 100→1000 hPa"
+      - name: "t / u / v / r (IP1)"
+        physicalType: GRIB
+        unit: "K / m·s⁻¹ / %"
+        description: upper-air par niveau isobare
+
+customProperties:
+  - property: externalSource
+    value:
+      apiId: AROME-Paquets
+      host: public-api.meteofrance.fr
+      context: /previnum/DPPaquetAROME/v1
+      urlTemplate: "/previnum/DPPaquetAROME/v1/models/AROME/grids/{0.025|0.01}/packages/{PKG}/productARO?referencetime={RUN}&time={SEGMENT}&format=grib2"
+      auth: token
+      probeUrl: https://public-api.meteofrance.fr/previnum/DPPaquetAROME/v1/models/AROME/grids/0.025/packages
+      verified: "✅ vérifié en live"
+      unitsNote: "GRIB2 multi-messages (découper par step). Cumuls depuis début run (soustraction de 2 échéances)."
+      descriptor: "grib_ls -p shortName,paramId (shortNames ci-dessous confirmés)"
+      quirks:
+        - "Suffixe produit `productARO`. Échéances en SEGMENTS 6 h : 00H06H, 07H12H, … (≠ AROME-OM). Runs 8/j (00,03,…,21 UTC)."
+        - "Paquets SP1/SP2/SP3 (surface), IP1-5/HP1 (isobares). Découverte des time= servis : GET .../packages/{PKG}?referencetime={RUN}."
+        - "Volume : IP1 segment 00H06H ≈ 488 Mo (24 niveaux × 5 vars) → filtrer au décodage."
+  - property: changelog
+    value:
+      - version: "1.0.0"
+        date: "2026-06-17"
+        type: initial
+        severity: non-breaking
+        fields: []
+        note: Transcription du dict.
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat.
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me

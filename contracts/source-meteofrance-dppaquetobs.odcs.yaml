@@ -1,0 +1,67 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:source-meteofrance-dppaquetobs
+name: "Paquets d'observations (DPPaquetObs)"
+version: "1.0.0"
+status: active
+domain: observations
+tags: [source, meteofrance, api]
+
+description:
+  purpose: >-
+    Contrat de la SOURCE API DPPaquetObs — observations stations groupées par paquets
+    (24 h par station/département, ou toutes stations pour un horaire donné).
+  usage: >-
+    Consommé par les pipelines d'ingestion observations en mode paquet (batch).
+    Mêmes mnémoniques que DPObs (geo_id_insee, t, ff, rr1…).
+  limitations: >-
+    Pas d'indicateur qualité Q* sur le flux temps réel (idem DPObs).
+
+servers:
+  - server: meteofrance-dppaquetobs
+    type: api
+    environment: production
+    location: https://public-api.meteofrance.fr/public/DPPaquetObs/v1
+
+schema:
+  - name: paquet-observations
+    physicalType: object
+    description: "Paquets d'observations stations — mêmes champs que DPObs, groupés."
+    properties: []
+
+customProperties:
+  - property: externalSource
+    value:
+      apiId: DPPaquetObs
+      host: public-api.meteofrance.fr
+      context: /public/DPPaquetObs/v1
+      urlTemplate: "/public/DPPaquetObs/v1/paquet/{horaire|infrahoraire-6m} | /paquet/stations/{horaire|infrahoraire-6m}"
+      auth: token
+      probeUrl: https://public-api.meteofrance.fr/public/DPPaquetObs/v1/liste-stations
+      verified: "✅ vérifié en live"
+      unitsNote: >-
+        ⚠️ Unités SI BRUTES dans la réponse API : température en KELVIN, pression en PASCAL.
+        Les tables persistées (tool `schema`) convertissent en °C / hPa. Mêmes mnémoniques que DPObs (geo_id_insee, t, ff, rr1…).
+      descriptor: "docs/mf/observations/ (mêmes champs que DPObs, groupés par paquet)"
+      quality: "Idem DPObs (pas de Q*)."
+      quirks:
+        - "Paquets groupés : 24 h par station/département, ou tous stations pour un horaire."
+        - "/paquet/horaire → 400 sans paramètres requis (probablement id-departement/date) = route OK."
+  - property: changelog
+    value:
+      - version: "1.0.0"
+        date: "2026-06-17"
+        type: initial
+        severity: non-breaking
+        fields: []
+        note: Transcription du dict.
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat.
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me

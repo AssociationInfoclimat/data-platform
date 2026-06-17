@@ -1,0 +1,63 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:source-meteofrance-aromepi
+name: "AROME-PI — prévision immédiate (nowcast)"
+version: "1.0.0"
+status: active
+domain: modeles
+tags: [source, meteofrance, api]
+
+description:
+  purpose: >-
+    Contrat de la SOURCE API AROMEPI — prévision immédiate (nowcast) via WCS/WMS,
+    collections 0.01° (001) et 0.025° (0025), France métropole.
+  usage: >-
+    Même mécanique WCS qu'AROME. Valider les coverageId réels par DescribeCoverage
+    avant toute requête GetCoverage.
+  limitations: >-
+    Alias /1.0 accepté. Valider par DescribeCoverage (GetCapabilities peut sur-annoncer).
+
+servers:
+  - server: meteofrance-aromepi
+    type: api
+    environment: production
+    location: "https://public-api.meteofrance.fr/public/aromepi/{wms|wcs}/{coll}"
+
+schema:
+  - name: aromepi-coverage
+    physicalType: GRIB2
+    description: "Coverages nowcast WCS AROME-PI."
+    properties: []
+
+customProperties:
+  - property: externalSource
+    value:
+      apiId: AROMEPI
+      host: public-api.meteofrance.fr
+      context: /public/aromepi/{wms|wcs}/{coll}
+      urlTemplate: "/public/aromepi/{wms|wcs}/MF-NWP-HIGHRES-AROMEPI-{001|0025}-FRANCE-{WMS|WCS}/..."
+      auth: token
+      probeUrl: "https://public-api.meteofrance.fr/public/aromepi/wcs/MF-NWP-HIGHRES-AROMEPI-001-FRANCE-WCS/GetCapabilities?service=WCS&version=2.0.1"
+      verified: "✅ vérifié en live (WCS)"
+      unitsNote: "Coverages nowcast WCS."
+      descriptor: "GetCapabilities → DescribeCoverage"
+      quirks:
+        - "Alias /1.0 accepté. Collections 001 (0.01°) et 0025 (0.025°). Même mécanique WCS qu'AROME. Valider par DescribeCoverage."
+  - property: changelog
+    value:
+      - version: "1.0.0"
+        date: "2026-06-17"
+        type: initial
+        severity: non-breaking
+        fields: []
+        note: Transcription du dict.
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat.
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me

@@ -1,0 +1,69 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:source-meteofrance-piaf
+name: "PIAF — prévision immédiate précip (nowcast, COMMERCIAL)"
+version: "1.0.0"
+status: active
+domain: modeles
+tags: [source, meteofrance, api]
+
+description:
+  purpose: >-
+    Contrat de la SOURCE API PIAF — nowcast précipitations via WCS/WMS sur la
+    passerelle commerciale api.meteofrance.fr. Grille 0.01°, France métropole,
+    horizon T+3h15, pas 15 min.
+  usage: >-
+    Consommé par les pipelines de nowcast précip. GRIB2 (~3.5 Mo). Pas de dimension
+    height. coverageId contient un suffixe _PT15M.
+  limitations: >-
+    HOST COMMERCIAL api.meteofrance.fr (PAS public-api). Grille 0.01° uniquement.
+
+servers:
+  - server: meteofrance-piaf
+    type: api
+    environment: production
+    location: "https://api.meteofrance.fr/pro/piaf/1.0/{wms|wcs}/{coll}"
+
+schema:
+  - name: piaf-coverage
+    physicalType: GRIB2
+    description: "Coverage GRIB2 PIAF (~3.5 Mo). Pas de dimension height."
+    properties:
+      - name: TOTAL_PRECIPITATION_RATE
+        physicalType: GRIB
+        unit: kg/m²/s
+        description: "intensité précip fusionnée, pas 15 min"
+
+customProperties:
+  - property: externalSource
+    value:
+      apiId: PIAF
+      host: api.meteofrance.fr
+      context: /pro/piaf/1.0/{wms|wcs}/{coll}
+      urlTemplate: "/pro/piaf/1.0/{wms|wcs}/MF-NWP-HIGHRES-PIAF-001-FRANCE-{WMS|WCS}/{GetCapabilities|DescribeCoverage|GetCoverage}"
+      auth: token
+      probeUrl: "https://api.meteofrance.fr/pro/piaf/1.0/wcs/MF-NWP-HIGHRES-PIAF-001-FRANCE-WCS/GetCapabilities?service=WCS&version=2.0.1"
+      verified: "✅ vérifié en live"
+      unitsNote: "GRIB2 (~3.5 Mo). Pas de dimension height."
+      descriptor: "DescribeCoverage : bbox lon −6..10.5 / lat 41..51.5"
+      quirks:
+        - "HOST COMMERCIAL api.meteofrance.fr (PAS public-api). Grille 0.01° uniquement, France métropole."
+        - "coverageId TOTAL_PRECIPITATION_RATE__GROUND_OR_WATER_SURFACE___{run}_PT15M. Axe time toutes les 300 s, T+15 min à T+3h15."
+  - property: changelog
+    value:
+      - version: "1.0.0"
+        date: "2026-06-17"
+        type: initial
+        severity: non-breaking
+        fields: []
+        note: Transcription du dict.
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat.
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me

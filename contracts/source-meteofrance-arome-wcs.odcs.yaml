@@ -1,0 +1,87 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:source-meteofrance-arome-wcs
+name: "Modèle AROME — WCS (métropole 0.025°/0.01°)"
+version: "1.0.0"
+status: active
+domain: modeles
+tags: [source, meteofrance, api]
+
+description:
+  purpose: >-
+    Contrat de la SOURCE API AROME-WCS — accès WCS au modèle AROME haute résolution
+    (0.025° ou 0.01°), France métropole, via GetCapabilities/DescribeCoverage/GetCoverage.
+  usage: >-
+    Consommé par les pipelines de téléchargement AROME (GRIB2 par coverage). Valider
+    les coverageId réels par DescribeCoverage avant toute requête GetCoverage.
+  limitations: >-
+    Cumuls précip nécessitent le suffixe _PTxH obligatoire. Grille orientée N→S (flip).
+    HAIL, GRAUPEL, LIGHTNING_*_CUMULATED non servis (404).
+
+servers:
+  - server: meteofrance-arome-wcs
+    type: api
+    environment: production
+    location: "https://public-api.meteofrance.fr/public/arome/1.0/wcs/{coll}"
+
+schema:
+  - name: arome-wcs-coverage
+    physicalType: GRIB2
+    description: "Coverage GRIB2 AROME métropole (1 message/requête GetCoverage)."
+    properties:
+      - name: TOTAL_PRECIPITATION
+        physicalType: GRIB
+        unit: "kg/m² (mm)"
+        description: "cumul précip total (suffixe _PTxH)"
+      - name: TOTAL_SNOW_PRECIPITATION
+        physicalType: GRIB
+        unit: kg/m²
+        description: cumul neige
+      - name: TOTAL_PRECIPITATION_RATE
+        physicalType: GRIB
+        unit: kg/m²/s
+        description: intensité précip instantanée
+      - name: "CAPE / CIN"
+        physicalType: GRIB
+        unit: J/kg
+        description: énergie convective
+      - name: (NON servi)
+        physicalType: "—"
+        unit: "—"
+        description: "HAIL, GRAUPEL, LIGHTNING_*_CUMULATED → 404 (grésil cumul = Paquets `tgrp`)"
+
+customProperties:
+  - property: externalSource
+    value:
+      apiId: AROME-WCS
+      host: public-api.meteofrance.fr
+      context: /public/arome/1.0/wcs/{coll}
+      urlTemplate: "/public/arome/1.0/wcs/{coll}/{GetCapabilities|DescribeCoverage|GetCoverage}?service=WCS&version=2.0.1"
+      auth: token
+      probeUrl: "https://public-api.meteofrance.fr/public/arome/1.0/wcs/MF-NWP-HIGHRES-AROME-0025-FRANCE-WCS/GetCapabilities?service=WCS&version=2.0.1"
+      verified: "✅ vérifié en live"
+      unitsNote: >-
+        Produits diagnostiques (réflectivité dBZ, CAPE/CIN, visibilité, foudre, ptype) + cumuls précip via _PTxH.
+      descriptor: "GetCapabilities → liste des coverageId réellement servis (valider par DescribeCoverage)"
+      quirks:
+        - "coll : MF-NWP-HIGHRES-AROME-0025-FRANCE-WCS (0.025°) ou -001- (0.01°). coverageId={VAR}___{run} (run avec POINTS : 2026-06-03T18.00.00Z)."
+        - "GetCoverage : subset=time(...) SANS quotes, subset=height(2), format=application/wmo-grib, 1 message/requête. Grille N→S (flip)."
+        - "Cumuls de précip : suffixe période `_PT1H`/`_PT3H`/`_P1D` OBLIGATOIRE sinon 404. Validation par DescribeCoverage (GetCapabilities sur-annonce)."
+  - property: changelog
+    value:
+      - version: "1.0.0"
+        date: "2026-06-17"
+        type: initial
+        severity: non-breaking
+        fields: []
+        note: Transcription du dict.
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat.
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me

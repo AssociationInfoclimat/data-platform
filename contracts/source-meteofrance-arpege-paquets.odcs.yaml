@@ -1,0 +1,66 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:source-meteofrance-arpege-paquets
+name: "Modèle ARPEGE — Paquets (DPPaquetARPEGE)"
+version: "1.0.0"
+status: active
+domain: modeles
+tags: [source, meteofrance, api]
+
+description:
+  purpose: >-
+    Contrat de la SOURCE API DPPaquetARPEGE — paquets GRIB2 ARPEGE (0.1° ou 0.25°),
+    segments 24 h, 4 runs par jour (00/06/12/18 UTC), rétention ~3 jours.
+  usage: >-
+    Référence de contrat. Pas de pipeline actif (ARPEGE Europe servi par Open-Meteo).
+    Découverte des segments disponibles via GET .../packages/{PKG}?referencetime={RUN}.
+  limitations: >-
+    Segments 24 h uniquement (000H024H…). `000H006H` invalide malgré regex serveur.
+    Pas de pipeline actif en production.
+
+servers:
+  - server: meteofrance-arpege-paquets
+    type: api
+    environment: production
+    location: https://public-api.meteofrance.fr/previnum/DPPaquetARPEGE/v1
+
+schema:
+  - name: arpege-paquet
+    physicalType: GRIB2
+    description: "Paquet GRIB2 ARPEGE (surface et isobares, segments 24 h)."
+    properties: []
+
+customProperties:
+  - property: externalSource
+    value:
+      apiId: ARPEGE-Paquets
+      host: public-api.meteofrance.fr
+      context: /previnum/DPPaquetARPEGE/v1
+      urlTemplate: "/previnum/DPPaquetARPEGE/v1/models/ARPEGE/grids/{0.1|0.25}/packages/{PKG}/productARP?referencetime={RUN}&time={SEGMENT}&format=grib2"
+      auth: token
+      probeUrl: https://public-api.meteofrance.fr/previnum/DPPaquetARPEGE/v1/models/ARPEGE/grids/0.25/packages
+      verified: "✅ vérifié en live"
+      unitsNote: "GRIB2. SP1 (P mer, vent 10 m + rafales, T2m, HU2m, nébul, précip, neige, flux), SP2, IP1/IP3/IP4 isobares."
+      descriptor: grib_ls
+      quirks:
+        - "Suffixe produit `productARP`. Segments 24 h : 000H024H / 025H048H / 049H072H / 073H102H (≠ AROME 6 h !). Runs 00/06/12/18 UTC, ~3 j de rétention."
+        - "Piège : `000H006H` passe le regex serveur mais → 404 « La donnée est indisponible ». Découverte : GET .../packages/{PKG}?referencetime={RUN}."
+        - "Pas de pipeline actif (ARPEGE Europe servi par Open-Meteo) — référence de contrat."
+  - property: changelog
+    value:
+      - version: "1.0.0"
+        date: "2026-06-17"
+        type: initial
+        severity: non-breaking
+        fields: []
+        note: Transcription du dict.
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat.
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
