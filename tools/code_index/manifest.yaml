@@ -14,6 +14,8 @@ repos:
   - python-climate-services
   - data-platform
   - ic-data-bot
+  - telechargement-climatologie-meteo-data-gouv
+  - telechargement-climatologie-portail-api-meteofrance
 
 # Extensions indexées (code, conf, docs). `.map` = mapfiles MapServer → conservés ;
 # les source-maps JS/CSS (`*.js.map`, `*.css.map`) sont retirées via exclude_globs.
