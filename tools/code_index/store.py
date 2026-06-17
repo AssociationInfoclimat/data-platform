@@ -80,16 +80,35 @@ def rebuild_with_fts(db: Any, meta: dict | None = None) -> None:
     tbl = open_table(db)
     if tbl is None or FTS_COLUMN not in tbl.schema.names:
         return
-    if meta is None:
-        data: Any = tbl.to_arrow()
-    else:
-        from . import meta as _meta
-        data = tbl.to_arrow().to_pylist()
-        for r in data:
-            r.update(_meta.row_meta(meta, r.get("repo", ""), r.get("key", "")))
+    data: Any = tbl.to_arrow()
+    if meta is not None:
+        data = _inject_meta_columns(data, meta)  # colonnes au niveau Arrow (vecteurs intacts)
     db.drop_table(TABLE_NAME)
     new = db.create_table(TABLE_NAME, data=data)     # réécriture en un seul fragment
     new.create_fts_index(FTS_COLUMN, replace=True)   # FTS sur mono-fragment → pas de deadlock
+
+
+def _inject_meta_columns(data: Any, meta: dict) -> Any:
+    """(Ré)injecte source/last_commit/status comme colonnes Arrow, sans matérialiser les
+    vecteurs en objets Python (mémoire bornée sur petite VM)."""
+    import pyarrow as pa
+    keys = data.column("key").to_pylist()
+    repos = data.column("repo").to_pylist()
+    rsource = meta.get("repo_source") or {}
+    lc = meta.get("last_commit") or {}
+    st = meta.get("status") or {}
+    cols = {
+        "source": [rsource.get(r, "other") for r in repos],
+        "last_commit": [lc.get(k, "") for k in keys],
+        "status": [st.get(k, "") for k in keys],
+    }
+    for name, vals in cols.items():
+        arr = pa.array(vals, type=pa.string())
+        if name in data.schema.names:
+            data = data.set_column(data.schema.get_field_index(name), name, arr)
+        else:
+            data = data.append_column(name, arr)
+    return data
 
 
 def _esc(value: str) -> str:

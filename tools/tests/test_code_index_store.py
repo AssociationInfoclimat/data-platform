@@ -100,6 +100,22 @@ def test_rebuild_with_fts_preserves_data_and_builds_index(tmp_path: Path) -> Non
     assert hits and hits[0]["key"] == "r/auth.php"
 
 
+def test_rebuild_with_fts_injects_metadata(tmp_path: Path) -> None:
+    pytest.importorskip("lancedb.rerankers")
+    db = store.connect(tmp_path / "db")
+    store.add_rows(db, [_row("r/auth.php", 0, "r", [1.0, 0.0, 0.0], "s1",
+                             contextualized="module authentification jeton")])
+    meta = {"repo_source": {"r": "github"},
+            "last_commit": {"r/auth.php": "2026-01-01"},
+            "status": {"r/auth.php": "actif"}}
+    store.rebuild_with_fts(db, meta=meta)
+    row = store.open_table(db).to_arrow().to_pylist()[0]
+    assert row["source"] == "github"
+    assert row["last_commit"] == "2026-01-01"
+    assert row["status"] == "actif"
+    assert store._has_fts(store.open_table(db))
+
+
 def test_search_falls_back_to_vector_without_fts(tmp_path: Path) -> None:
     db = store.connect(tmp_path / "db")
     store.add_rows(db, [_row("r/a.php", 0, "r", [1.0, 0.0], "s1"),
