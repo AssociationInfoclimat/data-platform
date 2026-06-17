@@ -112,18 +112,52 @@ jobs:
     job_namespace: "kestra://infoclimat"
     job_name: data.meteofrance.climatologie-meteo-data-gouv.daily
     priority_t2: haute
+    # T+ 2026-06-17 : datasets déclarés depuis le repo telechargement-climatologie-meteo-data-gouv (scripts/update-daily.sh)
+    inputs:
+      - namespace: "api://meteofrance"
+        name: meteo-data-gouv-daily
+    outputs:
+      - namespace: "timescaledb://postgres"
+        name: Infrahoraire
+      - namespace: "timescaledb://postgres"
+        name: Horaire
+      - namespace: "timescaledb://postgres"
+        name: Quotidienne
+      - namespace: "timescaledb://postgres"
+        name: QuotidienneAutresParametres
   - pipeline: kestra.infoclimat.data.meteofrance.climatologie-meteo-data-gouv.monthly
     job_namespace: "kestra://infoclimat"
     job_name: data.meteofrance.climatologie-meteo-data-gouv.monthly
     priority_t2: haute
+    # T+ 2026-06-17 : scripts/update-monthly.sh → seule table Mensuelle
+    inputs:
+      - namespace: "api://meteofrance"
+        name: meteo-data-gouv-monthly
+    outputs:
+      - namespace: "timescaledb://postgres"
+        name: Mensuelle
   - pipeline: kestra.infoclimat.data.meteofrance.climatologie-portail-api.infrahoraires
     job_namespace: "kestra://infoclimat"
     job_name: data.meteofrance.climatologie-portail-api.infrahoraires
     priority_t2: haute
+    # T+ 2026-06-17 : repo telechargement-climatologie-portail-api-meteofrance (download-all-last-infrahoraires-data)
+    inputs:
+      - namespace: "api://meteofrance"
+        name: climatologie-portail-api
+    outputs:
+      - namespace: "timescaledb://postgres"
+        name: InfrahoraireTempsReel
   - pipeline: kestra.infoclimat.data.meteofrance.climatologie-portail-api.horaires
     job_namespace: "kestra://infoclimat"
     job_name: data.meteofrance.climatologie-portail-api.horaires
     priority_t2: haute
+    # T+ 2026-06-17 : repo telechargement-climatologie-portail-api-meteofrance (download-all-last-horaires-data)
+    inputs:
+      - namespace: "api://meteofrance"
+        name: climatologie-portail-api
+    outputs:
+      - namespace: "timescaledb://postgres"
+        name: HoraireTempsReel
   - pipeline: kestra.infoclimat.data.meteofrance.vigilance
     job_namespace: "kestra://infoclimat"
     job_name: data.meteofrance.vigilance

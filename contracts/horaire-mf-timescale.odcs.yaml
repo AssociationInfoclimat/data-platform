@@ -23,8 +23,9 @@ description:
     Couverture limitée au réseau Météo-France (pas de StatIC). Le flux temps réel et
     l'historique partagent les conventions météo usuelles (°C, hPa, m/s ; vérifié en
     base le 2026-06-15) mais diffèrent par les identifiants (geo_id_insee vs NUM_POSTE).
-    Ingestion gérée hors monolithe (socle dataclimat) :
-    le lineage de l'alimentation reste à instrumenter.
+    Ingestion gérée hors monolithe (socle dataclimat) par les repos
+    telechargement-climatologie-meteo-data-gouv (Horaire) et
+    telechargement-climatologie-portail-api-meteofrance (HoraireTempsReel) — cf. customProperties.sourceRepo.
 
 tags:
   - meteo
@@ -128,8 +129,19 @@ slaProperties:
     description: Politique de rétention
 
 customProperties:
+  - property: sourceRepo
+    value: >-
+      Horaire (historique) ← telechargement-climatologie-meteo-data-gouv
+      (src/apps/save/saveHorairesCSVsToDB.ts, archives open data data.gouv) ;
+      HoraireTempsReel (flux) ← telechargement-climatologie-portail-api-meteofrance
+      (src/apps/horaire/downloadAllLastHorairesData.ts, API MF DPObs/DPPaquetObs).
+      Repos intégrés à l'inventaire le 2026-06-17.
   - property: lineageJob
-    value: ingestion hors monolithe (socle dataclimat) — à instrumenter ; lecture via include/MeteoFrance/combined.php
+    value: >-
+      Ingestion tracée (T+ 2026-06-17) : pipelines
+      kestra.infoclimat.data.meteofrance.climatologie-meteo-data-gouv.daily (→ Horaire) et
+      kestra.infoclimat.data.meteofrance.climatologie-portail-api.horaires (→ HoraireTempsReel) ;
+      lecture via include/MeteoFrance/combined.php.
   - property: retroCompatLayer
     value: include/MeteoFrance/combined.php (pattern dual-source, fallback mariadb://mf_data)
   - property: fallbackSource

@@ -24,9 +24,10 @@ description:
     vues finales du contrat climato-mf-timescale quand elles suffisent.
   limitations: >-
     Alimentation et schéma gérés hors monolithe (infra interne dataclimat) :
-    ingestion et refresh Kestra non instrumentés en lineage à ce stade. Base en
-    encodage SQL_ASCII — forcer client_encoding=UTF8 (champs texte accentués).
-    Tables techniques hors contrat : _prisma_migrations (reliquat d'outillage),
+    le référentiel stations est ingéré par le repo telechargement-climatologie-portail-api-meteofrance
+    (API MF DPClim), le refresh Kestra des matviews reste non instrumenté en lineage à ce stade.
+    Base en encodage SQL_ASCII — forcer client_encoding=UTF8 (champs texte accentués).
+    Tables techniques : _prisma_migrations gère désormais le DDL Prisma des repos d'ingestion (actif),
     station_creation_date_bak (sauvegarde morte, purgeable). La colonne
     StationTempsReel.Pack (enum métier) n'est pas testée (type custom).
 
@@ -384,8 +385,18 @@ slaProperties:
     description: Politique de rétention
 
 customProperties:
+  - property: sourceRepo
+    value: >-
+      Station, StationTempsReel, ommid ← telechargement-climatologie-portail-api-meteofrance
+      (src/apps/downloadListesStations.ts, DPClim/v1/liste-stations) ;
+      InformationStation (+TypePoste/Parametre/Producteur/Position) ←
+      src/apps/information-station/downloadAllInformationsStations.ts (DPClim/v1/information-station) ;
+      CommandeStation ← même repo (DPClim commande-station). Intégré le 2026-06-17.
   - property: lineageJob
-    value: ingestion hors monolithe (socle dataclimat) — à instrumenter ; refresh matviews kestra://infoclimat:db.dataclimat.*
+    value: >-
+      Ingestion référentiel tracée (T+ 2026-06-17) via le repo
+      telechargement-climatologie-portail-api-meteofrance (déclenchement manuel / à la demande,
+      pas de cron versionné dans le repo) ; refresh matviews kestra://infoclimat:db.dataclimat.*
   - property: downstreamConsumers
     value: dataforgoodfr/14_ValorisationDonneeMeteo (lecture seule, compte dédié) ; vues finales du contrat climato-mf-timescale
   - property: excludedObjects

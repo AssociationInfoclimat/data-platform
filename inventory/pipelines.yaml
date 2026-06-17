@@ -494,8 +494,8 @@ pipelines:
 
   # ─── data.meteofrance.climatologie-meteo-data-gouv ───────────────────────────
   - id: kestra.infoclimat.data.meteofrance.climatologie-meteo-data-gouv.daily
-    repo: infrapilot
-    script: "roles/applications/scheduler/files/flows/infoclimat.data.meteofrance.climatologie-meteo-data-gouv.daily.yml"
+    repo: telechargement-climatologie-meteo-data-gouv
+    script: "scripts/update-daily.sh"
     trigger:
       type: kestra
       source: "infrapilot:roles/applications/scheduler/files/flows/infoclimat.data.meteofrance.climatologie-meteo-data-gouv.daily.yml"
@@ -505,16 +505,23 @@ pipelines:
     status: actif
     inputs:
       - api://meteofrance/meteo-data-gouv-daily
-    outputs: []
+    outputs:
+      - timescaledb://postgres/Infrahoraire
+      - timescaledb://postgres/Horaire
+      - timescaledb://postgres/Quotidienne
+      - timescaledb://postgres/QuotidienneAutresParametres
     notes: >-
-      Script bash /opt/telechargement-climatologie-meteo-data-gouv/scripts/update-daily.sh
-      sur ct-timescale. Script prod non mappé dans les clones. Output
-      timescaledb://infoclimat/Horaire supprimé : était inféré d'après
-      infrahoraires (hors périmètre de traçabilité).
+      T+ 2026-06-17 : code exécuté mappé (repo telechargement-climatologie-meteo-data-gouv
+      déployé /opt/, flow Kestra = trigger). scripts/update-daily.sh enchaîne
+      update-latest-archives puis download-unzip-update-delete-latest-{infrahoraires,
+      horaires,quotidiennes}-csvs:preprod (apps tsx src/apps/download-unzip-update-delete-latest/).
+      Outputs renseignés depuis le code (upsertMany Prisma). Namespace aligné sur
+      timescaledb://postgres (registre tables.yaml / storage-systems) — l'ancien label
+      `infoclimat` était fictif.
 
   - id: kestra.infoclimat.data.meteofrance.climatologie-meteo-data-gouv.hourly
-    repo: infrapilot
-    script: "roles/applications/scheduler/files/flows/infoclimat.data.meteofrance.climatologie-meteo-data-gouv.hourly.yml"
+    repo: telechargement-climatologie-meteo-data-gouv
+    script: "scripts/update-hourly.sh (absent du repo)"
     trigger:
       type: kestra
       source: "infrapilot:roles/applications/scheduler/files/flows/infoclimat.data.meteofrance.climatologie-meteo-data-gouv.hourly.yml"
@@ -525,12 +532,16 @@ pipelines:
     inputs:
       - api://meteofrance/meteo-data-gouv-hourly
     outputs:
-      - timescaledb://infoclimat/Horaire
-    notes: "Flow disabled:true. Script prod /opt/telechargement-climatologie-meteo-data-gouv/scripts/update-hourly.sh non mappé dans les clones."
+      - timescaledb://postgres/Horaire
+    notes: >-
+      Flow disabled:true. T+ 2026-06-17 : aucun scripts/update-hourly.sh dans le repo
+      telechargement-climatologie-meteo-data-gouv (le repo n'expose que update-daily.sh
+      et update-monthly.sh) — flow mort cohérent, la fréquence horaire des archives
+      data.gouv n'est plus alimentée.
 
   - id: kestra.infoclimat.data.meteofrance.climatologie-meteo-data-gouv.monthly
-    repo: infrapilot
-    script: "roles/applications/scheduler/files/flows/infoclimat.data.meteofrance.climatologie-meteo-data-gouv.monthly.yml"
+    repo: telechargement-climatologie-meteo-data-gouv
+    script: "scripts/update-monthly.sh"
     trigger:
       type: kestra
       source: "infrapilot:roles/applications/scheduler/files/flows/infoclimat.data.meteofrance.climatologie-meteo-data-gouv.monthly.yml"
@@ -541,13 +552,18 @@ pipelines:
     inputs:
       - api://meteofrance/meteo-data-gouv-monthly
     outputs:
-      - timescaledb://infoclimat/Horaire
-    notes: "Script prod /opt/telechargement-climatologie-meteo-data-gouv/scripts/update-monthly.sh non mappé dans les clones."
+      - timescaledb://postgres/Mensuelle
+    notes: >-
+      T+ 2026-06-17 : code mappé. scripts/update-monthly.sh n'exécute que
+      download-unzip-update-delete-latest-mensuelles-csvs:preprod → écrit la seule table
+      Mensuelle. Output corrigé : l'ancien timescaledb://infoclimat/Horaire était une
+      inférence erronée (ce flow ne touche pas l'horaire). Decadaire/DecadaireAgro existent
+      dans le repo mais ne sont pas dans le périmètre des scripts cron déployés.
 
   # ─── data.meteofrance.climatologie-portail-api ───────────────────────────────
   - id: kestra.infoclimat.data.meteofrance.climatologie-portail-api.infrahoraires
-    repo: infrapilot
-    script: "roles/applications/scheduler/files/flows/infoclimat.data.meteofrance.climatologie-portail-api.infrahoraires.yml"
+    repo: telechargement-climatologie-portail-api-meteofrance
+    script: "src/apps/infrahoraire/downloadAllLastInfrahorairesData.ts"
     trigger:
       type: kestra
       source: "infrapilot:roles/applications/scheduler/files/flows/infoclimat.data.meteofrance.climatologie-portail-api.infrahoraires.yml"
@@ -558,14 +574,17 @@ pipelines:
     inputs:
       - api://meteofrance/climatologie-portail-api
     outputs:
-      - timescaledb://infoclimat/InfrahoraireTempsReel
+      - timescaledb://postgres/InfrahoraireTempsReel
     notes: >-
-      Script bash /opt/telechargement-climatologie-portail-api-meteofrance/scripts/ingest-infrahoraires-temps-reel.sh
-      sur ct-timescale. Script prod non mappé dans les clones.
+      T+ 2026-06-17 : code mappé sur le repo telechargement-climatologie-portail-api-meteofrance
+      (app pnpm download-all-last-infrahoraires-data). Source API MF DPObs/DPPaquetObs
+      infrahoraire-6m (token portail-api). Le wrapper prod ingest-infrahoraires-temps-reel.sh
+      n'est pas versionné dans le repo, mais l'app sous-jacente et l'output (upsert
+      InfrahoraireTempsReel) sont désormais traçables. Namespace aligné sur postgres.
 
   - id: kestra.infoclimat.data.meteofrance.climatologie-portail-api.horaires
-    repo: infrapilot
-    script: "roles/applications/scheduler/files/flows/infoclimat.data.meteofrance.climatologie-portail-api.horaires.yml"
+    repo: telechargement-climatologie-portail-api-meteofrance
+    script: "src/apps/horaire/downloadAllLastHorairesData.ts"
     trigger:
       type: kestra
       source: "infrapilot:roles/applications/scheduler/files/flows/infoclimat.data.meteofrance.climatologie-portail-api.horaires.yml"
@@ -576,14 +595,17 @@ pipelines:
     inputs:
       - api://meteofrance/climatologie-portail-api
     outputs:
-      - timescaledb://infoclimat/Horaire
+      - timescaledb://postgres/HoraireTempsReel
     notes: >-
-      Script bash /opt/telechargement-climatologie-portail-api-meteofrance/scripts/ingest-horaires-temps-reel.sh
-      sur ct-timescale. Script prod non mappé dans les clones.
+      T+ 2026-06-17 : code mappé (app pnpm download-all-last-horaires-data). Source API MF
+      DPObs/DPPaquetObs station/horaire (token portail-api). Output corrigé :
+      HoraireTempsReel (flux temps réel, clé validity_time) et non l'hypertable historique
+      Horaire — l'ancien timescaledb://infoclimat/Horaire confondait les deux. Wrapper prod
+      ingest-horaires-temps-reel.sh non versionné dans le repo.
 
   - id: kestra.infoclimat.data.meteofrance.climatologie-portail-api.24h-infrahoraires
-    repo: infrapilot
-    script: "roles/applications/scheduler/files/flows/infoclimat.data.meteofrance.climatologie-portail-api.24h-infrahoraires.yml"
+    repo: telechargement-climatologie-portail-api-meteofrance
+    script: "src/apps/infrahoraire/downloadAllStationsPrevious24InfrahorairesData.ts"
     trigger:
       type: kestra
       source: "infrapilot:roles/applications/scheduler/files/flows/infoclimat.data.meteofrance.climatologie-portail-api.24h-infrahoraires.yml"
@@ -591,17 +613,19 @@ pipelines:
     host: ct-timescale
     domain: observations
     status: douteux
-    inputs: []
-    outputs: []
+    inputs:
+      - api://meteofrance/climatologie-portail-api
+    outputs:
+      - timescaledb://postgres/InfrahoraireTempsReel
     notes: >-
-      Flow sans trigger Schedule (pas de cron déclaré). Script prod
-      /opt/telechargement-climatologie-portail-api-meteofrance/scripts/ingest-24h-infrahoraires-temps-reel.sh
-      non mappé dans les clones — I/O non vérifiables. Statut douteux : flow
-      possiblement déclenché manuellement ou en cours de migration.
+      Flow sans trigger Schedule (pas de cron déclaré) — reste douteux côté déclenchement.
+      T+ 2026-06-17 : code mappé sur l'app pnpm download-all-previous-24-infrahoraires-data
+      (rattrapage 24 h, même output InfrahoraireTempsReel que le flux */3). Wrapper prod
+      ingest-24h-infrahoraires-temps-reel.sh non versionné ; I/O désormais déduits du code.
 
   - id: kestra.infoclimat.data.meteofrance.climatologie-portail-api.24h-horaires
-    repo: infrapilot
-    script: "roles/applications/scheduler/files/flows/infoclimat.data.meteofrance.climatologie-portail-api.24h-horaires.yml"
+    repo: telechargement-climatologie-portail-api-meteofrance
+    script: "src/apps/horaire/downloadAllDepartementsPrevious24HorairesData.ts"
     trigger:
       type: kestra
       source: "infrapilot:roles/applications/scheduler/files/flows/infoclimat.data.meteofrance.climatologie-portail-api.24h-horaires.yml"
@@ -609,13 +633,15 @@ pipelines:
     host: ct-timescale
     domain: observations
     status: douteux
-    inputs: []
-    outputs: []
+    inputs:
+      - api://meteofrance/climatologie-portail-api
+    outputs:
+      - timescaledb://postgres/HoraireTempsReel
     notes: >-
-      Flow sans trigger Schedule. Script prod
-      /opt/telechargement-climatologie-portail-api-meteofrance/scripts/ingest-24h-horaires-temps-reel.sh
-      non mappé dans les clones — I/O non vérifiables. Statut douteux : flow
-      possiblement déclenché manuellement.
+      Flow sans trigger Schedule — reste douteux côté déclenchement. T+ 2026-06-17 :
+      code mappé sur l'app pnpm download-all-previous-24-horaires-data (rattrapage 24 h
+      par département, même output HoraireTempsReel que le flux 13,43). Wrapper prod
+      ingest-24h-horaires-temps-reel.sh non versionné ; I/O déduits du code.
 
   # ─── data.meteofrance.vigilance ────────────────────────────────────
   - id: kestra.infoclimat.data.meteofrance.vigilance

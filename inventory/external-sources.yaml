@@ -49,9 +49,18 @@ sources:
     consumers:
       - kestra.infoclimat.data.meteofrance.climatologie-portail-api.infrahoraires
       - kestra.infoclimat.data.meteofrance.climatologie-portail-api.horaires
+      - kestra.infoclimat.data.meteofrance.climatologie-portail-api.24h-infrahoraires
+      - kestra.infoclimat.data.meteofrance.climatologie-portail-api.24h-horaires
     notes: >-
-      Scripts prod non mappés dans les clones ; les deux pipelines sont status
-      douteux (I/O non traçables depuis le flow). Token OAuth2 portail-api.
+      T+ 2026-06-17 : source implémentée par le repo
+      telechargement-climatologie-portail-api-meteofrance (intégré). Endpoints réels du
+      code : DPObs/v1/station/{horaire,infrahoraire-6m} et DPPaquetObs/v1/paquet/* pour
+      le temps réel ; DPClim/v1/{liste-stations,information-station,commande-station,
+      commande/fichier} pour le référentiel stations et les commandes climatologiques.
+      Token OAuth2 via POST https://portail-api.meteofrance.fr/token (env
+      METEOFRANCE_APPLICATION_ID). Écrit dans timescaledb://postgres : *TempsReel,
+      Station, InformationStation (+TypePoste/Parametre/Producteur/Position),
+      CommandeStation, ommid.
 
   - name: api://meteofrance/donnees-climatologiques
     url_hint: https://portail-api.meteofrance.fr/
@@ -92,27 +101,35 @@ sources:
       data/recuperation/mf-bouees.php.
 
   - name: api://meteofrance/meteo-data-gouv-daily
-    url_hint: https://object.data.gouv.fr/meteofrance-pnt/
+    url_hint: https://object.files.data.gouv.fr/meteofrance/data/synchro_ftp/BASE/
     auth: none
     consumers:
       - kestra.infoclimat.data.meteofrance.climatologie-meteo-data-gouv.daily
     notes: >-
-      Open data data.gouv.fr. Même bucket que l'AROME PNT (object.data.gouv.fr
-      / meteofrance-pnt).
+      T+ 2026-06-17 : url_hint CORRIGÉ. Le repo telechargement-climatologie-meteo-data-gouv
+      (intégré) télécharge les archives BASE/{MN,HOR,QUOT,MENS,DECAD,DECADAGRO}/*.csv.gz
+      sur object.files.data.gouv.fr (PAS object.data.gouv.fr/meteofrance-pnt, qui est le
+      bucket AROME PNT — confusion de l'inventaire initial). Listing des ressources via
+      https://www.data.gouv.fr/api/2/datasets/{DATASET_ID}/resources/ (IDs par fréquence
+      dans docs/mf/URL.md du repo). Licence Ouverte Etalab 2.0.
 
   - name: api://meteofrance/meteo-data-gouv-hourly
-    url_hint: https://object.data.gouv.fr/meteofrance-pnt/
+    url_hint: https://object.files.data.gouv.fr/meteofrance/data/synchro_ftp/BASE/HOR/
     auth: none
     consumers:
       - kestra.infoclimat.data.meteofrance.climatologie-meteo-data-gouv.hourly
-    notes: Open data data.gouv.fr.
+    notes: >-
+      Open data data.gouv.fr (archives HOR). url_hint corrigé (cf. daily). Consommateur
+      mort : aucun scripts/update-hourly.sh dans le repo intégré.
 
   - name: api://meteofrance/meteo-data-gouv-monthly
-    url_hint: https://object.data.gouv.fr/meteofrance-pnt/
+    url_hint: https://object.files.data.gouv.fr/meteofrance/data/synchro_ftp/BASE/MENS/
     auth: none
     consumers:
       - kestra.infoclimat.data.meteofrance.climatologie-meteo-data-gouv.monthly
-    notes: Open data data.gouv.fr.
+    notes: >-
+      Open data data.gouv.fr (archives MENS). url_hint corrigé (cf. daily). Alimente la
+      seule table Mensuelle via scripts/update-monthly.sh.
 
   - name: api://meteofrance/portail-mf-station
     url_hint: https://portail-api.meteofrance.fr/
