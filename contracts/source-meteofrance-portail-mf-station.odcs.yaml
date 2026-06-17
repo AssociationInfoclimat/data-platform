@@ -1,0 +1,85 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:source-meteofrance-portail-mf-station
+name: "Source Météo-France — Bulletins/images par station (portail-mf-station)"
+version: "1.0.0"
+status: active
+domain: observations
+tags: [source, meteofrance, api]
+
+description:
+  purpose: >-
+    Contrat de la SOURCE portail-mf-station — données météo par station MF utilisées
+    pour générer des bulletins PNG par station (température, vent, pluie, pression…).
+    Les données sont ingérées dans la table locale MariaDB mf_data_YYYY_MM puis
+    consommées par cron/image_mf.php pour produire les images de bulletin.
+  usage: >-
+    Consommé par cron.image-mf (cron/image_mf.php). Le cron lit en priorité la
+    table locale mf_data_YYYY_MM (MariaDB V5_data_mf) ; en cas de donnée absente,
+    il appelle le proxy interne IC https://www.infoclimat.fr/api/cron/image-mf/mf/index.php
+    (IP-restricted, délégué via mf.controller.php). Produit IMAGE (PNG) par station.
+  limitations: >-
+    Pas de schéma tabulaire pour la source externe elle-même — le produit final est
+    une image PNG. Le flux MF entrant alimente la table MariaDB en amont (pipeline
+    séparé, non tracé dans les clones image-mf).
+
+servers:
+  - server: meteofrance-portail-mf-station
+    type: api
+    environment: production
+    location: https://portail-api.meteofrance.fr/
+
+schema:
+  - name: bulletin-station
+    physicalType: object
+    description: "Produit IMAGE (bulletin PNG par station MF) — pas de schéma tabulaire."
+    properties: []
+
+customProperties:
+  - property: externalSource
+    value:
+      apiId: portail-mf-station
+      host: portail-api.meteofrance.fr
+      context: /
+      urlTemplate: "https://www.infoclimat.fr/api/cron/image-mf/mf/index.php?id={station_id}"
+      auth: token
+      probeUrl: https://portail-api.meteofrance.fr/token
+      verified: "✅ consommé par cron/image_mf.php via mf.controller.php"
+      unitsNote: "Produit IMAGE (bulletin par station), pas de schéma tabulaire."
+      descriptor: >-
+        cron/image_mf.php génère des PNG par station MF (température, vent, pluie,
+        pression, humidité, neige, WW…) depuis la table locale MariaDB
+        mf_data_YYYY_MM. Proxy interne : api/cron/image-mf/mf/index.php (IP-restricted).
+        Délégation via mf.controller.php → mf.model.php → combined.php (TimescaleDB/fallback).
+        Images stockées dans stations-meteo/static/meteofrance/{hash1}/{hash2}.png.
+      quirks:
+        - "Délégation via mf.controller.php : l'appel effectif est sur le proxy interne
+          https://www.infoclimat.fr/api/cron/image-mf/mf/index.php (IP-restricted,
+          not portail-api.meteofrance.fr). La source MF upstream est ingérée en amont
+          dans MariaDB mf_data_YYYY_MM — le pipeline d'ingestion n'est pas tracé dans
+          les clones image-mf."
+        - "url_hint portail-api.meteofrance.fr correspond à l'auth OAuth2 upstream
+          (POST /token, APPLICATION_ID env) — le host de la donnée effective en production
+          est à confirmer (portail-api ou autre endpoint MF non exposé dans les clones)."
+        - "Chemin image dynamique : stations-meteo/static/meteofrance/{sha1(libelle+secret)[0]}/{sha1(libelle+secret)}/{md5(STID+libelle+secret+heure+date)}.png"
+  - property: changelog
+    value:
+      - version: "1.0.0"
+        date: "2026-06-10"
+        type: initial
+        severity: non-breaking
+        fields: []
+        note: >-
+          Contrat initial établi depuis le mining de cron/image_mf.php et
+          api/cron/image-mf/mf/mf.controller.php + mf.model.php + combined.php.
+          Produit IMAGE PNG par station ; pas de schéma tabulaire.
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat.
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
