@@ -2,7 +2,7 @@ apiVersion: v3.0.2
 kind: DataContract
 id: urn:infoclimat:contract:source-meteofrance-dpobs
 name: Source Météo-France — Observations stations (DPObs)
-version: 1.0.0
+version: 2.0.0
 status: active
 domain: observations
 tags: [source, meteofrance, api]
@@ -78,7 +78,23 @@ schema:
       - name: fxi10
         physicalType: REAL
         unit: m/s
-        description: rafale max instantanée
+        description: >-
+          rafale max instantanée — DÉPRÉCIÉE comme référence rafale au profit de fxi3s
+          depuis la v2 (2026-06) ; descripteur MF : FXI (vent max instantané, à 10 m)
+      - name: fxi3s
+        physicalType: REAL
+        unit: m/s
+        description: >-
+          rafale — vent max moyenné sur 3 s dans l'heure (NOUVELLE RÉFÉRENCE rafale,
+          standard mondial WMO ; descripteur MF : FXI3S)
+      - name: dxi3s
+        physicalType: INTEGER
+        unit: degré (rose 360)
+        description: "direction de fxi3s (descripteur MF : DXI3S)"
+      - name: hfxi3s
+        physicalType: TEXT
+        unit: hhmm
+        description: "heure de fxi3s (descripteur MF : HFXI3S)"
       - name: rr1
         physicalType: REAL
         unit: mm
@@ -127,6 +143,18 @@ customProperties:
         - /liste-stations, /station/horaire, /station/infrahoraire-6m (pas 6 min), /synop, /bouees.
   - property: changelog
     value:
+      - version: "2.0.0"
+        date: "2026-06-15"
+        type: rename
+        severity: breaking
+        fields: [fxi, fxi10, fxi3s, dxi3s, hfxi3s]
+        note: >-
+          Bascule de la référence rafale dans l'API Observations : FXI (vent max
+          instantané) → FXI3S (vent max moyenné sur 3 s, standard mondial WMO). Nouveaux
+          champs fxi3s/dxi3s/hfxi3s ; fxi/fxi10 déprécié comme référence. Nomenclature
+          annoncée 2026-05-28, FXI3S référence au 2026-06-02, breaking + correction
+          d'anomalie sur l'historique au 2026-06-15. Source : descripteur officiel MF
+          (H_descriptif_champs.csv, champs FXI3S/DXI3S/HFXI3S) + portail-api Météo-France.
       - version: "1.0.0"
         date: "2026-06-17"
         type: initial
