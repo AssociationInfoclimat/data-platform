@@ -1,0 +1,79 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:source-meteofrance-climato-data-gouv
+name: Source Météo-France — Climatologie archives open data (meteo.data.gouv.fr)
+version: 1.0.0
+status: active
+domain: climato
+tags: [source, meteofrance]
+
+description:
+  purpose: Archives climatologiques open data (Licence Ouverte Etalab 2.0), sans auth.
+  usage: Ingéré par telechargement-climatologie-meteo-data-gouv → tables timescaledb.
+  limitations: Bucket distinct du bucket AROME PNT.
+
+servers:
+  - server: meteofrance-climato-data-gouv
+    type: api
+    environment: production
+    location: https://object.files.data.gouv.fr/meteofrance/data/synchro_ftp/BASE
+
+schema:
+  - name: poste-mesure
+    physicalType: object
+    description: Une ligne par poste et pas de temps, une colonne par paramètre + Q<PARAM>.
+    properties:
+      - name: NUM_POSTE
+        physicalType: TEXT
+        unit: 8 chiffres
+        description: numéro de poste MF
+      - name: AAAAMMJJHH
+        physicalType: TIMESTAMP
+        unit: "—"
+        description: "clé temporelle (selon fréquence : AAAAMMJJ, AAAAMM)"
+      - name: RR
+        physicalType: REAL
+        unit: mm
+        description: précipitations (qualité QRR)
+      - name: T
+        physicalType: REAL
+        unit: "°C"
+        description: température (moy ; TN/TX min/max)
+      - name: FF
+        physicalType: REAL
+        unit: m/s
+        description: vent moyen (FXY = rafale)
+
+customProperties:
+  - property: externalSource
+    value:
+      apiId: climato-data-gouv
+      host: object.files.data.gouv.fr
+      context: /meteofrance/data/synchro_ftp/BASE/{MN,HOR,QUOT,MENS,DECAD,DECADAGRO}
+      urlTemplate: https://object.files.data.gouv.fr/meteofrance/data/synchro_ftp/BASE/{FREQ}/{FREQ}_{DD}_{periode}[_{PARAM}].csv.gz
+      auth: none
+      probeUrl: https://object.files.data.gouv.fr/meteofrance/data/synchro_ftp/BASE/HOR/H_descriptif_champs.csv
+      verified: "✅ open data (sans token)"
+      unitsNote: Unités CONVENTIONNELLES (°C, 1/10) — pas SI. Indicateur qualité Q* (ou C* pour DecadaireAgro).
+      descriptor: BASE/{FREQ}/{FREQ}_descriptif_champs.csv (ex. H_descriptif_champs.csv)
+      quirks:
+        - Sans auth (Licence Ouverte Etalab 2.0).
+        - ≠ bucket AROME PNT (object.data.gouv.fr/meteofrance-pnt).
+  - property: changelog
+    value:
+      - version: "1.0.0"
+        date: "2026-06-17"
+        type: initial
+        severity: non-breaking
+        fields: []
+        note: Transcription du dict.
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association.
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
