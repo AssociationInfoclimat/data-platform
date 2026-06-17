@@ -62,6 +62,8 @@ class Config:
     query_rewrite: bool           # réécrire la requête (chat) avant recherche
     max_context_file_chars: int   # taille max d'un fichier envoyé en un appel contexte
     concurrency: int              # appels de contexte LLM concurrents à l'indexation (I/O-bound)
+    meta_rerank: bool             # rerank par autorité (statut) + récence après l'hybride
+    meta_path: str | None         # sidecar JSON de métadonnées (source/date/statut) à l'indexation
 
 
 def _env_int(name: str, default: int) -> int:
@@ -114,6 +116,8 @@ def load_config() -> Config:
         query_rewrite=_env_bool("CODE_INDEX_QUERY_REWRITE", True),
         max_context_file_chars=_env_int("CODE_INDEX_MAX_CONTEXT_FILE_CHARS", 40_000),
         concurrency=max(1, _env_int("CODE_INDEX_CONCURRENCY", 1)),
+        meta_rerank=_env_bool("CODE_INDEX_META_RERANK", True),
+        meta_path=os.environ.get("CODE_INDEX_META") or None,
     )
 
 

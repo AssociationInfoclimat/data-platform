@@ -63,7 +63,7 @@ def ensure_fts_index(db: Any) -> None:
     tbl.create_fts_index(FTS_COLUMN, replace=True)
 
 
-def rebuild_with_fts(db: Any) -> None:
+def rebuild_with_fts(db: Any, meta: dict | None = None) -> None:
     """Compacte la table en UN SEUL fragment puis construit l'index FTS BM25.
 
     Le builder FTS natif de LanceDB 0.33 deadlock sur une table multi-fragment (vérifié :
@@ -72,11 +72,21 @@ def rebuild_with_fts(db: Any) -> None:
     <1M lignes ⇒ 1 fragment), puis on indexe. `rename_table` n'existe pas en LanceDB OSS, donc
     drop + recreate ; sans risque ici car l'indexation écrit dans une base jetable, basculée
     en live par swap de répertoire au déploiement. Charge toute la table en RAM le temps de la
-    réécriture (~quelques centaines de Mo pour ~50k chunks)."""
+    réécriture (~quelques centaines de Mo pour ~50k chunks).
+
+    Si `meta` (sidecar de `meta.build_sidecar`) est fourni, (ré)injecte les colonnes
+    `source`/`last_commit`/`status` sur chaque ligne SANS ré-embedder (les vecteurs sont
+    préservés) — backfill métadonnée bon marché."""
     tbl = open_table(db)
     if tbl is None or FTS_COLUMN not in tbl.schema.names:
         return
-    data = tbl.to_arrow()
+    if meta is None:
+        data: Any = tbl.to_arrow()
+    else:
+        from . import meta as _meta
+        data = tbl.to_arrow().to_pylist()
+        for r in data:
+            r.update(_meta.row_meta(meta, r.get("repo", ""), r.get("key", "")))
     db.drop_table(TABLE_NAME)
     new = db.create_table(TABLE_NAME, data=data)     # réécriture en un seul fragment
     new.create_fts_index(FTS_COLUMN, replace=True)   # FTS sur mono-fragment → pas de deadlock

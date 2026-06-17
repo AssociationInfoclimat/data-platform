@@ -32,6 +32,30 @@ Le `text` stocké et renvoyé reste le **chunk brut** (affichage + n° de ligne 
 contexte est embeddé/indexé via la colonne `contextualized`. Changer de stratégie bumpe
 `EMBED_VERSION` (`config.py`) → les fichiers concernés sont ré-indexés même à sha inchangé.
 
+### Autorité & récence (anti-legacy)
+
+La pertinence sémantique seule laisse du vieux code (pertinent en 2024 mais plus en 2026)
+saturer le top-k. Trois **métadonnées par fichier** (non embeddées) corrigent ça :
+
+- `source` : `github` (moderne) | `gitlab` (souvent legacy) | `other` — d'après le remote git.
+- `last_commit` : date du dernier commit du fichier (récence).
+- `status` : `actif` | `douteux` | `mort` — depuis `inventory/pipelines.yaml` (mappé par
+  `repo/script` → **autorité** côté gouvernance).
+
+Elles sont calculées **en local** (le build sur la VM ne reçoit pas les `.git`) dans un
+sidecar JSON, livré avec l'index :
+
+```bash
+python -m code_index.meta --out meta.json           # génère le sidecar (git + inventaire)
+CODE_INDEX_META=meta.json python -m code_index.index # l'indexation attache les colonnes
+# refresh métadonnée-seule (sans ré-embedding) : store.rebuild_with_fts(db, meta=sidecar)
+```
+
+À la recherche (`CODE_INDEX_META_RERANK=on`), un **rerank borné** s'applique après l'hybride :
+le `mort` coule, le `douteux`/ancien (>3 ans) descend, l'`actif`/récent (<1 an) remonte de
+quelques places — **la pertinence reste dominante** (nudge de position, pas un tri par date).
+Le statut/âge est exposé dans la sortie (`Result.flag`) pour que le bot signale le legacy.
+
 ## Installation
 
 ```bash
@@ -95,6 +119,8 @@ for r in search_code("anti-scraping auth", k=6, repos=["python-climate-services"
 | `CODE_INDEX_HYBRID` | `on` | Recherche hybride vecteur + BM25 (sinon vecteur seul) |
 | `CODE_INDEX_RERANK` | `rrf` | Fusion/rerank : `rrf` \| `llm` \| `none` |
 | `CODE_INDEX_QUERY_REWRITE` | `on` | Réécriture de la requête avant recherche |
+| `CODE_INDEX_META_RERANK` | `on` | Rerank par autorité (statut gouvernance) + récence après l'hybride |
+| `CODE_INDEX_META` | — | Chemin du sidecar JSON de métadonnées (source/date/statut) à l'indexation |
 
 ## Architecture
 

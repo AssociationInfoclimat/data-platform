@@ -10,6 +10,7 @@ Usage CLI :
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import sys
 import time
@@ -29,10 +30,24 @@ class Result:
     score: float       # vecteur seul : distance cosinus (petit = proche) ; hybride : score
                        # de pertinence RRF (grand = pertinent). Affichage seulement.
     text: str
+    source: str = ""        # github | gitlab | other (repo d'origine)
+    last_commit: str = ""   # YYYY-MM-DD du dernier commit du fichier (récence)
+    status: str = ""        # actif | douteux | mort (autorité, gouvernance)
 
     @property
     def location(self) -> str:
         return f"{self.repo}/{self.path}:{self.start_line}-{self.end_line}"
+
+    @property
+    def flag(self) -> str:
+        """Étiquette courte d'autorité/récence pour l'affichage (vide si rien à signaler)."""
+        tags = []
+        if self.status:
+            tags.append(self.status)
+        yrs = _age_years(self.last_commit, datetime.date.today())
+        if yrs is not None and yrs > 2:
+            tags.append(f"~{int(yrs)}a")
+        return " ".join(tags)
 
 
 def _reranker(cfg: Config):
@@ -49,7 +64,49 @@ def _reranker(cfg: Config):
 def _to_result(r: dict) -> Result:
     score = float(r.get("_relevance_score", r.get("_distance", 0.0)))
     return Result(repo=r["repo"], path=r["path"], start_line=r["start_line"],
-                  end_line=r["end_line"], lang=r["lang"], score=score, text=r["text"])
+                  end_line=r["end_line"], lang=r["lang"], score=score, text=r["text"],
+                  source=r.get("source") or "", last_commit=r.get("last_commit") or "",
+                  status=r.get("status") or "")
+
+
+def _age_years(last_commit: str, today: datetime.date) -> float | None:
+    if not last_commit:
+        return None
+    try:
+        d = datetime.date.fromisoformat(last_commit[:10])
+    except ValueError:
+        return None
+    return (today - d).days / 365.25
+
+
+def _meta_penalty(r: Result, today: datetime.date) -> float:
+    """Pénalité (nudge borné) selon autorité et récence ; négatif = remonte. La pertinence
+    reste dominante (cf. `_meta_rerank`) — l'autorité/récence ne fait que départager."""
+    st = (r.status or "").lower()
+    pen = 0.0
+    if st == "mort":
+        pen += 100.0        # code mort : coule en bas du top-k
+    elif st == "douteux":
+        pen += 2.0
+    elif st == "actif":
+        pen -= 1.0
+    yrs = _age_years(r.last_commit, today)
+    if yrs is not None:
+        if yrs < 1:
+            pen -= 1.0
+        elif yrs > 3:
+            pen += 2.0
+        elif yrs > 2:
+            pen += 1.0
+    return pen
+
+
+def _meta_rerank(results: list[Result], k: int, today: datetime.date | None = None) -> list[Result]:
+    """Réordonne par (rang de pertinence + pénalité autorité/récence). Tri stable : un
+    `mort` coule, un `actif`/récent remonte de quelques places, mais la pertinence prime."""
+    today = today or datetime.date.today()
+    ordered = sorted(enumerate(results), key=lambda p: p[0] + _meta_penalty(p[1], today))
+    return [r for _, r in ordered][:k]
 
 
 def _llm_rerank(client, query: str, results: list[Result], k: int, cfg: Config,
@@ -117,13 +174,16 @@ def search_code(question: str, k: int = 8, repos: list[str] | None = None,
                              max_input_chars=cfg.max_input_chars, throttle=throttle,
                              max_retries=cfg.max_retries)
     db = store.connect(cfg.db_dir)
-    over = k * 3 if cfg.rerank == "llm" else k   # sur-échantillonne avant le rerank LLM
+    # Sur-échantillonne quand un rerank va réordonner (LLM ou autorité/récence).
+    over = k * 3 if (cfg.rerank == "llm" or cfg.meta_rerank) else k
     rows = store.search(db, qvec, k=over, where=_where(repos, lang),
                         query_text=query if cfg.hybrid else None,
                         hybrid=cfg.hybrid, reranker=_reranker(cfg))
     results = [_to_result(r) for r in rows]
     if cfg.rerank == "llm" and len(results) > 1:
-        results = _llm_rerank(client, query, results, k, cfg, throttle)
+        results = _llm_rerank(client, query, results, over, cfg, throttle)
+    if cfg.meta_rerank:
+        results = _meta_rerank(results, k)   # autorité (statut) + récence après la pertinence
     return results[:k]
 
 
@@ -142,7 +202,8 @@ def main(argv: list[str]) -> int:
               file=sys.stderr)
         return 1
     for i, r in enumerate(results, 1):
-        print(f"\n#{i}  {r.location}  ({r.lang}, score {r.score:.3f})")
+        flag = f" [{r.flag}]" if r.flag else ""
+        print(f"\n#{i}  {r.location}  ({r.lang}, score {r.score:.3f}){flag}")
         snippet = r.text if args.full else "\n".join(r.text.splitlines()[:15])
         print(snippet.rstrip())
     return 0

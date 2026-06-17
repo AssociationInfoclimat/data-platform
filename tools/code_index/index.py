@@ -16,7 +16,9 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import context, embed, store, walk
+import json
+
+from . import context, embed, meta as meta_mod, store, walk
 from .chunk import chunk_text
 from .config import EMBED_VERSION, Config, load_config, load_manifest
 
@@ -43,7 +45,7 @@ def _read(src: walk.SourceFile) -> FileBlob | None:
 
 
 def _build_rows(blob: FileBlob, cfg: Config, client: object | None,
-                throttle: embed.Throttle) -> tuple[list[dict], list[str]]:
+                throttle: embed.Throttle, sidecar: dict | None = None) -> tuple[list[dict], list[str]]:
     """Lignes (sans vecteur) + textes contextualisés à embedder, pour un fichier.
 
     `text` reste le chunk **brut** (affichage, n° de ligne exacts) ; `contextualized`
@@ -58,6 +60,9 @@ def _build_rows(blob: FileBlob, cfg: Config, client: object | None,
         client, blob.src.repo, blob.src.path, blob.src.lang, blob.text, chunks,
         mode=mode, model=cfg.context_model, throttle=throttle,
         max_retries=cfg.max_retries, max_file_chars=cfg.max_context_file_chars)
+    # Métadonnées d'autorité/récence (vides si pas de sidecar) — non embeddées.
+    md = (meta_mod.row_meta(sidecar, blob.src.repo, blob.src.key) if sidecar
+          else {"source": "", "last_commit": "", "status": ""})
     rows: list[dict] = []
     texts: list[str] = []
     for idx, (ch, ctx) in enumerate(zip(chunks, ctxs)):
@@ -75,6 +80,9 @@ def _build_rows(blob: FileBlob, cfg: Config, client: object | None,
             "context": ctx,
             "contextualized": ctext,
             "embed_ver": EMBED_VERSION,
+            "source": md["source"],
+            "last_commit": md["last_commit"],
+            "status": md["status"],
         })
         texts.append(ctext)
     return rows, texts
@@ -93,6 +101,12 @@ def main(argv: list[str]) -> int:
     cfg = load_config()
     base_dir = args.base_dir or cfg.base_dir
     manifest = load_manifest(args.manifest)
+
+    # Sidecar métadonnées (source/last_commit/status) optionnel — généré en local par
+    # `python -m code_index.meta` puis livré ; attaché aux lignes, non embeddé.
+    sidecar: dict | None = None
+    if cfg.meta_path and Path(cfg.meta_path).exists():
+        sidecar = json.loads(Path(cfg.meta_path).read_text(encoding="utf-8"))
 
     files = list(walk.iter_files(manifest, base_dir, repos=args.repos,
                                  max_file_bytes=cfg.max_file_bytes))
@@ -162,9 +176,9 @@ def main(argv: list[str]) -> int:
                 from concurrent.futures import ThreadPoolExecutor
                 with ThreadPoolExecutor(max_workers=cfg.concurrency) as ex:
                     parts = list(ex.map(
-                        lambda b: _build_rows(b, cfg, ctx_client, throttle), batch_files))
+                        lambda b: _build_rows(b, cfg, ctx_client, throttle, sidecar), batch_files))
             else:
-                parts = [_build_rows(b, cfg, ctx_client, throttle) for b in batch_files]
+                parts = [_build_rows(b, cfg, ctx_client, throttle, sidecar) for b in batch_files]
             rows: list[dict] = []
             texts: list[str] = []
             for r, t in parts:
@@ -196,7 +210,7 @@ def main(argv: list[str]) -> int:
             # Compacte en mono-fragment PUIS construit le BM25 : le builder FTS natif de
             # LanceDB deadlock sur une table multi-fragment (cf. store.rebuild_with_fts).
             print("  compaction + index FTS BM25…", flush=True, file=sys.stderr)
-            store.rebuild_with_fts(db)
+            store.rebuild_with_fts(db, meta=sidecar)
 
     print(f"Indexé : {len(to_index)} fichiers (ré)indexés, {total_rows} chunks, "
           f"{len(gone)} fichiers retirés.")
