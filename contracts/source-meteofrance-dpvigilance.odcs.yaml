@@ -1,0 +1,86 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:source-meteofrance-dpvigilance
+name: "Source Météo-France — Vigilance (DPVigilance)"
+version: "1.0.0"
+status: active
+domain: vigilance
+tags: [source, meteofrance, api]
+
+description:
+  purpose: >-
+    Contrat de la SOURCE API DPVigilance — vigilance météo en cours (couleurs par
+    département, phénomènes, échéances J et J+1, textes de suivi). Données
+    catégorielles (vert/jaune/orange/rouge) par domaine/département pour la France
+    métropolitaine et DOM.
+  usage: >-
+    Consommé par include/Vigilances/vigilances.php (site-infoclimat) pour les
+    endpoints cartevigilance/encours, textesvigilance/encours et
+    vignettenationale-J/encours. JSON imbriqué, non tabulaire.
+  limitations: >-
+    Contrat SOURCE distinct du contrat table persistée vigilances-meteo.odcs.yaml.
+    Pas de schéma tabulaire plat : la réponse est un objet JSON imbriqué
+    (product.periods[].timelaps.domain_ids[]). Échéances J et J+1 seulement
+    (2 périodes au plus par produit carte). Vignette nationale = fichier image (non JSON).
+
+servers:
+  - server: meteofrance-dpvigilance
+    type: api
+    environment: production
+    location: "https://public-api.meteofrance.fr/public/DPVigilance/v1"
+
+schema:
+  - name: vigilance
+    physicalType: object
+    description: >-
+      Réponse JSON imbriquée de l'endpoint cartevigilance/encours — pas de schéma
+      tabulaire plat. Champs extraits par le code consommateur.
+    properties: []
+
+customProperties:
+  - property: externalSource
+    value:
+      apiId: DPVigilance
+      host: public-api.meteofrance.fr
+      context: /public/DPVigilance/v1
+      urlTemplate: >-
+        /public/DPVigilance/v1/cartevigilance/encours |
+        /public/DPVigilance/v1/textesvigilance/encours |
+        /public/DPVigilance/v1/vignettenationale-J/encours
+      auth: token
+      probeUrl: "https://public-api.meteofrance.fr/public/DPVigilance/v1/cartevigilance/encours"
+      verified: "✅ consommé par include/Vigilances/vigilances.php"
+      unitsNote: >-
+        Vigilance = données catégorielles, pas d'unité physique.
+        Couleurs : 1=vert, 2=jaune, 3=orange, 4=rouge (entiers dans l'API ; legacy : 0=vert).
+        Phénomènes : 1=vent, 2=pluie, 3=orages, 4=crues, 5=neige/verglas, 6=canicule,
+        7=grand froid, 8=avalanches, 9=vagues submersion.
+        Structure JSON : product.periods[].timelaps.domain_ids[].{domain_id, max_color_id,
+        phenomenon_items[].{phenomenon_id, phenomenon_max_color_id}}.
+        Timestamps : begin_validity_time / end_validity_time au format ISO 8601 UTC.
+      descriptor: "include/Vigilances/vigilances.php (site-infoclimat) — fonctions de parsing et constantes"
+      quirks:
+        - "Réponse JSON imbriquée (product.periods[], timelaps, domain_ids) — non tabulaire."
+        - "2 périodes maximum par produit carte (index 0 = période courante J, index 1 = J+1)."
+        - "domain_id de longueur 2 = département (01..95, 2A, 2B, 99) ; autres longueurs ignorées par le code."
+        - "Endpoint vignettenationale-J/encours = image (download binaire, non JSON)."
+        - "Auth OAuth2 : token récupéré sur portail-api.meteofrance.fr/token, utilisé en Bearer sur public-api."
+        - "Couleurs legacy (0-3) dans le schéma SQL persisté diffèrent des codes API (1-4) — mapping COLORS_CODES_TO_LEGACY_MAP."
+  - property: changelog
+    value:
+      - version: "1.0.0"
+        date: "2026-06-10"
+        type: initial
+        severity: non-breaking
+        fields: []
+        note: "Sourcé sur site-infoclimat/include/Vigilances/vigilances.php. Source API distincte du contrat table vigilances-meteo."
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat.
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
