@@ -49,10 +49,15 @@ customProperties:
       quirks:
         - "HOST COMMERCIAL api.meteofrance.fr (PAS public-api). Grille 0.01° uniquement, France métropole."
         - "coverageId TOTAL_PRECIPITATION_RATE__GROUND_OR_WATER_SURFACE___{run}_PT15M. Axe time toutes les 300 s, T+15 min à T+3h15."
+        - >-
+          SOUSCRIPTION SÉPARÉE : la passerelle commerciale api.meteofrance.fr exige une
+          souscription/application WSO2 DISTINCTE du portail open-data (public-api). Donc un 2e
+          Application ID est nécessaire pour PIAF — le bot/MCP n'en gère qu'un seul (METEOFRANCE_APPLICATION_ID) :
+          probe PIAF non couvert tant qu'un second credential n'est pas géré côté code.
   - property: changelog
     value:
       - version: "1.0.0"
-        date: "2026-06-10"
+        date: "2026-06-01"
         type: initial
         severity: non-breaking
         fields: []

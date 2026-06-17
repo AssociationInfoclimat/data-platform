@@ -226,10 +226,24 @@ customProperties:
         - >-
           302 Found indique fichier non encore disponible (pas une 404). Le
           serveur ne sert pas de liste de répertoire exploitable.
+        - >-
+          ⚠️ DÉPRÉCIATION HOST : donneespubliques.meteofrance.fr est en fin de vie (Publithèque
+          climato fermée le 2024-09-30 ; arrêt du site entier annoncé « très prochainement », sans
+          date publiée). Migration de la donnée vers portail-api.meteofrance.fr + meteo.data.gouv.fr —
+          prévoir le basculement de la source nivo avant l'arrêt.
   - property: changelog
     value:
       - version: "1.0.0"
-        date: "2026-06-10"
+        date: "2026-06-17"
+        type: deprecated
+        severity: deprecated
+        fields: []
+        note: >-
+          Host source DÉPRÉCIÉ : donneespubliques.meteofrance.fr en fin de vie (Publithèque
+          fermée 2024-09-30, arrêt du site « très prochainement », pas de date). À migrer vers
+          portail-api / meteo.data.gouv.fr. Source : audit Confluence MF / actualités open data.
+      - version: "1.0.0"
+        date: "2026-06-01"
         type: initial
         severity: non-breaking
         fields: []

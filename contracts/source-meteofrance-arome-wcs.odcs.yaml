@@ -67,14 +67,21 @@ customProperties:
         - "coll : MF-NWP-HIGHRES-AROME-0025-FRANCE-WCS (0.025°) ou -001- (0.01°). coverageId={VAR}___{run} (run avec POINTS : 2026-06-03T18.00.00Z)."
         - "GetCoverage : subset=time(...) SANS quotes, subset=height(2), format=application/wmo-grib, 1 message/requête. Grille N→S (flip)."
         - "Cumuls de précip : suffixe période `_PT1H`/`_PT3H`/`_P1D` OBLIGATOIRE sinon 404. Validation par DescribeCoverage (GetCapabilities sur-annonce)."
+        - >-
+          Ressource AROME IFS 0.025° disponible dans l'API AROME (services WMS + WCS) depuis 2025-06-16 :
+          variante d'AROME couplée/initialisée au modèle global IFS d'ECMWF, collection dédiée à
+          découvrir via GetCapabilities.
   - property: changelog
     value:
       - version: "1.0.0"
-        date: "2026-06-10"
+        date: "2026-06-01"
         type: initial
         severity: non-breaking
         fields: []
-        note: Transcription du dict.
+        note: >-
+          Transcription du dict. État baseline 2026-06 : inclut déjà la ressource AROME IFS 0.025°
+          (ouverte par MF le 2025-06-16, WMS+WCS, couplage ECMWF IFS — cf. quirks) et les paramètres
+          additionnels AROME/ARPEGE ajoutés par MF en mai 2025.
 
 team:
   - username: pam
