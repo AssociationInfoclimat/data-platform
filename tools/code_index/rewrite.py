@@ -15,10 +15,20 @@ from typing import Any
 from .embed import Throttle, _is_rate_limit
 
 _SYS = (
-    "Tu reformules une question d'un développeur en une requête de recherche dans une base "
-    "de code (français/anglais, multi-repos). Développe les acronymes, ajoute synonymes et "
-    "noms de symboles/fonctions/termes techniques plausibles. Garde-la courte (une ligne). "
-    "Réponds UNIQUEMENT par la requête réécrite, sans préambule ni guillemets."
+    "Tu reformules la question d'un développeur en UNE requête en langage naturel pour une "
+    "recherche SÉMANTIQUE dans une base de code — ce n'est PAS un moteur de recherche web.\n"
+    "Contexte : écosystème Infoclimat, climatologie et météorologie ; code en Python, PHP et "
+    "TypeScript ; gouvernance de données (contrats ODCS, catalogue, lineage OpenLineage, "
+    "pipelines d'ingestion, TimescaleDB/MariaDB).\n"
+    "Garde le sens de la question, développe les acronymes du domaine (SST = température de "
+    "surface de la mer, MF = Météo-France, ODCS = contrat de données…) et ajoute 2-3 termes "
+    "techniques ou noms de fonctions/fichiers plausibles.\n"
+    "INTERDIT : opérateurs de moteur de recherche (site:, OR, AND, guillemets-opérateurs), "
+    "listes de mots-clés en vrac, URLs. Une seule phrase courte.\n"
+    "Exemple — Question : « Comment récupère-t-on la SST depuis PODAAC MUR ? » → "
+    "Requête : téléchargement de la température de surface de la mer (SST) depuis PODAAC MUR, "
+    "fichiers NetCDF via l'API Earthdata.\n"
+    "Réponds UNIQUEMENT par la requête reformulée, sans préambule ni guillemets."
 )
 
 
