@@ -21,7 +21,7 @@ servers:
   - server: meteofrance-dppaquetobs
     type: api
     environment: production
-    location: https://public-api.meteofrance.fr/public/DPPaquetObs/v1
+    location: https://public-api.meteofrance.fr/public/DPPaquetObs/v2
 
 schema:
   - name: paquet-observations
@@ -34,11 +34,11 @@ customProperties:
     value:
       apiId: DPPaquetObs
       host: public-api.meteofrance.fr
-      context: /public/DPPaquetObs/v1
-      urlTemplate: "/public/DPPaquetObs/v1/paquet/{horaire|infrahoraire-6m} | /paquet/stations/{horaire|infrahoraire-6m}"
+      context: /public/DPPaquetObs/v2
+      urlTemplate: "/public/DPPaquetObs/v2/paquet/{horaire|infrahoraire-6m} | /paquet/stations/{horaire|infrahoraire-6m}"
       auth: token
-      probeUrl: https://public-api.meteofrance.fr/public/DPPaquetObs/v1/liste-stations
-      verified: "✅ vérifié en live"
+      probeUrl: https://public-api.meteofrance.fr/public/DPPaquetObs/v2/liste-stations
+      verified: "✅ v2 déployée le 2026-06-08 (cf. Confluence MF)"
       unitsNote: >-
         ⚠️ Unités SI BRUTES dans la réponse API : température en KELVIN, pression en PASCAL.
         Les tables persistées (tool `schema`) convertissent en °C / hPa. Mêmes mnémoniques que DPObs (geo_id_insee, t, ff, rr1…).
@@ -47,21 +47,25 @@ customProperties:
       quirks:
         - "Paquets groupés : 24 h par station/département, ou tous stations pour un horaire."
         - "/paquet/horaire → 400 sans paramètres requis (probablement id-departement/date) = route OK."
-        - "v2 (2026-06) : hérite du changement de référence rafale de DPObs — FXI → FXI3S (rafale 3 s, standard mondial WMO) + champs dxi3s/hfxi3s."
+        - >-
+          v2 (2026-06) : hérite du renommage rafale de l'API Observations — horaire fxi→raf,
+          dxi→ddraf ; infrahoraire fxi10→raf10, dxi10→ddraf10. v1 vidé depuis 2026-06-16, arrêt v1 2026-12-01.
   - property: changelog
     value:
       - version: "2.0.0"
-        date: "2026-06-15"
+        date: "2026-06-08"
         type: rename
         severity: breaking
-        fields: [fxi, fxi3s, dxi3s, hfxi3s]
+        fields: [fxi, dxi, fxi10, dxi10, raf, ddraf, raf10, ddraf10]
         note: >-
-          Hérite du changement de référence rafale de l'API Observations (cf. DPObs v2.0.0) :
-          FXI (vent max instantané) → FXI3S (vent max moyenné sur 3 s, standard mondial WMO),
-          + champs dxi3s/hfxi3s. Mêmes mnémoniques que DPObs. Source : descripteur officiel MF
-          (H_descriptif_champs.csv) + portail-api Météo-France.
+          API Observations v1 → v2 (endpoints /public/DPPaquetObs/v2), mêmes mnémoniques que
+          DPObs : RENOMMAGE rafale horaire fxi→raf, dxi→ddraf ; infrahoraire-6m fxi10→raf10,
+          dxi10→ddraf10 (bouée fxi→rafper, per_fxi→per ; /synop inchangé). Déploiement v2
+          le 2026-06-08 ; paramètres v1 vides depuis 2026-06-16 ; arrêt v1 le 2026-12-01.
+          Source : Confluence MF (page 1688633417). NB : FXI3S = champ CLIMATOLOGIE (DPClim),
+          distinct de ce renommage temps réel.
       - version: "1.0.0"
-        date: "2026-06-10"
+        date: "2026-06-01"
         type: initial
         severity: non-breaking
         fields: []

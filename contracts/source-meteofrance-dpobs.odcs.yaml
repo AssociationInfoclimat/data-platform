@@ -20,7 +20,7 @@ servers:
   - server: meteofrance-dpobs
     type: api
     environment: production
-    location: https://public-api.meteofrance.fr/public/DPObs/v1
+    location: https://public-api.meteofrance.fr/public/DPObs/v2
 
 schema:
   - name: station-observation
@@ -75,26 +75,28 @@ schema:
         physicalType: REAL
         unit: m/s
         description: vent moyen à 10 m
+      - name: raf
+        physicalType: REAL
+        unit: m/s
+        description: "rafale max horaire (v2, /station/horaire ; ex-`fxi` v1)"
+      - name: ddraf
+        physicalType: INTEGER
+        unit: degré (rose 360)
+        description: "direction de la rafale horaire (v2 ; ex-`dxi` v1)"
+      - name: raf10
+        physicalType: REAL
+        unit: m/s
+        description: "rafale max 10 min (v2, /station/infrahoraire-6m ; ex-`fxi10` v1)"
+      - name: ddraf10
+        physicalType: INTEGER
+        unit: degré (rose 360)
+        description: "direction de la rafale 10 min (v2 ; ex-`dxi10` v1)"
       - name: fxi10
         physicalType: REAL
         unit: m/s
         description: >-
-          rafale max instantanée — DÉPRÉCIÉE comme référence rafale au profit de fxi3s
-          depuis la v2 (2026-06) ; descripteur MF : FXI (vent max instantané, à 10 m)
-      - name: fxi3s
-        physicalType: REAL
-        unit: m/s
-        description: >-
-          rafale — vent max moyenné sur 3 s dans l'heure (NOUVELLE RÉFÉRENCE rafale,
-          standard mondial WMO ; descripteur MF : FXI3S)
-      - name: dxi3s
-        physicalType: INTEGER
-        unit: degré (rose 360)
-        description: "direction de fxi3s (descripteur MF : DXI3S)"
-      - name: hfxi3s
-        physicalType: TEXT
-        unit: hhmm
-        description: "heure de fxi3s (descripteur MF : HFXI3S)"
+          rafale max 10 min — paramètre v1 RENOMMÉ `raf10` en v2 ; champ v1 NON ALIMENTÉ
+          (vide) depuis 2026-06-16, endpoint v1 supprimé le 2026-12-01. (idem fxi→raf, dxi→ddraf)
       - name: rr1
         physicalType: REAL
         unit: mm
@@ -129,11 +131,11 @@ customProperties:
     value:
       apiId: DPObs
       host: public-api.meteofrance.fr
-      context: /public/DPObs/v1
-      urlTemplate: /public/DPObs/v1/station/{horaire|infrahoraire-6m}?id_station={id}&format=json
+      context: /public/DPObs/v2
+      urlTemplate: /public/DPObs/v2/station/{horaire|infrahoraire-6m}?id_station={id}&format=json
       auth: token
-      probeUrl: https://public-api.meteofrance.fr/public/DPObs/v1/liste-stations
-      verified: "✅ vérifié en live"
+      probeUrl: https://public-api.meteofrance.fr/public/DPObs/v2/liste-stations
+      verified: "✅ v2 déployée le 2026-06-08 (cf. Confluence MF)"
       unitsNote: >-
         ⚠️ Unités SI BRUTES dans la réponse API : température en KELVIN, pression en PASCAL.
         Les tables persistées (tool `schema`) convertissent en °C / hPa.
@@ -141,22 +143,29 @@ customProperties:
       quirks:
         - Stations RADOME (2000+), 24 dernières heures. CSV ou JSON (format=json).
         - /liste-stations, /station/horaire, /station/infrahoraire-6m (pas 6 min), /synop, /bouees.
+        - >-
+          v1 (/public/DPObs/v1) DÉPRÉCIÉE : paramètres rafale v1 (fxi/dxi/fxi10/dxi10) NON
+          ALIMENTÉS depuis 2026-06-16, ARRÊT v1 le 2026-12-01 — migrer vers /v2 (raf/ddraf/raf10/ddraf10).
+        - "Bouée (/bouee) : fxi→rafper, per_fxi→per en v2. /synop : aucun changement v2."
   - property: changelog
     value:
       - version: "2.0.0"
-        date: "2026-06-15"
+        date: "2026-06-08"
         type: rename
         severity: breaking
-        fields: [fxi, fxi10, fxi3s, dxi3s, hfxi3s]
+        fields: [fxi, dxi, fxi10, dxi10, raf, ddraf, raf10, ddraf10]
         note: >-
-          Bascule de la référence rafale dans l'API Observations : FXI (vent max
-          instantané) → FXI3S (vent max moyenné sur 3 s, standard mondial WMO). Nouveaux
-          champs fxi3s/dxi3s/hfxi3s ; fxi/fxi10 déprécié comme référence. Nomenclature
-          annoncée 2026-05-28, FXI3S référence au 2026-06-02, breaking + correction
-          d'anomalie sur l'historique au 2026-06-15. Source : descripteur officiel MF
-          (H_descriptif_champs.csv, champs FXI3S/DXI3S/HFXI3S) + portail-api Météo-France.
+          API Observations v1 → v2 (nouveaux endpoints /public/DPObs/v2). RENOMMAGE des
+          paramètres rafale pour conformité OMM / cohérence avec les homologues européens :
+          horaire fxi→raf, dxi→ddraf ; infrahoraire-6m fxi10→raf10, dxi10→ddraf10 ;
+          bouée fxi→rafper, per_fxi→per ; /synop inchangé. Calendrier MF : déploiement v2
+          le 2026-06-08 ; paramètres v1 fxi/dxi NON ALIMENTÉS (vides) depuis 2026-06-16 ;
+          ARRÊT définitif de v1 le 2026-12-01. Source : Confluence MF « Évolution de la
+          nomenclature des rafales dans l'API Observations » (page 1688633417).
+          NB : FXI3S (rafale 3 s) est un champ de la CLIMATOLOGIE (DPClim), à NE PAS
+          confondre avec ce renommage temps réel.
       - version: "1.0.0"
-        date: "2026-06-10"
+        date: "2026-06-01"
         type: initial
         severity: non-breaking
         fields: []
