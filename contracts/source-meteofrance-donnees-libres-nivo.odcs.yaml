@@ -1,0 +1,250 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: "urn:infoclimat:contract:source-meteofrance-donnees-libres-nivo"
+name: "Source Météo-France — Données libres nivo (enneigement)"
+version: "1.0.0"
+status: active
+domain: observations
+tags: [source, meteofrance]
+
+description:
+  purpose: >-
+    Contrat de la SOURCE fichiers libres Nivo (données nivologiques journalières
+    des stations d'enneigement RADOME/nivo) — CSV brut tel que distribué par
+    donneespubliques.meteofrance.fr, sans authentification.
+  usage: >-
+    Consommé par recup_donneespub_mf.php (cron.recup-donneespub-mf-enneigement)
+    qui télécharge le fichier CSV quotidien et alimente la table
+    V5_data_mf.enneigement. Le fichier daily sans date fallback sur J-1 ; les
+    archives mensuelles sont en .csv.gz.
+  limitations: >-
+    Pas d'API REST — simple téléchargement HTTP de fichier plat. Valeur manquante
+    encodée "mq" ou chaîne vide. Températures en Kelvin dans la source (converties
+    en °C par le consommateur avec offset -273.15).
+
+servers:
+  - server: meteofrance-donnees-libres-nivo
+    type: api
+    environment: production
+    location: https://donneespubliques.meteofrance.fr/donnees_libres/Txt/Nivo
+
+schema:
+  - name: nivo
+    physicalType: object
+    description: >-
+      Observation nivologique journalière d'une station, CSV point-virgule,
+      48 colonnes (indices 0–47), ligne d'en-tête "numer_sta".
+    properties:
+      - name: numer_sta
+        physicalType: string
+        description: Identifiant de la station (8 chiffres).
+      - name: date
+        physicalType: string
+        description: "Date/heure UTC au format YYYYMMDDHHmmSS (strptime %Y%m%d%H%M%S)."
+      - name: altitude
+        physicalType: numeric
+        description: "Altitude de la station (m)."
+      - name: vent_direction
+        physicalType: numeric
+        description: "Direction du vent (deg)."
+      - name: vent_moyen
+        physicalType: numeric
+        unit: m/s
+        description: "Vent moyen (m/s)."
+      - name: temperature
+        physicalType: numeric
+        unit: K
+        description: "Température de l'air (K dans la source — consommateur applique -273.15)."
+      - name: point_de_rosee
+        physicalType: numeric
+        unit: K
+        description: "Point de rosée (K dans la source)."
+      - name: humidite
+        physicalType: numeric
+        description: "Humidité relative (%)."
+      - name: temps_omm
+        physicalType: numeric
+        description: "Code temps présent OMM."
+      - name: temps_passe1
+        physicalType: numeric
+        description: "Code temps passé 1 (W1)."
+      - name: temps_passe2
+        physicalType: numeric
+        description: "Code temps passé 2 (W2)."
+      - name: nebulosite
+        physicalType: numeric
+        description: "Nébulosité totale (octas)."
+      - name: nbas
+        physicalType: numeric
+        description: "Nébulosité basse."
+      - name: hbas
+        physicalType: numeric
+        description: "Hauteur de la base des nuages bas (m)."
+      - name: cl
+        physicalType: numeric
+        description: "Genre de nuages bas (code OMM)."
+      - name: cm
+        physicalType: numeric
+        description: "Genre de nuages moyens (code OMM)."
+      - name: ch
+        physicalType: numeric
+        description: "Genre de nuages hauts (code OMM)."
+      - name: pluie_24h
+        physicalType: numeric
+        unit: mm
+        description: "Précipitations 24 h (mm)."
+      - name: tn_12h
+        physicalType: numeric
+        unit: K
+        description: "Température minimale sur 12 h (K dans la source)."
+      - name: tx_12h
+        physicalType: numeric
+        unit: K
+        description: "Température maximale sur 12 h (K dans la source)."
+      - name: tn_24h
+        physicalType: numeric
+        unit: K
+        description: "Température minimale sur 24 h (K dans la source)."
+      - name: tx_24h
+        physicalType: numeric
+        unit: K
+        description: "Température maximale sur 24 h (K dans la source)."
+      - name: ht_neige
+        physicalType: numeric
+        unit: cm
+        description: "Hauteur de neige totale au sol (cm)."
+      - name: ssfrai
+        physicalType: numeric
+        unit: cm
+        description: "Épaisseur de neige fraîche (cm)."
+      - name: perssfrai
+        physicalType: numeric
+        description: "Période de mesure de la neige fraîche (h)."
+      - name: phenspe1
+        physicalType: numeric
+        description: "Phénomène spécial 1."
+      - name: phenspe2
+        physicalType: numeric
+        description: "Phénomène spécial 2."
+      - name: nnuage1
+        physicalType: numeric
+        description: "Nébulosité couche nuageuse 1."
+      - name: t_neige
+        physicalType: numeric
+        unit: K
+        description: "Température de surface de la neige (K dans la source)."
+      - name: etat_neige
+        physicalType: numeric
+        description: "État du sol enneigé (code OMM)."
+      - name: prof_sonde
+        physicalType: numeric
+        unit: cm
+        description: "Profondeur de sondage (cm)."
+      - name: nuage_val
+        physicalType: numeric
+        description: "Valeur nuage (code interne)."
+      - name: chasse_neige
+        physicalType: numeric
+        description: "Indicateur chasse-neige."
+      - name: aval_descr
+        physicalType: string
+        description: "Description avalanche."
+      - name: aval_genre
+        physicalType: numeric
+        description: "Genre d'avalanche."
+      - name: aval_depart
+        physicalType: numeric
+        description: "Type de départ d'avalanche."
+      - name: aval_expo
+        physicalType: numeric
+        description: "Exposition de l'avalanche."
+      - name: aval_risque
+        physicalType: numeric
+        description: "Risque d'avalanche."
+      - name: dd_alti
+        physicalType: numeric
+        description: "Direction du vent en altitude (deg)."
+      - name: ff_alti
+        physicalType: numeric
+        unit: m/s
+        description: "Vitesse du vent en altitude (m/s)."
+      - name: ht_neige_alti
+        physicalType: numeric
+        unit: cm
+        description: "Hauteur de neige en altitude (cm)."
+      - name: neige_fraiche
+        physicalType: numeric
+        unit: cm
+        description: "Neige fraîche (cm)."
+      - name: teneur_eau
+        physicalType: numeric
+        description: "Teneur en eau de la neige (%)."
+      - name: grain_predom
+        physicalType: numeric
+        description: "Type de grain prédominant."
+      - name: grain_nombre
+        physicalType: numeric
+        description: "Nombre de types de grains."
+      - name: grain_diametre
+        physicalType: numeric
+        unit: mm
+        description: "Diamètre de grain (mm)."
+      - name: homogeneite
+        physicalType: numeric
+        description: "Homogénéité du manteau neigeux."
+      - name: m_vol_neige
+        physicalType: numeric
+        unit: "kg/m3"
+        description: "Masse volumique de la neige (kg/m³)."
+
+customProperties:
+  - property: externalSource
+    value:
+      apiId: donnees-libres-nivo
+      host: donneespubliques.meteofrance.fr
+      context: /donnees_libres/Txt/Nivo
+      urlTemplate: "https://donneespubliques.meteofrance.fr/donnees_libres/Txt/Nivo/nivo.{YYYYMMDD}.csv | Archive: nivo.{YYYYMM}.csv.gz"
+      auth: none
+      probeUrl: https://donneespubliques.meteofrance.fr/donnees_libres/Txt/Nivo/
+      verified: "Code cron/enneigement/recup_donneespub_mf.php — file_get_contents sans token"
+      unitsNote: >-
+        CSV point-virgule, 48 colonnes (indices 0–47). Header "numer_sta" présent sur
+        la 1re ligne (ignoré). Valeur manquante = "mq" ou chaîne vide.
+        Températures (t, dew, tn_12h, tx_12h, tn_24h, tx_24h, t_neige) en KELVIN
+        — offset -273.15 appliqué par le consommateur.
+      descriptor: "postesNivo.csv (cron/enneigement/) : Latitude,Longitude,ID,Altitude,Nom des stations actives"
+      quirks:
+        - >-
+          DISCORDANCE INVENTAIRE : external-sources.yaml indique auth=token /
+          url_hint=portail-api.meteofrance.fr, mais le code réel utilise
+          donneespubliques.meteofrance.fr sans authentification. L'endpoint
+          portail-api serait une future migration (à confirmer).
+        - >-
+          Fallback automatique : si le fichier du jour retourne 302/vide, le
+          consommateur retente avec la date J-1. Les archives mensuelles
+          (.csv.gz) sont décompressées via gzdecode().
+        - >-
+          302 Found indique fichier non encore disponible (pas une 404). Le
+          serveur ne sert pas de liste de répertoire exploitable.
+  - property: changelog
+    value:
+      - version: "1.0.0"
+        date: "2026-06-10"
+        type: initial
+        severity: non-breaking
+        fields: []
+        note: >-
+          Transcription depuis cron/enneigement/recup_donneespub_mf.php
+          (site-infoclimat). 48 champs dérivés du INSERT SQL et du mapping
+          $ligne[0..47]. Host réel = donneespubliques.meteofrance.fr (pas
+          portail-api comme dans l'inventaire — quirk documenté).
+
+team:
+  - username: pam
+    role: owner
+    description: "Data engineer de l'association — responsable du contrat."
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
