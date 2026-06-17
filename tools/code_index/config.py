@@ -12,6 +12,15 @@ from pathlib import Path
 
 import yaml
 
+# LanceDB sur peu de cœurs : le builder FTS natif deadlock (futex_wait, 0 % CPU) quand les
+# réservations de threads IO ≥ nb de CPU — vérifié, et cf. lancedb/lancedb#2326. Sur une
+# petite machine (≤4 cœurs) on force des pools IO/CPU distincts pour casser l'interblocage.
+# `setdefault` ⇒ surchargeable ; DOIT être posé avant tout import de lancedb (fait ici car
+# `config` est importé avant `store`, qui importe lancedb paresseusement).
+if (os.cpu_count() or 1) <= 4:
+    os.environ.setdefault("LANCE_IO_THREADS", "2")
+    os.environ.setdefault("LANCE_CPU_THREADS", "4")
+
 _PKG_DIR = Path(__file__).resolve().parent
 # _PKG_DIR = .../infoclimat/data-platform/tools/code_index → parents[2] = .../infoclimat,
 # dossier qui contient les clones siblings (site-infoclimat, infrapilot, …).

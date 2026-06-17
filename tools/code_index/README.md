@@ -116,6 +116,13 @@ d'état séparé. Le répertoire `.lancedb/` est un **artefact local regénérab
 - Rerank limité à RRF (fusion) + rerank LLM optionnel : pas de reranker neuronal tiers
   (Cohere/Voyage), Mistral n'exposant pas d'endpoint rerank.
 - Store local mono-poste (pas de pgvector/serveur partagé).
+- **FTS sur peu de cœurs** : à grande échelle (~50k+ lignes), le builder FTS natif de LanceDB
+  **deadlock** (futex, 0 % CPU) quand les réservations de threads IO ≥ nb de CPU
+  (cf. lancedb/lancedb#2326). `config.py` pose donc `LANCE_IO_THREADS`/`LANCE_CPU_THREADS`
+  par défaut sur les machines ≤4 cœurs (surchargeable) ; les régler explicitement
+  (`LANCE_IO_THREADS=2 LANCE_CPU_THREADS=4`) côté build **et** service. Bumper le nb de cœurs
+  seul ne suffit pas. `store.rebuild_with_fts` réécrit aussi la table en mono-fragment avant
+  l'index (le builder bloque également en multi-fragment).
 - Pas de régénération automatique (cron/Kestra/CI) ni de livraison de l'index sur la VM.
 - **Outil MCP `search_code`** (côté `ic-data-bot`) : wrapper fin réutilisant `search_code()`
   ci-dessus ; nécessite que l'index LanceDB soit présent là où tourne le bot.
