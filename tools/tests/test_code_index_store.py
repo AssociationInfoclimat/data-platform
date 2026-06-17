@@ -78,6 +78,28 @@ def test_hybrid_search_with_rrf(tmp_path: Path) -> None:
     assert hits[0]["text"] == "code"
 
 
+def test_rebuild_with_fts_preserves_data_and_builds_index(tmp_path: Path) -> None:
+    rerankers = pytest.importorskip("lancedb.rerankers")
+    db = store.connect(tmp_path / "db")
+    rows = [
+        _row("r/auth.php", 0, "r", [1.0, 0.0, 0.0], "s1",
+             contextualized="module authentification anti-scraping verification du jeton"),
+        _row("r/forum.php", 0, "r", [0.0, 1.0, 0.0], "s2",
+             contextualized="routing des forums et affichage des messages"),
+        _row("r/map.php", 0, "r", [0.0, 0.0, 1.0], "s3",
+             contextualized="generation des cartes isobares et tuiles"),
+    ]
+    store.add_rows(db, rows)
+    store.rebuild_with_fts(db)
+
+    tbl = store.open_table(db)
+    assert tbl is not None and tbl.count_rows() == 3          # données préservées
+    assert store._has_fts(tbl)                                # index FTS présent
+    hits = store.search(db, [0.34, 0.33, 0.33], k=3, query_text="anti-scraping jeton",
+                        hybrid=True, reranker=rerankers.RRFReranker())
+    assert hits and hits[0]["key"] == "r/auth.php"
+
+
 def test_search_falls_back_to_vector_without_fts(tmp_path: Path) -> None:
     db = store.connect(tmp_path / "db")
     store.add_rows(db, [_row("r/a.php", 0, "r", [1.0, 0.0], "s1"),

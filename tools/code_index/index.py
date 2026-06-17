@@ -193,7 +193,10 @@ def main(argv: list[str]) -> int:
             print(f"  {min(fstart + BATCH_FILES, len(to_index))}/{len(to_index)} fichiers "
                   f"indexés, {total_rows} chunks écrits…", flush=True, file=sys.stderr)
         if cfg.hybrid:
-            store.ensure_fts_index(db)  # (re)construit le BM25 sur la colonne contextualisée
+            # Compacte en mono-fragment PUIS construit le BM25 : le builder FTS natif de
+            # LanceDB deadlock sur une table multi-fragment (cf. store.rebuild_with_fts).
+            print("  compaction + index FTS BM25…", flush=True, file=sys.stderr)
+            store.rebuild_with_fts(db)
 
     print(f"Indexé : {len(to_index)} fichiers (ré)indexés, {total_rows} chunks, "
           f"{len(gone)} fichiers retirés.")
