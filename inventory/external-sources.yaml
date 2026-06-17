@@ -9,6 +9,23 @@ version: 1
 sources:
 
   # ─── Météo-France ──────────────────────────────────────────────────────────
+  #
+  # Réconciliation source↔contrat ODCS (2026-06-17, ADR-0002) — chaque source MF
+  # consommée est désormais couverte par un contrat contracts/source-meteofrance-*.odcs.yaml :
+  #   DPVigilance               → source-meteofrance-dpvigilance
+  #   donnees-libres-radar      → source-meteofrance-dpradar
+  #   paquets-observations      → source-meteofrance-dppaquetobs
+  #   climatologie-portail-api  → source-meteofrance-dpclim
+  #   donnees-climatologiques   → source-meteofrance-dpclim (normales/mensuelles AGRÉGÉES en
+  #                               interne depuis V5_climato.climato_mensuelle_auto ; pas une
+  #                               API « normales » distincte — endpoint donneespubliques = lien
+  #                               documentaire. Décision : pas de contrat séparé.)
+  #   donnees-libres-nivo       → source-meteofrance-donnees-libres-nivo
+  #   donnees-libres-marine     → source-meteofrance-donnees-libres-marine
+  #   meteo-data-gouv-*         → source-meteofrance-climato-data-gouv (daily/hourly/monthly)
+  #   portail-mf-station        → source-meteofrance-portail-mf-station (host MF réel à confirmer)
+  #   dcpc-nwp                  → source-meteofrance-dcpc-nwp (service NWP legacy)
+  # NB : les noms d'entrées ci-dessous ne sont PAS renommés (les ids de pipeline en dépendent).
 
   - name: api://meteofrance/DPVigilance
     url_hint: https://public-api.meteofrance.fr/public/DPVigilance/v1/
