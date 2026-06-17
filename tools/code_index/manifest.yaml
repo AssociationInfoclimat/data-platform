@@ -16,6 +16,15 @@ repos:
   - ic-data-bot
   - telechargement-climatologie-meteo-data-gouv
   - telechargement-climatologie-portail-api-meteofrance
+  # Pipelines/sources de données référencés par l'inventaire/lineage de la data-platform
+  - calc-indicateur-realtime
+  - calc-yearly-acc
+  - download-convert-and-generate-accumulations
+  - podaac-sst-mur
+  - mapserver
+  - serveur-station-autonome
+  - cron-infoclimat
+  - php-fpm-7_4-timescale-api
 
 # Extensions indexées (code, conf, docs). `.map` = mapfiles MapServer → conservés ;
 # les source-maps JS/CSS (`*.js.map`, `*.css.map`) sont retirées via exclude_globs.
