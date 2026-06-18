@@ -148,6 +148,22 @@ schema:
         physicalType: REAL
         unit: J/m²
         description: rayonnement global sur la période
+      - name: rr_per
+        physicalType: REAL
+        unit: mm
+        description: précipitations sur la période (pas infrahoraire 6 min)
+      - name: insert_time
+        physicalType: TEXT
+        unit: ISO 8601 UTC
+        description: horodatage d'insertion de la donnée
+      - name: etat_sol
+        physicalType: INTEGER
+        unit: code
+        description: état du sol
+      - name: sss
+        physicalType: REAL
+        unit: cm
+        description: hauteur de neige fraîche / au sol
 
 customProperties:
   - property: externalSource
@@ -164,12 +180,24 @@ customProperties:
         Les tables persistées (tool `schema`) convertissent en °C / hPa.
       descriptor: docs/mf/observations/{horaire,infrahoraire}.csv (descripteur officiel MF complet)
       quirks:
-        - Stations RADOME (2000+), 24 dernières heures. CSV ou JSON (format=json).
-        - /liste-stations, /station/horaire, /station/infrahoraire-6m (pas 6 min), /synop, /bouees.
+        - >-
+          3 sous-produits : (1) TERRESTRE — /liste-stations, /station/horaire,
+          /station/infrahoraire-6m ; id 8 chiffres (geo_id_insee, zéro initial OBLIGATOIRE dépt 01–09,
+          sinon 400 « Identifiant station sémantiquement incorrect ») ; rétention 24 h.
+        - >-
+          (2) SYNOP — /liste-stations-synop, /synop ; id OMM 5 chiffres (geo_id_wmo, zéro initial) ;
+          tri-horaire ; rétention 5 jours ; params date_debut/date_fin.
+        - >-
+          (3) BOUÉES — /liste-bouees, /bouees ; id 7 chiffres (id_bouees) ; horaire ; rétention 5 jours.
+        - Stations RADOME (2000+). Formats CSV / JSON / GeoJSON (format=…).
         - >-
           v1 (/public/DPObs/v1) DÉPRÉCIÉE : paramètres rafale v1 (fxi/dxi/fxi10/dxi10) NON
           ALIMENTÉS depuis 2026-06-16, ARRÊT v1 le 2026-12-01 — migrer vers /v2 (raf/ddraf/raf10/ddraf10).
         - "Bouée (/bouee) : fxi→rafper, per_fxi→per en v2. /synop : aucun changement v2."
+        - >-
+          ⚠️ HARMONISATION IDENTIFIANTS le 2026-04-16 : valeurs de num_poste/geo_id_insee CHANGÉES pour
+          ~15 stations (rattachement de commune → nouveau code INSEE, ex. ROUSSET 05127001→04033001),
+          bascule directe SANS cohabitation. Cf. changelog (referentiel, breaking).
   - property: changelog
     value:
       - version: "2.0.0"
@@ -190,6 +218,18 @@ customProperties:
           /synop inchangé. Déploiement v2 le 2026-06-08 ; v1 vidée le 2026-06-16 ; arrêt v1 le
           2026-12-01. Source : Confluence MF (page 1688633417). NB : FXI3S (rafale 3 s) est un
           champ de la CLIMATOLOGIE (DPClim), distinct de ces variables temps réel.
+      - version: "1.1.0"
+        date: "2026-04-16"
+        type: referentiel
+        severity: breaking
+        fields: [num_poste, geo_id_insee, num_dep, commune]
+        note: >-
+          Harmonisation des identifiants de stations (changement de VALEURS, pas de format) :
+          num_poste/geo_id_insee modifiés pour ~15 stations dont la commune de rattachement a
+          changé (nouveau code INSEE — ex. ROUSSET 05127001→04033001, PEGOMAS-TANNERON
+          06090001→83133003, JOINVILLE-LE-PONT 75044001→94046003). Bascule directe le 2026-04-16
+          SANS période de cohabitation → toute jointure/référentiel sur l'identifiant casse.
+          Touche aussi DPPaquetObs, DPClim et meteo.data.gouv. Source : Confluence MF (page 1603796993).
       - version: "1.0.0"
         date: "2026-06-01"
         type: initial

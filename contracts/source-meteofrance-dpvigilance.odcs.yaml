@@ -16,7 +16,7 @@ description:
   usage: >-
     Consommé par include/Vigilances/vigilances.php (site-infoclimat) pour les
     endpoints cartevigilance/encours, textesvigilance/encours et
-    vignettenationale-J/encours. JSON imbriqué, non tabulaire.
+    vignettenationale-J-et-J1/encours. JSON imbriqué, non tabulaire.
   limitations: >-
     Contrat SOURCE distinct du contrat table persistée vigilances-meteo.odcs.yaml.
     Pas de schéma tabulaire plat : la réponse est un objet JSON imbriqué
@@ -46,7 +46,9 @@ customProperties:
       urlTemplate: >-
         /public/DPVigilance/v1/cartevigilance/encours |
         /public/DPVigilance/v1/textesvigilance/encours |
-        /public/DPVigilance/v1/vignettenationale-J/encours
+        /public/DPVigilance/v1/vignettenationale-J-et-J1/encours |
+        /public/DPVigilance/v1/vigilanceom/controle/dernier |
+        /public/DPVigilance/v1/vigilanceom/flux/dernier
       auth: token
       probeUrl: "https://public-api.meteofrance.fr/public/DPVigilance/v1/cartevigilance/encours"
       verified: "✅ consommé par include/Vigilances/vigilances.php"
@@ -63,11 +65,30 @@ customProperties:
         - "Réponse JSON imbriquée (product.periods[], timelaps, domain_ids) — non tabulaire."
         - "2 périodes maximum par produit carte (index 0 = période courante J, index 1 = J+1)."
         - "domain_id de longueur 2 = département (01..95, 2A, 2B, 99) ; autres longueurs ignorées par le code."
-        - "Endpoint vignettenationale-J/encours = image (download binaire, non JSON)."
+        - "Endpoint vignettenationale-J-et-J1/encours = image (download binaire, non JSON)."
         - "Auth OAuth2 : token récupéré sur portail-api.meteofrance.fr/token, utilisé en Bearer sur public-api."
-        - "Couleurs legacy (0-3) dans le schéma SQL persisté diffèrent des codes API (1-4) — mapping COLORS_CODES_TO_LEGACY_MAP."
+        - "Couleurs legacy (0-3) dans le schéma SQL persisté diffèrent des codes API — mapping COLORS_CODES_TO_LEGACY_MAP."
+        - >-
+          ⚠️ À CONFIRMER (codes couleur) : la doc Confluence MF (page 854065168) indique color_id 1-3
+          (1=jaune, 2=orange, 3=rouge) alors que notre code en relève 1-4 (avec 1=vert). Incohérence
+          non tranchée — vérifier sur une réponse live avant de s'appuyer sur le mapping.
+        - >-
+          Outre-mer : endpoints /vigilanceom/controle/dernier (fichier de contrôle) et
+          /vigilanceom/flux/dernier (archive ZIP + checksum). La Nouvelle-Calédonie a migré vers le
+          schéma Vigilance V6 (arrêt du flux V5, 04/2026, page 1641480275) ; Vigilance Outre-mer
+          évoluée 02/2025.
   - property: changelog
     value:
+      - version: "1.1.0"
+        date: "2026-04-01"
+        type: feature
+        severity: non-breaking
+        fields: []
+        note: >-
+          Endpoints Outre-mer documentés (/vigilanceom/controle/dernier, /vigilanceom/flux/dernier) ;
+          schéma Vigilance V6 (Nouvelle-Calédonie migre V6, arrêt flux V5 — page 1641480275).
+          Correction endpoint vignette : vignettenationale-J-et-J1/encours (et non -J). Non-breaking
+          (ajouts/clarifications). Source : Confluence MF (page 854065168).
       - version: "1.0.0"
         date: "2026-06-01"
         type: initial

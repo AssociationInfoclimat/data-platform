@@ -52,6 +52,9 @@ customProperties:
           variables v1 (fxi/dxi/fxi10/dxi10, mesure instantanée) + CRÉATION des nouvelles
           (raf/ddraf/raf10/ddraf10, rafale moyennée 3 s OMM). Pas un alias : valeurs différentes.
           v1 vidé depuis 2026-06-16, arrêt v1 2026-12-01.
+        - >-
+          ⚠️ HARMONISATION IDENTIFIANTS le 2026-04-16 : valeurs num_poste/geo_id_insee changées pour
+          ~15 stations (rattachement commune → nouveau INSEE), bascule sans cohabitation. Cf. changelog.
   - property: changelog
     value:
       - version: "2.0.0"
@@ -69,6 +72,15 @@ customProperties:
           Valeurs NON équivalentes. Correspondance : fxi→raf, dxi→ddraf, fxi10→raf10, dxi10→ddraf10
           (bouée fxi→rafper, per_fxi→per ; /synop inchangé). Déploiement v2 le 2026-06-08.
           Source : Confluence MF (page 1688633417). NB : FXI3S = champ CLIMATOLOGIE (DPClim).
+      - version: "1.1.0"
+        date: "2026-04-16"
+        type: referentiel
+        severity: breaking
+        fields: [num_poste, geo_id_insee, num_dep, commune]
+        note: >-
+          Harmonisation des identifiants de stations (changement de VALEURS) : num_poste/geo_id_insee
+          modifiés pour ~15 stations (rattachement de commune → nouveau code INSEE), bascule directe
+          le 2026-04-16 sans cohabitation. Mêmes stations que DPObs. Source : Confluence MF (page 1603796993).
       - version: "1.0.0"
         date: "2026-06-01"
         type: initial

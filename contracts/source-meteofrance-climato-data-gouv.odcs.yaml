@@ -59,8 +59,24 @@ customProperties:
       quirks:
         - Sans auth (Licence Ouverte Etalab 2.0).
         - ≠ bucket AROME PNT (object.data.gouv.fr/meteofrance-pnt).
+        - "meteo.data.gouv.fr est la CIBLE de migration des données quittant donneespubliques (cf. nivo/marine)."
+        - >-
+          ⚠️ HARMONISATION IDENTIFIANTS le 2026-04-16 : valeurs NUM_POSTE changées pour ~15 stations
+          (rattachement de commune → nouveau code INSEE), bascule sans cohabitation. Cf. changelog.
+        - >-
+          Enrichissements MF récents : Messages Climat mensuels (2026-06), indicateur qualité ETP
+          décadaire (2026-04), simulation nivologique (2025-05), historique cyclones SOOI (2026-04).
   - property: changelog
     value:
+      - version: "1.1.0"
+        date: "2026-04-16"
+        type: referentiel
+        severity: breaking
+        fields: [NUM_POSTE]
+        note: >-
+          Harmonisation des identifiants de stations (changement de VALEURS) : NUM_POSTE modifié pour
+          ~15 stations (rattachement de commune → nouveau code INSEE), bascule directe le 2026-04-16
+          sans cohabitation. Touche aussi DPObs/DPPaquetObs/DPClim. Source : Confluence MF (page 1603796993).
       - version: "1.0.0"
         date: "2026-06-01"
         type: initial

@@ -54,6 +54,11 @@ customProperties:
           souscription/application WSO2 DISTINCTE du portail open-data (public-api). Donc un 2e
           Application ID est nécessaire pour PIAF — le bot/MCP n'en gère qu'un seul (METEOFRANCE_APPLICATION_ID) :
           probe PIAF non couvert tant qu'un second credential n'est pas géré côté code.
+        - >-
+          Confirmé (audit 2026-06-18) : PIAF n'a AUCUNE page dans l'espace Confluence open-data
+          (recherche CQL vide) ; seule mention de passage « AROME-PI Agrégée Fusionnée (PIAF) » sur
+          la page API Ciblée Modèles (854032416), sans host ni détail → cohérent avec un produit
+          COMMERCIAL hors open-data (api.meteofrance.fr), pas une API publique.
   - property: changelog
     value:
       - version: "1.0.0"

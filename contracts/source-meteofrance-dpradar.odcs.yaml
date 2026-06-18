@@ -35,15 +35,25 @@ customProperties:
       apiId: DPRadar
       host: public-api.meteofrance.fr
       context: /public/DPRadar
-      urlTemplate: "/public/DPRadar/mosaiques/{zone}/observations/{observation}/produit | /stations/{id}/..."
+      urlTemplate: >-
+        /public/DPRadar/mosaiques/{zone}/observations/{obs}/produit?maille={res}
+        | /public/DPRadar/stations/{id}/observations/{obs}/produit?tour_antenne={n}
+        | /public/DPRadar/liste-stations | /public/DPRadar/stations
       auth: token
       probeUrl: https://public-api.meteofrance.fr/public/DPRadar/mosaiques
-      verified: "✅ vérifié en live"
-      unitsNote: "Produits radar (HDF5/BUFR/PNG selon /produit) ; pas un schéma tabulaire."
+      verified: "✅ vérifié en live (page Confluence 853639355)"
+      unitsNote: >-
+        Produits : REFLECTIVITE, LAME_D_EAU, PAM, PAG (80 niveaux). Formats : BUFR (maille 1000 m),
+        HDF5 (500 m, lame d'eau). Pas de schéma tabulaire. Rétention 20 h, fréquence 5 min.
       descriptor: "/liste-stations (CSV : id, nom, ref produit PAG/PAM, tours d'antenne)"
       quirks:
-        - "Liens canoniques SANS /v1/ (alias /v1/ accepté). Fréquence 5 min."
-        - "Zones via /mosaiques (METROPOLE, ANTILLES…) — `FRANCE` → 404. Produits : réflectivité, lame d'eau, PAM, PAG."
+        - "Liens canoniques SANS /v1/ (alias /v1/ accepté). Fréquence 5 min, rétention 20 h."
+        - "Zones via /mosaiques (METROPOLE, ANTILLES…) — `FRANCE` → 404. 30+ sites métropole + 6 OM."
+        - "Produits : REFLECTIVITE, LAME_D_EAU, PAM, PAG ; params maille={res} (mosaïque) / tour_antenne={n} (station)."
+        - >-
+          Évolutions réseau (couverture mosaïques, opérationnel) : Sembadel coupé ~3 mois dès
+          2026-04-01 ; Wideumont intégré (2026-03) ; Trappes réintégré (2025-12) ; Cherves renouvelé
+          (2025-08) ; nouvelle chaîne radar Nouvelle-Calédonie (2026-06).
   - property: changelog
     value:
       - version: "1.0.0"

@@ -110,9 +110,11 @@ schema:
         physicalType: REAL
         unit: "m/s et 1/10"
         description: >-
-          Rafale — vent max moyenné sur 3 secondes dans l'heure (en m/s et 1/10).
-          Standard mondial WMO ; présent dans la climato MF de longue date (descripteur
-          daté ~2024). Distinct du changement de référence DPObs/DPPaquetObs (juin 2026).
+          Rafale — vent max moyenné sur 3 secondes dans l'heure (en m/s et 1/10), standard mondial WMO.
+          Présent de longue date (descripteur ~2024) ; DEVIENT LA RÉFÉRENCE RECOMMANDÉE rafale en
+          climato (06/2026) — mais NON-breaking : FXI (instantané) reste disponible, les deux
+          COEXISTENT (≠ remplacement breaking du temps réel DPObs). Privilégier FXI3S pour les
+          nouvelles études, FXI reste exploitable pour les séries historiques.
       - name: DXI3S
         physicalType: INTEGER
         unit: "rose de 360"
@@ -151,9 +153,49 @@ customProperties:
           Fréquences implémentées dans le code : infrahoraire-6m, horaire, quotidienne.
           Fréquences documentées dans les descripteurs MF mais non vérifiées dans le code :
           mensuelle, décadaire, décadaire-agro.
+        - >-
+          ⚠️ LIMITE D'INTERROGATION (depuis 2026-02-05) : commande-station/infrahoraire-6m plafonnée
+          à 1 MOIS par requête (était 1 an) ; les autres fréquences (horaire/quotidienne/mensuelle)
+          gardent 1 an. Fractionner les demandes 6-min par mois. Cf. Confluence MF (page 1507098626).
+        - >-
+          ⚠️ HARMONISATION IDENTIFIANTS le 2026-04-16 : valeurs NUM_POSTE changées pour ~15 stations
+          (rattachement de commune → nouveau code INSEE), bascule sans cohabitation. Cf. changelog.
+        - >-
+          Déploiement nouvelle version API ciblée Climato (2025-03-09, page 669188141) : ajout des
+          codes qualité Q<PARAM>, requêtes décadaires/mensuelles, levée de contraintes temporelles ;
+          pas de bump /v2, anciens services inchangés (transparent).
 
   - property: changelog
     value:
+      - version: "1.3.0"
+        date: "2026-06-01"
+        type: feature
+        severity: non-breaking
+        fields: [FXI3S, FXI]
+        note: >-
+          FXI3S (rafale moyennée 3 s, WMO) devient la RÉFÉRENCE RECOMMANDÉE rafale en climato.
+          NON-breaking : FXI (instantané) reste disponible, les deux COEXISTENT, aucun changement
+          d'accès. Privilégier FXI3S pour les nouvelles études. ≠ remplacement breaking du temps réel
+          DPObs (où fxi est déprécié). Source : Confluence MF (page 1697218579).
+      - version: "1.2.0"
+        date: "2026-04-16"
+        type: referentiel
+        severity: breaking
+        fields: [NUM_POSTE]
+        note: >-
+          Harmonisation des identifiants de stations (changement de VALEURS) : NUM_POSTE modifié pour
+          ~15 stations dont la commune de rattachement a changé (nouveau code INSEE), bascule directe
+          le 2026-04-16 sans cohabitation. Touche aussi DPObs/DPPaquetObs et meteo.data.gouv.
+          Source : Confluence MF (page 1603796993).
+      - version: "1.1.0"
+        date: "2026-02-05"
+        type: conditions
+        severity: breaking
+        fields: []
+        note: >-
+          Évolution des conditions d'interrogation : commande-station/infrahoraire-6m plafonnée à
+          1 MOIS par requête (était 1 an) ; autres fréquences inchangées (1 an). Les requêtes 6-min
+          > 1 mois doivent être fractionnées. Source : Confluence MF (page 1507098626).
       - version: "1.0.0"
         date: "2026-06-01"
         type: initial
