@@ -75,28 +75,51 @@ schema:
         physicalType: REAL
         unit: m/s
         description: vent moyen à 10 m
+      # Rafales : la v2 ne RENOMME pas — elle CRÉE de nouvelles variables (rafale moyennée
+      # sur 3 s, référence OMM) et DÉPRÉCIE les anciennes (mesure instantanée, nom v1 conservé).
+      # La grandeur mesurée change → valeurs NON équivalentes, pas un simple alias.
       - name: raf
         physicalType: REAL
         unit: m/s
-        description: "rafale max horaire (v2, /station/horaire ; ex-`fxi` v1)"
+        description: >-
+          [v2, ACTIVE] rafale max horaire — NOUVELLE variable, rafale moyennée sur 3 s
+          (référence OMM). Remplace fxi (mesure différente : fxi = instantané).
       - name: ddraf
         physicalType: INTEGER
         unit: degré (rose 360)
-        description: "direction de la rafale horaire (v2 ; ex-`dxi` v1)"
+        description: "[v2, ACTIVE] direction de la rafale horaire (raf). Nouvelle variable, remplace dxi."
       - name: raf10
         physicalType: REAL
         unit: m/s
-        description: "rafale max 10 min (v2, /station/infrahoraire-6m ; ex-`fxi10` v1)"
+        description: "[v2, ACTIVE] rafale max 10 min (infrahoraire-6m), moyennée 3 s. Nouvelle variable, remplace fxi10."
       - name: ddraf10
         physicalType: INTEGER
         unit: degré (rose 360)
-        description: "direction de la rafale 10 min (v2 ; ex-`dxi10` v1)"
+        description: "[v2, ACTIVE] direction de la rafale 10 min (raf10). Nouvelle variable, remplace dxi10."
+      - name: fxi
+        physicalType: REAL
+        unit: m/s
+        deprecated: true
+        description: >-
+          [v1, DÉPRÉCIÉE] rafale max horaire INSTANTANÉE — conserve son nom v1 ; NON ALIMENTÉE
+          (vide) depuis 2026-06-16, endpoint v1 supprimé le 2026-12-01. ≠ raf (mesure 3 s).
+      - name: dxi
+        physicalType: INTEGER
+        unit: degré (rose 360)
+        deprecated: true
+        description: "[v1, DÉPRÉCIÉE] direction de fxi — vidée depuis 2026-06-16, supprimée le 2026-12-01."
       - name: fxi10
         physicalType: REAL
         unit: m/s
+        deprecated: true
         description: >-
-          rafale max 10 min — paramètre v1 RENOMMÉ `raf10` en v2 ; champ v1 NON ALIMENTÉ
-          (vide) depuis 2026-06-16, endpoint v1 supprimé le 2026-12-01. (idem fxi→raf, dxi→ddraf)
+          [v1, DÉPRÉCIÉE] rafale max 10 min INSTANTANÉE — conserve son nom v1 ; vidée depuis
+          2026-06-16, supprimée le 2026-12-01. Remplacée par raf10 (mesure 3 s, valeurs différentes).
+      - name: dxi10
+        physicalType: INTEGER
+        unit: degré (rose 360)
+        deprecated: true
+        description: "[v1, DÉPRÉCIÉE] direction de fxi10 — vidée depuis 2026-06-16, supprimée le 2026-12-01."
       - name: rr1
         physicalType: REAL
         unit: mm
@@ -151,19 +174,22 @@ customProperties:
     value:
       - version: "2.0.0"
         date: "2026-06-08"
-        type: rename
+        type: replace
         severity: breaking
+        deprecated_fields: [fxi, dxi, fxi10, dxi10]
+        added_fields: [raf, ddraf, raf10, ddraf10]
         fields: [fxi, dxi, fxi10, dxi10, raf, ddraf, raf10, ddraf10]
         note: >-
-          API Observations v1 → v2 (nouveaux endpoints /public/DPObs/v2). RENOMMAGE des
-          paramètres rafale pour conformité OMM / cohérence avec les homologues européens :
-          horaire fxi→raf, dxi→ddraf ; infrahoraire-6m fxi10→raf10, dxi10→ddraf10 ;
-          bouée fxi→rafper, per_fxi→per ; /synop inchangé. Calendrier MF : déploiement v2
-          le 2026-06-08 ; paramètres v1 fxi/dxi NON ALIMENTÉS (vides) depuis 2026-06-16 ;
-          ARRÊT définitif de v1 le 2026-12-01. Source : Confluence MF « Évolution de la
-          nomenclature des rafales dans l'API Observations » (page 1688633417).
-          NB : FXI3S (rafale 3 s) est un champ de la CLIMATOLOGIE (DPClim), à NE PAS
-          confondre avec ce renommage temps réel.
+          API Observations v1 → v2 (nouveaux endpoints /public/DPObs/v2). Ce n'est PAS un simple
+          renommage : MF DÉPRÉCIE les variables rafale v1 (mesure instantanée — fxi, dxi, fxi10,
+          dxi10 ; nom conservé, vidées depuis 2026-06-16, supprimées le 2026-12-01) et CRÉE de
+          nouvelles variables (rafale moyennée sur 3 s, référence OMM — raf, ddraf, raf10, ddraf10).
+          La grandeur mesurée change, donc les valeurs ne sont PAS équivalentes (pas de simple
+          mapping fxi→raf). Correspondance des nouveaux noms : horaire fxi→raf / dxi→ddraf ;
+          infrahoraire-6m fxi10→raf10 / dxi10→ddraf10 ; bouée fxi→rafper / per_fxi→per ;
+          /synop inchangé. Déploiement v2 le 2026-06-08 ; v1 vidée le 2026-06-16 ; arrêt v1 le
+          2026-12-01. Source : Confluence MF (page 1688633417). NB : FXI3S (rafale 3 s) est un
+          champ de la CLIMATOLOGIE (DPClim), distinct de ces variables temps réel.
       - version: "1.0.0"
         date: "2026-06-01"
         type: initial

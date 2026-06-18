@@ -48,22 +48,27 @@ customProperties:
         - "Paquets groupés : 24 h par station/département, ou tous stations pour un horaire."
         - "/paquet/horaire → 400 sans paramètres requis (probablement id-departement/date) = route OK."
         - >-
-          v2 (2026-06) : hérite du renommage rafale de l'API Observations — horaire fxi→raf,
-          dxi→ddraf ; infrahoraire fxi10→raf10, dxi10→ddraf10. v1 vidé depuis 2026-06-16, arrêt v1 2026-12-01.
+          v2 (2026-06) : hérite du changement rafale de l'API Observations — DÉPRÉCIATION des
+          variables v1 (fxi/dxi/fxi10/dxi10, mesure instantanée) + CRÉATION des nouvelles
+          (raf/ddraf/raf10/ddraf10, rafale moyennée 3 s OMM). Pas un alias : valeurs différentes.
+          v1 vidé depuis 2026-06-16, arrêt v1 2026-12-01.
   - property: changelog
     value:
       - version: "2.0.0"
         date: "2026-06-08"
-        type: rename
+        type: replace
         severity: breaking
+        deprecated_fields: [fxi, dxi, fxi10, dxi10]
+        added_fields: [raf, ddraf, raf10, ddraf10]
         fields: [fxi, dxi, fxi10, dxi10, raf, ddraf, raf10, ddraf10]
         note: >-
           API Observations v1 → v2 (endpoints /public/DPPaquetObs/v2), mêmes mnémoniques que
-          DPObs : RENOMMAGE rafale horaire fxi→raf, dxi→ddraf ; infrahoraire-6m fxi10→raf10,
-          dxi10→ddraf10 (bouée fxi→rafper, per_fxi→per ; /synop inchangé). Déploiement v2
-          le 2026-06-08 ; paramètres v1 vides depuis 2026-06-16 ; arrêt v1 le 2026-12-01.
-          Source : Confluence MF (page 1688633417). NB : FXI3S = champ CLIMATOLOGIE (DPClim),
-          distinct de ce renommage temps réel.
+          DPObs. PAS un renommage : MF DÉPRÉCIE les variables rafale v1 (mesure instantanée —
+          fxi, dxi, fxi10, dxi10 ; nom conservé, vidées le 2026-06-16, supprimées le 2026-12-01)
+          et CRÉE de nouvelles variables (rafale moyennée 3 s, OMM — raf, ddraf, raf10, ddraf10).
+          Valeurs NON équivalentes. Correspondance : fxi→raf, dxi→ddraf, fxi10→raf10, dxi10→ddraf10
+          (bouée fxi→rafper, per_fxi→per ; /synop inchangé). Déploiement v2 le 2026-06-08.
+          Source : Confluence MF (page 1688633417). NB : FXI3S = champ CLIMATOLOGIE (DPClim).
       - version: "1.0.0"
         date: "2026-06-01"
         type: initial
