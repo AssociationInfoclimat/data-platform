@@ -48,6 +48,33 @@ def repo_head_sha(repo_dir: Path) -> str:
     return _git(repo_dir, "rev-parse", "HEAD").strip()
 
 
+def repo_default_branch(repo_dir: Path) -> str:
+    """Nom de la branche par défaut du remote (origin/HEAD) ; "" si inconnu."""
+    out = _git(repo_dir, "symbolic-ref", "refs/remotes/origin/HEAD").strip()
+    return out.rsplit("/", 1)[-1] if out else ""
+
+
+def repo_ref(repo_dir: Path) -> str:
+    """Ref web d'un repo : le SHA HEAD s'il est **atteignable sur le remote** (permalien
+    exact), sinon le nom de la branche par défaut (lien vivant mais qui ne 404 pas).
+
+    Un SHA de branche locale non poussée (ex. clone resté sur un feature branch sans
+    upstream) donnerait une URL en 404 sur GitHub/GitLab — on s'en prémunit."""
+    sha = repo_head_sha(repo_dir)
+    if not sha:
+        return repo_default_branch(repo_dir)
+    # HEAD poussé ? (ancêtre de l'upstream, sinon de origin/<branche par défaut>)
+    upstream = _git(repo_dir, "rev-parse", "--abbrev-ref", "@{upstream}").strip()
+    targets = [t for t in (upstream, f"origin/{repo_default_branch(repo_dir)}") if t and "/" in t]
+    for tgt in targets:
+        # returncode 0 de merge-base --is-ancestor → SHA atteignable depuis le remote.
+        r = subprocess.run(["git", "-C", str(repo_dir), "merge-base", "--is-ancestor", sha, tgt],
+                           capture_output=True)
+        if r.returncode == 0:
+            return sha
+    return repo_default_branch(repo_dir) or sha
+
+
 def _web_base(remote_url: str, source: str) -> str:
     """Base web d'un repo à partir de son remote (sans `.git` ni `/-/blob`).
 
@@ -131,7 +158,7 @@ def build_sidecar(base_dir: Any, repos: list[str]) -> dict:
         if (rd / ".git").is_dir():
             src = repo_source(rd)
             rsource[repo] = src
-            rref[repo] = repo_head_sha(rd)
+            rref[repo] = repo_ref(rd)  # SHA si poussé, sinon branche par défaut (anti-404)
             wbase[repo] = _web_base(_git(rd, "remote", "get-url", "origin").strip(), src)
             for rel, dt in file_last_commits(rd).items():
                 last_commit[f"{repo}/{rel}"] = dt
