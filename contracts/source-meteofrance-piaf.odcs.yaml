@@ -38,7 +38,7 @@ customProperties:
   - property: externalSource
     value:
       apiId: PIAF
-      docUrl: "https://portail-api.meteofrance.fr/web/fr/ (API COMMERCIALE — pas de page open-data)"
+      docUrl: https://portail-api.meteofrance.fr/web/fr/
       host: api.meteofrance.fr
       context: /pro/piaf/1.0/{wms|wcs}/{coll}
       urlTemplate: "/pro/piaf/1.0/{wms|wcs}/MF-NWP-HIGHRES-PIAF-001-FRANCE-{WMS|WCS}/{GetCapabilities|DescribeCoverage|GetCoverage}"

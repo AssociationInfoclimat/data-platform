@@ -124,7 +124,7 @@ customProperties:
   - property: externalSource
     value:
       apiId: donnees-libres-marine
-      docUrl: "https://donneespubliques.meteofrance.fr/ (en fin de vie — cf. quirks)"
+      docUrl: https://donneespubliques.meteofrance.fr/donnees_libres/Txt/Marine/
       host: donneespubliques.meteofrance.fr
       context: /donnees_libres/Txt/Marine
       urlTemplate: "https://donneespubliques.meteofrance.fr/donnees_libres/Txt/Marine/marine.{YYYYMMDD}.csv"
