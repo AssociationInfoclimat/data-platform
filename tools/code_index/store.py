@@ -92,8 +92,13 @@ def _inject_meta_columns(data: Any, meta: dict) -> Any:
     """(Ré)injecte source/last_commit/status comme colonnes Arrow, sans matérialiser les
     vecteurs en objets Python (mémoire bornée sur petite VM)."""
     import pyarrow as pa
+
+    from . import meta as _meta
     keys = data.column("key").to_pylist()
     repos = data.column("repo").to_pylist()
+    paths = data.column("path").to_pylist()
+    starts = data.column("start_line").to_pylist()
+    ends = data.column("end_line").to_pylist()
     rsource = meta.get("repo_source") or {}
     lc = meta.get("last_commit") or {}
     st = meta.get("status") or {}
@@ -101,6 +106,8 @@ def _inject_meta_columns(data: Any, meta: dict) -> Any:
         "source": [rsource.get(r, "other") for r in repos],
         "last_commit": [lc.get(k, "") for k in keys],
         "status": [st.get(k, "") for k in keys],
+        "source_url": [_meta.chunk_url(meta, repos[i], paths[i], starts[i], ends[i])
+                       for i in range(len(keys))],
     }
     for name, vals in cols.items():
         arr = pa.array(vals, type=pa.string())

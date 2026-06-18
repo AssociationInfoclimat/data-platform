@@ -33,6 +33,7 @@ class Result:
     source: str = ""        # github | gitlab | other (repo d'origine)
     last_commit: str = ""   # YYYY-MM-DD du dernier commit du fichier (récence)
     status: str = ""        # actif | douteux | mort (autorité, gouvernance)
+    source_url: str = ""    # permalien web (commit SHA) vers repo/path#Lstart-end
 
     @property
     def location(self) -> str:
@@ -66,7 +67,7 @@ def _to_result(r: dict) -> Result:
     return Result(repo=r["repo"], path=r["path"], start_line=r["start_line"],
                   end_line=r["end_line"], lang=r["lang"], score=score, text=r["text"],
                   source=r.get("source") or "", last_commit=r.get("last_commit") or "",
-                  status=r.get("status") or "")
+                  status=r.get("status") or "", source_url=r.get("source_url") or "")
 
 
 def _age_years(last_commit: str, today: datetime.date) -> float | None:
@@ -204,6 +205,8 @@ def main(argv: list[str]) -> int:
     for i, r in enumerate(results, 1):
         flag = f" [{r.flag}]" if r.flag else ""
         print(f"\n#{i}  {r.location}  ({r.lang}, score {r.score:.3f}){flag}")
+        if r.source_url:
+            print(f"    {r.source_url}")
         snippet = r.text if args.full else "\n".join(r.text.splitlines()[:15])
         print(snippet.rstrip())
     return 0

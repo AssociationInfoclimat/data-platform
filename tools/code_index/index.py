@@ -67,6 +67,8 @@ def _build_rows(blob: FileBlob, cfg: Config, client: object | None,
     texts: list[str] = []
     for idx, (ch, ctx) in enumerate(zip(chunks, ctxs)):
         ctext = context.apply_context(ctx, ch.text)
+        url = (meta_mod.chunk_url(sidecar, blob.src.repo, blob.src.path,
+                                  ch.start_line, ch.end_line) if sidecar else "")
         rows.append({
             "id": f"{blob.src.key}#{idx}",
             "key": blob.src.key,
@@ -83,6 +85,7 @@ def _build_rows(blob: FileBlob, cfg: Config, client: object | None,
             "source": md["source"],
             "last_commit": md["last_commit"],
             "status": md["status"],
+            "source_url": url,
         })
         texts.append(ctext)
     return rows, texts
