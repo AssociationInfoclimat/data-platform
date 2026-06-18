@@ -1,0 +1,66 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:source-meteofrance-environnement
+name: "Source Météo-France — Environnement (indices UV, chaîne PHEALTH)"
+version: "1.0.0"
+status: active
+domain: modeles
+tags: [source, meteofrance, api, non-consomme]
+
+description:
+  purpose: >-
+    Contrat de la SOURCE API Environnement (DPPaquetENVIRONNEMENT) — prévisions d'indices ultraviolets
+    (UV) de la chaîne PHEALTH (métropole + outre-mer unifiés).
+  usage: >-
+    NON CONSOMMÉ par Infoclimat à ce jour (catalogue de référence).
+  limitations: >-
+    Couvre les indices UV (pas la qualité de l'air). GRIB2 uniquement.
+
+servers:
+  - server: meteofrance-environnement
+    type: api
+    environment: production
+    location: https://public-api.meteofrance.fr/previnum/DPPaquetENVIRONNEMENT/v1
+
+schema:
+  - name: environnement-uv
+    physicalType: GRIB2
+    description: "Paquet GRIB2 d'indices UV (chaîne PHEALTH) — UV max quotidien ciel clair / nuageux."
+    properties: []
+
+customProperties:
+  - property: externalSource
+    value:
+      apiId: Environnement
+      host: public-api.meteofrance.fr
+      context: /previnum/DPPaquetENVIRONNEMENT/v1
+      docUrl: https://confluence-meteofrance.atlassian.net/wiki/spaces/OpenDataMeteoFrance/pages/1612906576/
+      urlTemplate: >-
+        /previnum/DPPaquetENVIRONNEMENT/v1/models/PHEALTH/grids/{grid}/packages/{package}/productPHEALTH
+      auth: token
+      probeUrl: https://public-api.meteofrance.fr/previnum/DPPaquetENVIRONNEMENT/v1/models/PHEALTH/grids
+      verified: "✅ doc Confluence MF (1612906576) — NON consommé par IC"
+      unitsNote: "Indices UV (modèle PHEALTH). Format GRIB2. Paquet UVQ."
+      descriptor: "GET /models/PHEALTH/grids/{grid}/packages (paquets servis)"
+      quirks:
+        - "Modèle PHEALTH (indices UV, ≠ qualité de l'air). Grilles GLOBE025 + Europe + Outre-mer."
+        - "Rétention 3 jours ; plusieurs runs quotidiens ; paquet UVQ."
+        - "NON CONSOMMÉ par Infoclimat — catalogue pour complétude / usage futur."
+  - property: changelog
+    value:
+      - version: "1.0.0"
+        date: "2026-06-18"
+        type: initial
+        severity: non-breaking
+        fields: []
+        note: "Ajout au catalogue (API MF non consommée). Sourcé sur Confluence MF page 1612906576."
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat.
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me

@@ -1,0 +1,66 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:source-meteofrance-pe-modeles
+name: "Source Météo-France — Ciblée PE Modèles (Prévision d'Ensemble PEAROME / PEARPEGE)"
+version: "1.0.0"
+status: active
+domain: modeles
+tags: [source, meteofrance, api, non-consomme]
+
+description:
+  purpose: >-
+    Contrat de la SOURCE API Ciblée PE Modèles — prévision d'ensemble PEAROME et PEARPEGE via WCS
+    (INSPIRE/OGC), lancée en 03/2025.
+  usage: >-
+    NON CONSOMMÉ par Infoclimat à ce jour (catalogue de référence). NB : IC consomme ARPEGE PE via
+    scraping meteociel (cf. inventory external-sources), PAS cette API officielle — candidat de migration.
+  limitations: >-
+    WCS 2D seulement (lat/lon) : toute autre dimension (membre, height, time) doit être fixée.
+
+servers:
+  - server: meteofrance-pe-modeles
+    type: api
+    environment: production
+    location: https://public-api.meteofrance.fr/public/arome/1.0/wcs
+
+schema:
+  - name: pe-coverage
+    physicalType: GRIB2
+    description: "Coverage GRIB2/GeoTIFF de prévision d'ensemble (PEAROME, PEARPEGE)."
+    properties: []
+
+customProperties:
+  - property: externalSource
+    value:
+      apiId: PE-Modeles
+      host: public-api.meteofrance.fr
+      context: "/public/arome/1.0/wcs (collections PE ; chemin exact des collections PEARPEGE À CONFIRMER)"
+      docUrl: https://confluence-meteofrance.atlassian.net/wiki/spaces/OpenDataMeteoFrance/pages/853934184/
+      urlTemplate: "/public/<coll-PE>/wcs/{coll}/{GetCapabilities|DescribeCoverage|GetCoverage}?service=WCS&version=2.0.1"
+      auth: token
+      probeUrl: ""
+      verified: "✅ doc Confluence MF (853934184) — NON consommé par IC ; chemin collections PE à confirmer"
+      unitsNote: "Sorties WCS (GRIB/GeoTIFF) des modèles d'ensemble PEAROME / PEARPEGE."
+      descriptor: "GetCapabilities → coverageId servis (param [nom]__[niveau]___[run ISO8601])"
+      quirks:
+        - "Modèles : PEAROME et PEARPEGE (systèmes de prévision d'ensemble), lancés 03/2025 (page 672333871)."
+        - "WCS 2.0.1 INSPIRE ; rétention 5 jours ; renvoi 2D (lat/lon) → fixer membre/height/time."
+        - "NON CONSOMMÉ par Infoclimat (ARPEGE PE actuellement scrappé via meteociel) — catalogue."
+  - property: changelog
+    value:
+      - version: "1.0.0"
+        date: "2026-06-18"
+        type: initial
+        severity: non-breaking
+        fields: []
+        note: "Ajout au catalogue (API MF non consommée). Sourcé sur Confluence MF page 853934184 (+ 672333871)."
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat.
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me

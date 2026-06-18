@@ -41,6 +41,7 @@ customProperties:
   - property: externalSource
     value:
       apiId: DPVigilance
+      docUrl: "https://confluence-meteofrance.atlassian.net/wiki/spaces/OpenDataMeteoFrance/pages/854065168/"
       host: public-api.meteofrance.fr
       context: /public/DPVigilance/v1
       urlTemplate: >-

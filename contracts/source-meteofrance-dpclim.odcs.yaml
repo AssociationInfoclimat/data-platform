@@ -124,6 +124,7 @@ customProperties:
   - property: externalSource
     value:
       apiId: DPClim
+      docUrl: "https://confluence-meteofrance.atlassian.net/wiki/spaces/OpenDataMeteoFrance/pages/854261785/"
       host: public-api.meteofrance.fr
       context: /public/DPClim/v1
       urlTemplate: >-

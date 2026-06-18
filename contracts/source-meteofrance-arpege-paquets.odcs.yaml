@@ -34,6 +34,7 @@ customProperties:
   - property: externalSource
     value:
       apiId: ARPEGE-Paquets
+      docUrl: "https://confluence-meteofrance.atlassian.net/wiki/spaces/OpenDataMeteoFrance/pages/853639487/"
       host: public-api.meteofrance.fr
       context: /previnum/DPPaquetARPEGE/v1
       urlTemplate: "/previnum/DPPaquetARPEGE/v1/models/ARPEGE/grids/{0.1|0.25}/packages/{PKG}/productARP?referencetime={RUN}&time={SEGMENT}&format=grib2"

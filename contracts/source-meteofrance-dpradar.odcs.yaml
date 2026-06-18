@@ -33,6 +33,7 @@ customProperties:
   - property: externalSource
     value:
       apiId: DPRadar
+      docUrl: "https://confluence-meteofrance.atlassian.net/wiki/spaces/OpenDataMeteoFrance/pages/853639355/"
       host: public-api.meteofrance.fr
       context: /public/DPRadar
       urlTemplate: >-

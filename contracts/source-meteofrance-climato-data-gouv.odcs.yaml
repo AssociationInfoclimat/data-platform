@@ -48,6 +48,7 @@ customProperties:
   - property: externalSource
     value:
       apiId: climato-data-gouv
+      docUrl: "https://meteo.data.gouv.fr/"
       host: object.files.data.gouv.fr
       context: /meteofrance/data/synchro_ftp/BASE/{MN,HOR,QUOT,MENS,DECAD,DECADAGRO}
       urlTemplate: https://object.files.data.gouv.fr/meteofrance/data/synchro_ftp/BASE/{FREQ}/{FREQ}_{DD}_{periode}[_{PARAM}].csv.gz

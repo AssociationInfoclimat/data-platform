@@ -37,6 +37,7 @@ customProperties:
   - property: externalSource
     value:
       apiId: dcpc-nwp
+      docUrl: "(service legacy DCPC PréviNum — pas de page portail open-data)"
       host: dcpc-nwp.meteo.fr
       context: /services/PS_GetCache_DCPCPreviNum
       urlTemplate: >-

@@ -54,6 +54,7 @@ customProperties:
   - property: externalSource
     value:
       apiId: AROME-WCS
+      docUrl: "https://confluence-meteofrance.atlassian.net/wiki/spaces/OpenDataMeteoFrance/pages/854032416/"
       host: public-api.meteofrance.fr
       context: /public/arome/1.0/wcs/{coll}
       urlTemplate: "/public/arome/1.0/wcs/{coll}/{GetCapabilities|DescribeCoverage|GetCoverage}?service=WCS&version=2.0.1"

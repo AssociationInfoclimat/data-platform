@@ -1,0 +1,68 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:source-meteofrance-meteo-des-forets
+name: "Source Météo-France — Météo des forêts (risque feu de forêt)"
+version: "1.0.0"
+status: active
+domain: vigilance
+tags: [source, meteofrance, api, non-consomme]
+
+description:
+  purpose: >-
+    Contrat de la SOURCE API Météo des forêts — niveau de danger « feu de forêt » par département,
+    échéances J1/J2, France métropole.
+  usage: >-
+    NON CONSOMMÉ par Infoclimat à ce jour (catalogue de référence).
+  limitations: >-
+    Saisonnier (juin à septembre) ; France métropole uniquement ; pas de schéma tabulaire plat.
+
+servers:
+  - server: meteofrance-meteo-des-forets
+    type: api
+    environment: production
+    location: https://public-api.meteofrance.fr/public/
+
+schema:
+  - name: meteo-des-forets
+    physicalType: object
+    description: "Danger feu de forêt par département (CSV) + cartes/vignettes (PNG)."
+    properties: []
+
+customProperties:
+  - property: externalSource
+    value:
+      apiId: meteo-des-forets
+      host: public-api.meteofrance.fr
+      context: "/public/ (context complet À CONFIRMER — la page ne le précise pas littéralement)"
+      docUrl: https://confluence-meteofrance.atlassian.net/wiki/spaces/OpenDataMeteoFrance/pages/853934302/
+      urlTemplate: >-
+        /carte/encours | /carte/departement/encours?id-departement={dept}&echeance={J1|J2}
+        | /vignettenationale-J1/encours
+      auth: token
+      probeUrl: ""
+      verified: "✅ doc Confluence MF (853934302) — NON consommé par IC ; context exact à confirmer"
+      unitsNote: "Niveau de danger (catégoriel). Formats CSV (tableau-meteo-foret.csv) et PNG (carte-meteo-foretJ1.png)."
+      descriptor: "page Confluence 853934302"
+      quirks:
+        - "Saisonnier (juin→septembre) ; MAJ quotidienne 17 h locale (+ réémissions en situation critique)."
+        - "Granularité = département ; échéances J1/J2 ; rétention 5 jours."
+        - "Context de base non précisé par la doc — endpoints /carte/encours, /carte/departement/encours, /vignettenationale-J1/encours."
+        - "NON CONSOMMÉ par Infoclimat — catalogue pour complétude / usage futur."
+  - property: changelog
+    value:
+      - version: "1.0.0"
+        date: "2026-06-18"
+        type: initial
+        severity: non-breaking
+        fields: []
+        note: "Ajout au catalogue (API MF non consommée). Sourcé sur Confluence MF page 853934302."
+
+team:
+  - username: pam
+    role: owner
+    description: Data engineer de l'association — responsable du contrat.
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me

@@ -169,6 +169,7 @@ customProperties:
   - property: externalSource
     value:
       apiId: DPObs
+      docUrl: "https://confluence-meteofrance.atlassian.net/wiki/spaces/OpenDataMeteoFrance/pages/853639294/"
       host: public-api.meteofrance.fr
       context: /public/DPObs/v2
       urlTemplate: /public/DPObs/v2/station/{horaire|infrahoraire-6m}?id_station={id}&format=json

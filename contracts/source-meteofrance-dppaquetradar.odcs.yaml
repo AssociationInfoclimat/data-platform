@@ -33,6 +33,7 @@ customProperties:
   - property: externalSource
     value:
       apiId: DPPaquetRadar
+      docUrl: "https://confluence-meteofrance.atlassian.net/wiki/spaces/OpenDataMeteoFrance/pages/853606673/"
       host: public-api.meteofrance.fr
       context: /public/DPPaquetRadar/v1
       urlTemplate: "/public/DPPaquetRadar/v1/mosaique/paquet | /station/paquet"

@@ -33,6 +33,7 @@ customProperties:
   - property: externalSource
     value:
       apiId: AROMEPI
+      docUrl: "https://confluence-meteofrance.atlassian.net/wiki/spaces/OpenDataMeteoFrance/pages/854032416/"
       host: public-api.meteofrance.fr
       context: /public/aromepi/{wms|wcs}/{coll}
       urlTemplate: "/public/aromepi/{wms|wcs}/MF-NWP-HIGHRES-AROMEPI-{001|0025}-FRANCE-{WMS|WCS}/..."

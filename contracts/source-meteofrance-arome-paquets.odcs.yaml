@@ -58,6 +58,7 @@ customProperties:
   - property: externalSource
     value:
       apiId: AROME-Paquets
+      docUrl: "https://confluence-meteofrance.atlassian.net/wiki/spaces/OpenDataMeteoFrance/pages/853639487/"
       host: public-api.meteofrance.fr
       context: /previnum/DPPaquetAROME/v1
       urlTemplate: "/previnum/DPPaquetAROME/v1/models/AROME/grids/{0.025|0.01}/packages/{PKG}/productARO?referencetime={RUN}&time={SEGMENT}&format=grib2"

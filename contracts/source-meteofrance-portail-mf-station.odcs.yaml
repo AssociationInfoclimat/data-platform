@@ -39,6 +39,7 @@ customProperties:
   - property: externalSource
     value:
       apiId: portail-mf-station
+      docUrl: "(images bulletins station — pas de page portail open-data dédiée ; via proxy interne IC, cf. quirks)"
       host: portail-api.meteofrance.fr
       context: /
       urlTemplate: "https://www.infoclimat.fr/api/cron/image-mf/mf/index.php?id={station_id}"
