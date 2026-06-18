@@ -41,6 +41,10 @@ saturer le top-k. Trois **métadonnées par fichier** (non embeddées) corrigent
 - `last_commit` : date du dernier commit du fichier (récence).
 - `status` : `actif` | `douteux` | `mort` — depuis `inventory/pipelines.yaml` (mappé par
   `repo/script` → **autorité** côté gouvernance).
+- `source_url` : **permalien web par commit SHA** vers `repo/path#Llignes` (GitHub
+  `…/blob/<sha>/…#L<a>-L<b>`, GitLab self-hosted `…/-/blob/<sha>/…#L<a>-<b>`) — le SHA = le
+  commit effectivement indexé, donc les n° de ligne correspondent au contenu cité. Renvoyé
+  par `search_code` (`Result.source_url`) pour citer une source exacte et cliquable.
 
 Elles sont calculées **en local** (le build sur la VM ne reçoit pas les `.git`) dans un
 sidecar JSON, livré avec l'index :

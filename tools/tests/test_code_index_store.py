@@ -106,6 +106,8 @@ def test_rebuild_with_fts_injects_metadata(tmp_path: Path) -> None:
     store.add_rows(db, [_row("r/auth.php", 0, "r", [1.0, 0.0, 0.0], "s1",
                              contextualized="module authentification jeton")])
     meta = {"repo_source": {"r": "github"},
+            "repo_ref": {"r": "abc123"},
+            "web_base": {"r": "https://github.com/AssociationInfoclimat/r"},
             "last_commit": {"r/auth.php": "2026-01-01"},
             "status": {"r/auth.php": "actif"}}
     store.rebuild_with_fts(db, meta=meta)
@@ -113,6 +115,8 @@ def test_rebuild_with_fts_injects_metadata(tmp_path: Path) -> None:
     assert row["source"] == "github"
     assert row["last_commit"] == "2026-01-01"
     assert row["status"] == "actif"
+    # source_url construit depuis web_base + ref + path + lignes (1-10 dans _row)
+    assert row["source_url"] == "https://github.com/AssociationInfoclimat/r/blob/abc123/auth.php#L1-L10"
     assert store._has_fts(store.open_table(db))
 
 

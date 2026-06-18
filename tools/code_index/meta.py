@@ -18,6 +18,7 @@ livré avec l'index ; consommé à l'indexation (`index.py`) et par l'apply mét
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -40,6 +41,49 @@ def repo_source(repo_dir: Path) -> str:
     if "gitlab" in url or "vcs.infoclimat" in url:
         return "gitlab"
     return "other"
+
+
+def repo_head_sha(repo_dir: Path) -> str:
+    """SHA du HEAD = commit effectivement indexé (permalien exact)."""
+    return _git(repo_dir, "rev-parse", "HEAD").strip()
+
+
+def _web_base(remote_url: str, source: str) -> str:
+    """Base web d'un repo à partir de son remote (sans `.git` ni `/-/blob`).
+
+    GitHub  : https://github.com/<owner>/<repo>
+    GitLab  : https://vcs.infoclimat.net/<group>/<repo>  (host:port → host, ssh/https gérés)
+    `other` ou parsing impossible → "" (pas d'URL plutôt qu'une URL fausse)."""
+    u = remote_url.strip()
+    if not u:
+        return ""
+    if source == "github":
+        # git@github.com:owner/repo.git | https://github.com/owner/repo(.git)
+        m = re.search(r"github\.com[:/]+([^/]+)/(.+?)(?:\.git)?/?$", u)
+        return f"https://github.com/{m.group(1)}/{m.group(2)}" if m else ""
+    if source == "gitlab":
+        # ssh://git@vcs.infoclimat.net:59833/group/repo.git | https://vcs…/group/repo(.git)
+        # On retire schéma, user@, host[:port], puis on garde group/repo.
+        path = re.sub(r"^[a-z]+://", "", u)          # retire ssh:// ou https://
+        path = path.split("@", 1)[-1]                # retire git@
+        m = re.match(r"vcs\.infoclimat\.net(?::\d+)?/(.+?)(?:\.git)?/?$", path)
+        return f"https://vcs.infoclimat.net/{m.group(1)}" if m else ""
+    return ""
+
+
+def chunk_url(sidecar: dict, repo: str, path: str, start: int, end: int) -> str:
+    """Permalien web (commit SHA) vers `path:start-end` du repo, ou "" si inconnu.
+
+    GitHub : <base>/blob/<sha>/<path>#L<start>-L<end>
+    GitLab : <base>/-/blob/<sha>/<path>#L<start>-<end>  (ancre sans 2ᵉ « L »)."""
+    base = (sidecar.get("web_base") or {}).get(repo, "")
+    ref = (sidecar.get("repo_ref") or {}).get(repo, "")
+    src = (sidecar.get("repo_source") or {}).get(repo, "other")
+    if not base or not ref:
+        return ""
+    if src == "gitlab":
+        return f"{base}/-/blob/{ref}/{path}#L{start}-{end}"
+    return f"{base}/blob/{ref}/{path}#L{start}-L{end}"
 
 
 def file_last_commits(repo_dir: Path) -> dict[str, str]:
@@ -76,22 +120,32 @@ def inventory_status(base_dir: Path) -> dict[str, str]:
 
 
 def build_sidecar(base_dir: Any, repos: list[str]) -> dict:
-    """Sidecar { repo_source, last_commit, status } pour les repos donnés."""
+    """Sidecar { repo_source, repo_ref, web_base, last_commit, status } pour les repos."""
     base = Path(base_dir)
     last_commit: dict[str, str] = {}
     rsource: dict[str, str] = {}
+    rref: dict[str, str] = {}
+    wbase: dict[str, str] = {}
     for repo in repos:
         rd = base / repo
-        rsource[repo] = repo_source(rd) if (rd / ".git").is_dir() else "other"
         if (rd / ".git").is_dir():
+            src = repo_source(rd)
+            rsource[repo] = src
+            rref[repo] = repo_head_sha(rd)
+            wbase[repo] = _web_base(_git(rd, "remote", "get-url", "origin").strip(), src)
             for rel, dt in file_last_commits(rd).items():
                 last_commit[f"{repo}/{rel}"] = dt
-    return {"repo_source": rsource, "last_commit": last_commit,
-            "status": inventory_status(base)}
+        else:
+            rsource[repo] = "other"
+    return {"repo_source": rsource, "repo_ref": rref, "web_base": wbase,
+            "last_commit": last_commit, "status": inventory_status(base)}
 
 
 def row_meta(sidecar: dict, repo: str, key: str) -> dict[str, str]:
-    """Métadonnées (source/last_commit/status) pour un fichier `key` = 'repo/chemin'."""
+    """Métadonnées (source/last_commit/status/source_url) pour `key` = 'repo/chemin'.
+
+    `source_url` reste vide ici (pas de n° de ligne au niveau fichier) ; l'URL avec ancre
+    de lignes est construite par chunk via `chunk_url` (cf. index.py / store.py)."""
     return {
         "source": (sidecar.get("repo_source") or {}).get(repo, "other"),
         "last_commit": (sidecar.get("last_commit") or {}).get(key, ""),
