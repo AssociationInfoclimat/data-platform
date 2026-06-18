@@ -83,6 +83,36 @@ signale, git fait foi, le tool lit git »** :
    3. **C1 + B-runtime** : sentinelle Kestra (OpenLineage + ouverture d'issue sur dérive).
    4. **Généralisation** à toutes les sources importantes.
 
+## Convention de changelog & cycle de vie des champs (patron)
+
+> Ajoutée le 2026-06-18 après le cas réel de la rafale DPObs v2 (cf. Conséquences).
+
+**Entrée de `changelog`** — clés : `version` (semver, string), `date` (ISO), `type`, `severity`
+(`breaking` | `non-breaking` | `deprecated`), `fields` (tous les champs concernés), `note` (prose
+sourcée). Pour un remplacement, **deux clés structurées supplémentaires** : `deprecated_fields`
+et `added_fields`.
+
+**Vocabulaire `type`** : `initial` (transcription baseline), `feature` (ajout pur de champ/ressource),
+`deprecated` (cycle de vie : champ encore servi mais voué à disparaître), `removed` (champ supprimé),
+`rename` (**vrai** alias — même grandeur, mêmes valeurs, juste un autre nom) et `replace`
+(**dépréciation + création**, voir ci-dessous).
+
+**`rename` vs `replace` — la distinction qui compte.** Ne PAS qualifier de `rename` un changement où
+la **grandeur mesurée change**. Si la source garde l'ancien nom mais l'ancienne variable devient
+obsolète, et qu'une **nouvelle variable** (nouveau nom + nouvelle définition/référence/unité) la
+remplace avec des **valeurs non équivalentes**, c'est un `replace` : un consommateur ne peut pas
+faire un simple `s/ancien/nouveau/`, il doit **adopter une variable au sens différent**. On liste
+alors `deprecated_fields` (anciennes) et `added_fields` (nouvelles), `severity: breaking`.
+
+**Marqueur de champ** : sur une propriété de `schema` dépréciée, ajouter `deprecated: true`
+(clé custom, ignorée par les validateurs ODCS) + un préfixe `[v1, DÉPRÉCIÉE]` / `[v2, ACTIVE]`
+dans la `description`, pour que l'état actif/obsolète soit lisible par humain ET par machine
+(la sentinelle de détection, tranche 3, doit distinguer « champ vidé/retiré » + « champ ajouté »
+plutôt que de conclure à un renommage).
+
+**Exemple de référence** : `contracts/source-meteofrance-dpobs.odcs.yaml` — passage v2 rafale,
+`fxi/dxi/fxi10/dxi10` (instantané) dépréciées, `raf/ddraf/raf10/ddraf10` (moyenne 3 s, OMM) créées.
+
 ## Justification
 
 - **Un seul formalisme, un seul versioning.** Réutiliser ODCS (déjà porteur de `version:` et de
