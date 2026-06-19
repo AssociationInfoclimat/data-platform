@@ -106,6 +106,24 @@ for r in search_code("anti-scraping auth", k=6, repos=["python-climate-services"
     print(r.location, r.score)
 ```
 
+## Corpus « docs » (gouvernance) — `search_docs`
+
+En plus du code, le même pipeline indexe la **gouvernance data-platform** (contrats ODCS,
+inventory, catalog, glossaire, audits) dans une **table séparée `docs_chunks`** de la même
+base, avec un **modèle d'embedding texte** (`mistral-embed`, pas codestral) et un **découpage
+par entrée** (`chunk_structured` : 1 entrée de registre YAML / 1 contrat / 1 section markdown
+= 1 chunk). C'est un **complément de rappel** des outils lexicaux `grep`/`lineage` (et non un
+remplacement du system prompt du bot).
+
+```bash
+# périmètre = section `docs:` du manifest (globs sous data-platform/)
+python -m code_index.index --corpus docs --dry-run       # estimer
+python -m code_index.index --corpus docs                 # construire docs_chunks
+python -m code_index.search --corpus docs "limitation du contrat foudre"
+```
+
+En Python : `from code_index import search_docs ; search_docs("anti-scraping", k=6)`.
+
 ## Configuration (variables d'environnement)
 
 | Variable | Défaut | Rôle |
@@ -125,6 +143,7 @@ for r in search_code("anti-scraping auth", k=6, repos=["python-climate-services"
 | `CODE_INDEX_QUERY_REWRITE` | `on` | Réécriture de la requête avant recherche |
 | `CODE_INDEX_META_RERANK` | `on` | Rerank par autorité (statut gouvernance) + récence après l'hybride |
 | `CODE_INDEX_META` | — | Chemin du sidecar JSON de métadonnées (source/date/statut) à l'indexation |
+| `DOCS_INDEX_MODEL` | `mistral-embed` | Modèle d'embedding du corpus docs (`--corpus docs`) |
 
 ## Architecture
 

@@ -82,3 +82,30 @@ def iter_files(manifest: dict, base_dir: Path, *, repos: list[str] | None = None
                 continue
             yield SourceFile(repo=repo, path=rel, abspath=abspath,
                              lang=LANG_BY_EXT.get(abspath.suffix.lower(), "text"))
+
+
+def iter_docs(manifest: dict, base_dir: Path, *, max_file_bytes: int = 2_000_000) -> Iterator[SourceFile]:
+    """Itère le corpus « docs » (section `docs` du manifeste) : globs explicites sous un repo
+    (data-platform). Contrairement à `iter_files` (filtre d'extension), on suit des motifs
+    précis (contrats, inventory, catalog, audits…)."""
+    spec = manifest.get("docs") or {}
+    repo = spec.get("repo", "data-platform")
+    root = (base_dir / repo).resolve()
+    if not root.is_dir():
+        return
+    seen: set[str] = set()
+    for glob in spec.get("include_globs", []):
+        for abspath in sorted(root.glob(glob)):
+            if not abspath.is_file():
+                continue
+            rel = abspath.relative_to(root).as_posix()
+            if rel in seen:
+                continue
+            try:
+                if abspath.stat().st_size > max_file_bytes or _looks_binary(abspath):
+                    continue
+            except OSError:
+                continue
+            seen.add(rel)
+            yield SourceFile(repo=repo, path=rel, abspath=abspath,
+                             lang=LANG_BY_EXT.get(abspath.suffix.lower(), "text"))
