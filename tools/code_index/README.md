@@ -135,6 +135,32 @@ python -m code_index.search --corpus docs "limitation du contrat foudre"
 
 En Python : `from code_index import search_docs ; search_docs("anti-scraping", k=6)`.
 
+## Graphe d'appels — `code_impact` (Phase 4)
+
+`graph.py` extrait un **graphe d'appels statique** (tree-sitter, PHP/Python/TS/JS) :
+définitions (fonctions/classes/méthodes) reliées par leurs sites d'appel. Il répond à
+**« qu'est-ce qui casse si je change X ? »** (`callers`, rayon d'impact) et **« de quoi
+dépend X ? »** (`callees`). C'est le pendant *code* du `lineage` *data* curé — aucun
+embedding, **aucun appel API** (pur AST), donc l'artefact se (re)construit n'importe où.
+
+Résolution **par nom** (multi-langage, pragmatique) : un appel `foo()` pointe vers toute
+définition nommée `foo`. Deux garde-fous data-driven contre les collisions avec des
+primitives : `--max-fanout` (nom trop défini → non relié) et un seuil de fréquence d'appel
+(nom appelé partout, ex. `.push()`, → non relié) ; les fichiers minifiés/bundlés sont exclus.
+Limitation assumée et signalée dans la sortie (champ `ambiguous`).
+
+```bash
+# construire l'artefact (JSON ou JSON.gz — ~1,5 Mo gz pour ~37k nœuds) :
+python -m code_index.graph build --out graph.json.gz
+# interroger : rayon d'impact (callers) / dépendances (callees) :
+python -m code_index.graph impact --graph graph.json.gz "Accumulation" --direction callers --depth 2
+python -m code_index.graph impact --graph graph.json.gz "PluviometrieService" --direction callees
+```
+
+En Python : `from code_index.graph import load_graph, code_impact`. Un nœud `class` « tire »
+ses méthodes comme graines (changer la classe = changer ses membres). `--meta sidecar.json`
+ajoute les **URLs source** (permaliens) à chaque résultat.
+
 ## Configuration (variables d'environnement)
 
 | Variable | Défaut | Rôle |

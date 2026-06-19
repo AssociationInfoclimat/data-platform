@@ -12,6 +12,7 @@ retombe sur le char-window — rien ne casse.
 """
 from __future__ import annotations
 
+from . import tsutil
 from .chunk import Chunk, chunk_text
 
 # Étiquette de langage (walk.LANG_BY_EXT) → nom tree-sitter.
@@ -31,64 +32,14 @@ _DEF_TYPES = {
 
 _COMMENT_PREFIXES = ("#", "//", "/*", "*", "*/")
 
-
-def _get_parser(ts_lang: str):
-    """Parser tree-sitter ou None si la lib/grammaire est absente (→ repli char-window)."""
-    try:
-        from tree_sitter_language_pack import get_parser
-        return get_parser(ts_lang)
-    except Exception:  # noqa: BLE001 — lib absente, grammaire inconnue, etc.
-        return None
-
-
-# ── Accès NŒUD/ARBRE agnostique au binding ───────────────────────────────────
-# Les bindings tree-sitter divergent : py-tree-sitter expose node.type /
-# node.start_point / node.named_children / tree.root_node (propriété) ; d'autres
-# (ex. language-pack 1.9) exposent node.kind / node.start_position / node.named_child(i)
-# / tree.root_node() (méthode). On lisse les deux pour rester portable.
-
-def _v(obj, name):
-    """Attribut `name`, appelé s'il s'agit d'une méthode (les bindings exposent tantôt des
-    propriétés, tantôt des méthodes pour les mêmes infos)."""
-    a = getattr(obj, name, None)
-    return a() if callable(a) else a
-
-
-def _root(tree):
-    return _v(tree, "root_node")
-
-
-def _kind(node) -> str:
-    return _v(node, "type") or _v(node, "kind")
-
-
-def _row(pt) -> int:
-    """Ligne 0-based d'un point tree-sitter : tuple (row, col) ou objet Point(.row)."""
-    return pt.row if hasattr(pt, "row") else pt[0]
-
-
-def _start_row(node) -> int:
-    return _row(_v(node, "start_point") or _v(node, "start_position"))
-
-
-def _end_row(node) -> int:
-    return _row(_v(node, "end_point") or _v(node, "end_position"))
-
-
-def _named_children(node) -> list:
-    kids = _v(node, "named_children")
-    if kids is not None:
-        return list(kids)
-    cnt = _v(node, "named_child_count") or 0
-    return [node.named_child(i) for i in range(cnt)]
-
-
-def _parse(parser, text: str):
-    """parse(bytes) (py-tree-sitter) ou parse(str) (language-pack 1.9) — on tente les deux."""
-    try:
-        return parser.parse(text.encode("utf-8", errors="replace"))
-    except TypeError:
-        return parser.parse(text)
+# Accès tree-sitter agnostique au binding : factorisé dans `tsutil` (partagé avec `graph`).
+_get_parser = tsutil.get_parser
+_root = tsutil.root
+_kind = tsutil.kind
+_start_row = tsutil.start_row
+_end_row = tsutil.end_row
+_named_children = tsutil.named_children
+_parse = tsutil.parse
 
 
 def _emit_window(lines: list[str], a: int, b: int, max_chars: int, out: list[Chunk]) -> None:
