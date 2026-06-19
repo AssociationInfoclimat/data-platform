@@ -65,3 +65,22 @@ def test_max_file_bytes(tmp_path: Path) -> None:
     _touch(tmp_path / "repoA" / "big.py", b"#" * 5000)
     found = list(iter_files(MANIFEST, tmp_path, repos=["repoA"], max_file_bytes=1000))
     assert found == []
+
+
+def test_exclude_per_repo(tmp_path: Path) -> None:
+    """Exclusion ciblée par repo : la gouvernance de repoA est retirée, mais le même
+    chemin dans repoB (non visé) est conservé, et le code de repoA reste."""
+    manifest = {
+        "repos": ["repoA", "repoB"],
+        "include_ext": [".py", ".yaml"],
+        "exclude_per_repo": {"repoA": ["catalog/*", "contracts/*"]},
+    }
+    _touch(tmp_path / "repoA" / "catalog" / "x.yaml")
+    _touch(tmp_path / "repoA" / "contracts" / "c.yaml")
+    _touch(tmp_path / "repoA" / "tools" / "real.py")
+    _touch(tmp_path / "repoB" / "catalog" / "keep.yaml")     # repoB non visé → gardé
+    keys = {f.key for f in iter_files(manifest, tmp_path)}
+    assert "repoA/tools/real.py" in keys
+    assert "repoB/catalog/keep.yaml" in keys
+    assert "repoA/catalog/x.yaml" not in keys
+    assert "repoA/contracts/c.yaml" not in keys

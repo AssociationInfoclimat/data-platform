@@ -57,6 +57,10 @@ def iter_files(manifest: dict, base_dir: Path, *, repos: list[str] | None = None
     include_ext = {e.lower() for e in manifest.get("include_ext", [])}
     exclude_dirs = set(manifest.get("exclude_dirs", []))
     exclude_globs = list(manifest.get("exclude_globs", []))
+    # Exclusions PAR REPO (motifs relatifs au repo) : ex. retirer la gouvernance data-platform
+    # (catalog/contracts/inventory/lineage/…) du corpus CODE — elle est déjà dans docs_chunks,
+    # et sa prose enterrait le vrai code applicatif dans search_code.
+    per_repo = manifest.get("exclude_per_repo", {}) or {}
     wanted = set(repos) if repos else None
 
     for repo in manifest.get("repos", []):
@@ -65,11 +69,12 @@ def iter_files(manifest: dict, base_dir: Path, *, repos: list[str] | None = None
         root = (base_dir / repo).resolve()
         if not root.is_dir():
             continue
+        repo_globs = exclude_globs + list(per_repo.get(repo, []))
         for abspath in sorted(root.rglob("*")):
             if not abspath.is_file():
                 continue
             rel = abspath.relative_to(root).as_posix()
-            if is_excluded(rel, exclude_dirs, exclude_globs):
+            if is_excluded(rel, exclude_dirs, repo_globs):
                 continue
             if abspath.suffix.lower() not in include_ext:
                 continue

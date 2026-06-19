@@ -78,6 +78,21 @@ exclude_globs:
   - "uv.lock"
   - "poetry.lock"
 
+# Exclusions PAR REPO (motifs relatifs au repo, fnmatch). La gouvernance data-platform
+# (catalog/contracts/inventory/lineage/audits/adr + prose .md) est DÉJÀ indexée dans le
+# corpus « docs » (table docs_chunks, search_docs). L'indexer AUSSI en CODE polluait
+# search_code : sa prose FR matchait les requêtes et enterrait le vrai code applicatif.
+# Côté code, on ne garde de data-platform que le VRAI code (tools/*.py, scripts).
+exclude_per_repo:
+  data-platform:
+    - "catalog/*"
+    - "contracts/*"
+    - "inventory/*"
+    - "lineage/*"
+    - "audits/*"
+    - "adr/*"
+    - "*.md"
+
 # ── Corpus « docs » : gouvernance data-platform (table docs_chunks, modèle texte) ──
 # Chemins RELATIFS au repo data-platform (résolus sous base_dir/data-platform). Chunking par
 # entrée (cf. chunk_structured) ; CSV de volumétrie et *.sql.gz exclus (servis par les outils
