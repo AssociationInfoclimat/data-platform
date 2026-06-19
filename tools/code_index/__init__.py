@@ -12,11 +12,11 @@ lance `python -m code_index.search`.
 """
 from __future__ import annotations
 
-__all__ = ["search_code"]
+__all__ = ["search_code", "search_docs"]
 
 
 def __getattr__(name: str):
-    if name == "search_code":
-        from .search import search_code
-        return search_code
+    if name in ("search_code", "search_docs"):
+        from . import search
+        return getattr(search, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

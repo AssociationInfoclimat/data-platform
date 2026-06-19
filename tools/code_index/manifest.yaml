@@ -77,3 +77,19 @@ exclude_globs:
   - "composer.lock"
   - "uv.lock"
   - "poetry.lock"
+
+# ── Corpus « docs » : gouvernance data-platform (table docs_chunks, modèle texte) ──
+# Chemins RELATIFS au repo data-platform (résolus sous base_dir/data-platform). Chunking par
+# entrée (cf. chunk_structured) ; CSV de volumétrie et *.sql.gz exclus (servis par les outils
+# volumetrie/schema, pas embeddés).
+docs:
+  repo: data-platform
+  include_globs:
+    - "contracts/*.odcs.yaml"
+    - "inventory/*.yaml"
+    - "catalog/*.yaml"
+    - "catalog/glossary.md"
+    - "catalog/datasets/*.md"
+    - "audits/**/*.yaml"
+    - "README.md"
+    - "lineage/*.md"

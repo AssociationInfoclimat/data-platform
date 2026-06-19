@@ -33,6 +33,11 @@ EMBED_MODEL = "codestral-embed-2505"
 CONTEXT_MODEL = "mistral-small-latest"   # chat bon marché pour situer les chunks
 FTS_COLUMN = "contextualized"            # colonne indexée en BM25 (contexte + code)
 
+# Corpus « docs » (gouvernance data-platform) : table + modèle séparés, même base LanceDB.
+# Le corpus est du YAML/prose → modèle d'embedding TEXTE (pas codestral, orienté code).
+DOCS_TABLE_NAME = "docs_chunks"
+DOCS_EMBED_MODEL = "mistral-embed"
+
 # Version de la stratégie d'indexation (contexte + texte embeddé). Stampée sur chaque
 # ligne (`embed_ver`). La bumper invalide l'index : tout fichier dont la version diffère
 # est ré-embeddé, même si son sha256 n'a pas changé (le diff par sha ne voit pas un
@@ -42,6 +47,8 @@ EMBED_VERSION = "ctx-v1"
 
 @dataclass(frozen=True)
 class Config:
+    corpus: str                   # "code" | "docs" — quel corpus indexer/requêter
+    table: str                    # table LanceDB (code_chunks | docs_chunks)
     base_dir: Path                # racine où chercher les repos
     db_dir: Path                  # répertoire LanceDB (artefact local, gitignoré)
     model: str                    # modèle d'embedding Mistral
@@ -88,14 +95,25 @@ def _env_choice(name: str, default: str, allowed: set[str]) -> str:
     return raw if raw in allowed else default
 
 
-def load_config() -> Config:
+def load_config(corpus: str = "code") -> Config:
+    """Config pour le corpus `code` (défaut) ou `docs` (gouvernance data-platform).
+
+    Le corpus `docs` partage la même base LanceDB mais une table (`docs_chunks`) et un
+    modèle d'embedding TEXTE (`mistral-embed`, surchargeable par `DOCS_INDEX_MODEL`)
+    distincts ; le contexte LLM par chunk est désactivé par défaut (les chunks par entrée
+    portent déjà leur en-tête). Les autres réglages réutilisent les `CODE_INDEX_*`."""
+    docs = corpus == "docs"
     base = os.environ.get("CODE_INDEX_BASE_DIR")
     db = os.environ.get("CODE_INDEX_DIR")
     dim_raw = os.environ.get("CODE_INDEX_DIM")
+    default_model = (os.environ.get("DOCS_INDEX_MODEL", DOCS_EMBED_MODEL) if docs
+                     else os.environ.get("CODE_INDEX_MODEL", EMBED_MODEL))
     return Config(
+        corpus=corpus,
+        table=DOCS_TABLE_NAME if docs else TABLE_NAME,
         base_dir=Path(base).expanduser() if base else _WORKSPACE_ROOT,
         db_dir=Path(db).expanduser() if db else DEFAULT_DB_DIR,
-        model=os.environ.get("CODE_INDEX_MODEL", EMBED_MODEL),
+        model=default_model,
         dim=int(dim_raw) if dim_raw else None,
         api_key=os.environ.get("MISTRAL_API_KEY"),
         batch_size=_env_int("CODE_INDEX_BATCH_SIZE", 64),
@@ -109,7 +127,10 @@ def load_config() -> Config:
         max_input_chars=_env_int("CODE_INDEX_MAX_INPUT_CHARS", 8_000),
         min_interval_s=_env_float("CODE_INDEX_MIN_INTERVAL_S", 0.5),
         max_retries=_env_int("CODE_INDEX_MAX_RETRIES", 5),
-        context_mode=_env_choice("CODE_INDEX_CONTEXT", "llm", {"llm", "struct", "off"}),
+        # Docs : contexte LLM OFF par défaut (les chunks par entrée portent déjà leur en-tête
+        # `fichier | clé: …`) ; code : LLM par défaut. Surchargeable par CODE_INDEX_CONTEXT.
+        context_mode=_env_choice("CODE_INDEX_CONTEXT", "off" if docs else "llm",
+                                 {"llm", "struct", "off"}),
         context_model=os.environ.get("CODE_INDEX_CONTEXT_MODEL", CONTEXT_MODEL),
         hybrid=_env_bool("CODE_INDEX_HYBRID", True),
         rerank=_env_choice("CODE_INDEX_RERANK", "rrf", {"rrf", "llm", "none"}),

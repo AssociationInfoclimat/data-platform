@@ -155,14 +155,9 @@ def _where(repos: list[str] | None, lang: str | None) -> str | None:
     return " AND ".join(clauses) if clauses else None
 
 
-def search_code(question: str, k: int = 8, repos: list[str] | None = None,
-                lang: str | None = None, config: Config | None = None) -> list[Result]:
-    """Top-`k` chunks les plus pertinents pour `question`, filtrables par repo/langage.
-
-    Pipeline (selon la config) : réécriture de la requête (chat) → embedding → recherche
-    hybride vecteur + BM25 fusionnée par RRF → rerank LLM optionnel. Le `text` renvoyé
-    reste le chunk **brut**. Signature stable (réutilisée par le wrapper MCP d'ic-data-bot)."""
-    cfg = config or load_config()
+def _run_search(cfg: Config, question: str, k: int, where: str | None) -> list[Result]:
+    """Cœur partagé : réécriture → embedding → hybride vecteur+BM25 (RRF) → rerank
+    LLM/autorité, sur la table `cfg.table`. Réutilisé par `search_code` et `search_docs`."""
     if not cfg.api_key:
         raise RuntimeError("MISTRAL_API_KEY manquante : impossible d'embedder la requête.")
     client = embed.make_client(cfg.api_key)
@@ -175,11 +170,10 @@ def search_code(question: str, k: int = 8, repos: list[str] | None = None,
                              max_input_chars=cfg.max_input_chars, throttle=throttle,
                              max_retries=cfg.max_retries)
     db = store.connect(cfg.db_dir)
-    # Sur-échantillonne quand un rerank va réordonner (LLM ou autorité/récence).
-    over = k * 3 if (cfg.rerank == "llm" or cfg.meta_rerank) else k
-    rows = store.search(db, qvec, k=over, where=_where(repos, lang),
+    over = k * 3 if (cfg.rerank == "llm" or cfg.meta_rerank) else k  # sur-échantillonne si rerank
+    rows = store.search(db, qvec, k=over, where=where,
                         query_text=query if cfg.hybrid else None,
-                        hybrid=cfg.hybrid, reranker=_reranker(cfg))
+                        hybrid=cfg.hybrid, reranker=_reranker(cfg), table=cfg.table)
     results = [_to_result(r) for r in rows]
     if cfg.rerank == "llm" and len(results) > 1:
         results = _llm_rerank(client, query, results, over, cfg, throttle)
@@ -188,16 +182,34 @@ def search_code(question: str, k: int = 8, repos: list[str] | None = None,
     return results[:k]
 
 
+def search_code(question: str, k: int = 8, repos: list[str] | None = None,
+                lang: str | None = None, config: Config | None = None) -> list[Result]:
+    """Top-`k` chunks de CODE les plus pertinents, filtrables par repo/langage. Le `text`
+    renvoyé reste le chunk **brut**. Signature stable (réutilisée par le wrapper MCP)."""
+    return _run_search(config or load_config("code"), question, k, _where(repos, lang))
+
+
+def search_docs(question: str, k: int = 6, config: Config | None = None) -> list[Result]:
+    """Top-`k` entrées de GOUVERNANCE (contrats, inventory, catalog, glossaire) les plus
+    pertinentes pour `question` — recherche sémantique sur la table `docs_chunks`
+    (embeddings mistral-embed). Complément des outils lexicaux grep/lineage."""
+    return _run_search(config or load_config("docs"), question, k, None)
+
+
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description="Recherche sémantique dans le code Infoclimat.")
     ap.add_argument("question")
     ap.add_argument("--k", type=int, default=8)
     ap.add_argument("--repo", action="append", dest="repos", default=None)
     ap.add_argument("--lang", default=None)
+    ap.add_argument("--corpus", choices=["code", "docs"], default="code")
     ap.add_argument("--full", action="store_true", help="Afficher le chunk entier.")
     args = ap.parse_args(argv)
 
-    results = search_code(args.question, k=args.k, repos=args.repos, lang=args.lang)
+    if args.corpus == "docs":
+        results = search_docs(args.question, k=args.k)
+    else:
+        results = search_code(args.question, k=args.k, repos=args.repos, lang=args.lang)
     if not results:
         print("Aucun résultat (index vide ?). Lancer d'abord : python -m code_index.index",
               file=sys.stderr)

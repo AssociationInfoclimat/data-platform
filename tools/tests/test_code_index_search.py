@@ -55,7 +55,8 @@ def test_where_escapes_quotes() -> None:
 def _cfg() -> Config:
     # Pipeline simple (vecteur seul, sans réécriture/rerank) pour tester le mapping isolément ;
     # les modes contextuel/hybride ont leurs propres tests.
-    return Config(base_dir=Path("."), db_dir=Path("."), model="m", dim=None, api_key="k",
+    return Config(corpus="code", table="code_chunks",
+                  base_dir=Path("."), db_dir=Path("."), model="m", dim=None, api_key="k",
                   batch_size=8, max_batch_chars=50_000, chunk_chars=3000, overlap_chars=1000,
                   max_file_bytes=1, max_input_chars=100, min_interval_s=0.0, max_retries=1,
                   context_mode="off", context_model="m", hybrid=False, rerank="none",
@@ -107,7 +108,7 @@ def test_search_code_rewrites_and_passes_hybrid(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(search_mod.store, "connect", lambda d: object())
     captured = {}
 
-    def _fake_search(db, qvec, *, k, where, query_text=None, hybrid=False, reranker=None):
+    def _fake_search(db, qvec, *, k, where, query_text=None, hybrid=False, reranker=None, table="code_chunks"):
         captured.update(query_text=query_text, hybrid=hybrid, reranker=reranker)
         return [{"repo": "r", "path": "a.php", "start_line": 1, "end_line": 2, "lang": "php",
                  "text": "code", "_relevance_score": 0.9}]

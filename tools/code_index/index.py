@@ -19,7 +19,7 @@ from pathlib import Path
 import json
 
 from . import context, embed, meta as meta_mod, store, walk
-from .chunk import chunk_text
+from .chunk import chunk_structured, chunk_text
 from .config import EMBED_VERSION, Config, load_config, load_manifest
 
 PRICE_PER_MTOK = 0.15  # codestral-embed-2505, $ / million de tokens
@@ -52,7 +52,11 @@ def _build_rows(blob: FileBlob, cfg: Config, client: object | None,
     (= contexte préfixé) est ce qui est embeddé et indexé en BM25. Sans `client`
     (dry-run), le mode `llm` retombe sur le contexte structurel pour estimer sans API.
     """
-    chunks = chunk_text(blob.text, cfg.chunk_chars, cfg.overlap_chars)
+    # Corpus docs : découpe PAR ENTRÉE (registre YAML/contrat/section md) ; code : fenêtres.
+    if cfg.corpus == "docs":
+        chunks = chunk_structured(blob.src.path, blob.text, cfg.max_input_chars)
+    else:
+        chunks = chunk_text(blob.text, cfg.chunk_chars, cfg.overlap_chars)
     mode = cfg.context_mode
     if client is None and mode == "llm":
         mode = "struct"  # proxy déterministe pour le dry-run (pas d'appel API)
@@ -99,9 +103,11 @@ def main(argv: list[str]) -> int:
                     help="Limiter à ce(s) repo(s) (répétable).")
     ap.add_argument("--dry-run", action="store_true", help="Estimer sans appeler l'API.")
     ap.add_argument("--limit", type=int, default=None, help="Plafonner le nb de fichiers (debug).")
+    ap.add_argument("--corpus", choices=["code", "docs"], default="code",
+                    help="Corpus à indexer : code (défaut) ou docs (gouvernance data-platform).")
     args = ap.parse_args(argv)
 
-    cfg = load_config()
+    cfg = load_config(args.corpus)
     base_dir = args.base_dir or cfg.base_dir
     manifest = load_manifest(args.manifest)
 
@@ -111,8 +117,11 @@ def main(argv: list[str]) -> int:
     if cfg.meta_path and Path(cfg.meta_path).exists():
         sidecar = json.loads(Path(cfg.meta_path).read_text(encoding="utf-8"))
 
-    files = list(walk.iter_files(manifest, base_dir, repos=args.repos,
-                                 max_file_bytes=cfg.max_file_bytes))
+    if cfg.corpus == "docs":
+        files = list(walk.iter_docs(manifest, base_dir, max_file_bytes=cfg.max_file_bytes))
+    else:
+        files = list(walk.iter_files(manifest, base_dir, repos=args.repos,
+                                     max_file_bytes=cfg.max_file_bytes))
     if args.limit:
         files = files[:args.limit]
     if not files:
@@ -143,8 +152,8 @@ def main(argv: list[str]) -> int:
         return 0
 
     db = store.connect(cfg.db_dir)
-    indexed = store.indexed_shas(db)
-    vers = store.indexed_vers(db)
+    indexed = store.indexed_shas(db, cfg.table)
+    vers = store.indexed_vers(db, cfg.table)
 
     def _needs_reindex(b: FileBlob) -> bool:
         # Contenu modifié OU stratégie d'indexation (contexte/embedding) périmée.
@@ -159,7 +168,7 @@ def main(argv: list[str]) -> int:
         print(f"Index à jour : {len(blobs)} fichiers, rien à (ré)indexer.")
         return 0
 
-    store.delete_keys(db, sorted(set(refresh) | set(gone)))
+    store.delete_keys(db, sorted(set(refresh) | set(gone)), cfg.table)
 
     total_rows = 0
     if to_index:
@@ -205,7 +214,7 @@ def main(argv: list[str]) -> int:
                 for row, vec in zip(rows_b, vectors):
                     row["vector"] = vec
                 for s in range(0, len(rows_b), 1000):
-                    store.add_rows(db, rows_b[s:s + 1000])
+                    store.add_rows(db, rows_b[s:s + 1000], cfg.table)
                 total_rows += len(rows_b)
             print(f"  {min(fstart + BATCH_FILES, len(to_index))}/{len(to_index)} fichiers "
                   f"indexés, {total_rows} chunks écrits…", flush=True, file=sys.stderr)
@@ -213,7 +222,7 @@ def main(argv: list[str]) -> int:
             # Compacte en mono-fragment PUIS construit le BM25 : le builder FTS natif de
             # LanceDB deadlock sur une table multi-fragment (cf. store.rebuild_with_fts).
             print("  compaction + index FTS BM25…", flush=True, file=sys.stderr)
-            store.rebuild_with_fts(db, meta=sidecar)
+            store.rebuild_with_fts(db, meta=sidecar, table=cfg.table)
 
     print(f"Indexé : {len(to_index)} fichiers (ré)indexés, {total_rows} chunks, "
           f"{len(gone)} fichiers retirés.")

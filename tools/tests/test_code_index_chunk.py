@@ -1,11 +1,47 @@
 """Tests du découpage en fenêtres (code_index.chunk)."""
 from __future__ import annotations
 
-from code_index.chunk import chunk_text
+import pytest
+
+from code_index.chunk import chunk_structured, chunk_text
 
 
 def test_empty_text_yields_nothing() -> None:
     assert chunk_text("") == []
+
+
+# ── chunk_structured (corpus docs) ──
+
+def test_structured_yaml_registry_one_chunk_per_entry() -> None:
+    pytest.importorskip("yaml")
+    text = ("version: 1\n"
+            "tables:\n"
+            "  - name: foudre\n    status: actif\n    note: impacts\n"
+            "  - name: connectes\n    status: mort\n")
+    chunks = chunk_structured("inventory/tables.yaml", text)
+    assert len(chunks) == 2
+    assert chunks[0].text.startswith("# inventory/tables.yaml | tables: foudre")
+    assert "name: foudre" in chunks[0].text and "name: connectes" in chunks[1].text
+    # lignes réelles : la 1re entrée commence ligne 3
+    assert chunks[0].start_line == 3
+
+
+def test_structured_contract_is_single_doc() -> None:
+    pytest.importorskip("yaml")
+    # Un contrat ODCS contient des listes (servers) mais NE doit PAS être éclaté par elles.
+    text = ("apiVersion: v3.0.2\nkind: DataContract\n"
+            "servers:\n  - server: a\n  - server: b\n")
+    chunks = chunk_structured("contracts/x.odcs.yaml", text)
+    assert len(chunks) == 1
+    assert chunks[0].text.startswith("# contracts/x.odcs.yaml")
+    assert "server: a" in chunks[0].text and "server: b" in chunks[0].text
+
+
+def test_structured_markdown_by_section() -> None:
+    text = "# Titre\nintro\n\n## A\nbla\n\n## B\nblo\n"
+    chunks = chunk_structured("catalog/glossary.md", text)
+    assert len(chunks) == 3  # préambule+titre / A / B
+    assert any("## A" in c.text for c in chunks) and any("## B" in c.text for c in chunks)
 
 
 def test_small_file_is_single_chunk() -> None:
