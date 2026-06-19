@@ -42,7 +42,7 @@ DOCS_EMBED_MODEL = "mistral-embed"
 # ligne (`embed_ver`). La bumper invalide l'index : tout fichier dont la version diffère
 # est ré-embeddé, même si son sha256 n'a pas changé (le diff par sha ne voit pas un
 # changement de stratégie de contexte).
-EMBED_VERSION = "ctx-v1"
+EMBED_VERSION = "ast-v1"   # ctx-v1 → ast-v1 : découpe AST (frontières fonction/classe) du code
 
 
 @dataclass(frozen=True)

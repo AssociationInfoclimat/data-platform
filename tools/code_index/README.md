@@ -106,6 +106,17 @@ for r in search_code("anti-scraping auth", k=6, repos=["python-climate-services"
     print(r.location, r.score)
 ```
 
+## Découpe du code : AST (tree-sitter)
+
+Le code est découpé aux **frontières fonction/classe** via tree-sitter (`chunk_ast.chunk_code`,
+PHP/Python/TS/JS) — un chunk = une définition top-level (commentaires/décorateurs attenants
+inclus), le procédural/imports en chunks « glue ». **Repli char-window** (`chunk.chunk_text`)
+si langage non outillé, parsing impossible, ou nœud > `chunk_chars`. Dépend de
+`tree-sitter-language-pack` (extra `code-index`) ; **sans la lib, tout retombe sur le
+char-window** (CI stdlib OK). Le binding est accédé de façon agnostique (`type`/`kind`,
+`start_point`/`start_position`, propriété/méthode). Changer la découpe bumpe `EMBED_VERSION`
+(`ctx-v1`→`ast-v1`) → réindexation complète du code.
+
 ## Corpus « docs » (gouvernance) — `search_docs`
 
 En plus du code, le même pipeline indexe la **gouvernance data-platform** (contrats ODCS,

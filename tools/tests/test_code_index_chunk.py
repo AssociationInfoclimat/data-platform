@@ -44,6 +44,34 @@ def test_structured_markdown_by_section() -> None:
     assert any("## A" in c.text for c in chunks) and any("## B" in c.text for c in chunks)
 
 
+# ── chunk_code (AST tree-sitter) ──
+
+def test_chunk_code_fallback_without_tree_sitter() -> None:
+    # Langage non outillé → repli char-window (jamais d'erreur).
+    from code_index.chunk_ast import chunk_code
+    out = chunk_code("a = 1\nb = 2\n", "ncl", 3000)
+    assert len(out) == 1 and "a = 1" in out[0].text
+    assert chunk_code("", "python", 3000) == []
+
+
+def test_chunk_code_python_splits_by_def() -> None:
+    pytest.importorskip("tree_sitter_language_pack")
+    from code_index.chunk_ast import chunk_code
+    src = ("import os\n\n"
+           "def alpha():\n    return 1\n\n"
+           "def beta():\n    return 2\n\n"
+           "class Gamma:\n    def m(self):\n        return 3\n")
+    chunks = chunk_code(src, "python", 3000)
+    # 1 chunk par définition top-level (+ éventuel glue d'imports) — pas de fenêtres qui chevauchent.
+    heads = [c.text.strip().splitlines()[0] for c in chunks]
+    assert any(h.startswith("def alpha") for h in heads)
+    assert any(h.startswith("def beta") for h in heads)
+    assert any(h.startswith("class Gamma") for h in heads)
+    # lignes croissantes et non chevauchantes
+    for a, b in zip(chunks, chunks[1:]):
+        assert a.end_line <= b.start_line
+
+
 def test_small_file_is_single_chunk() -> None:
     text = "line1\nline2\nline3\n"
     chunks = chunk_text(text, max_chars=3000, overlap_chars=1000)
