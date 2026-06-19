@@ -220,11 +220,13 @@ def main(argv: list[str]) -> int:
                 total_rows += len(rows_b)
             print(f"  {min(fstart + BATCH_FILES, len(to_index))}/{len(to_index)} fichiers "
                   f"indexés, {total_rows} chunks écrits…", flush=True, file=sys.stderr)
-        if cfg.hybrid:
-            # Compacte en mono-fragment PUIS construit le BM25 : le builder FTS natif de
-            # LanceDB deadlock sur une table multi-fragment (cf. store.rebuild_with_fts).
-            print("  compaction + index FTS BM25…", flush=True, file=sys.stderr)
-            store.rebuild_with_fts(db, meta=sidecar, table=cfg.table)
+
+    # FTS reconstruit dès qu'il y a eu un changement — y compris des SUPPRESSIONS seules
+    # (sans ré-embedding) : retirer des lignes sans recompacter laisserait un index BM25
+    # incohérent (et multi-fragment). rebuild_with_fts n'appelle pas l'API.
+    if cfg.hybrid and (to_index or gone):
+        print("  compaction + index FTS BM25…", flush=True, file=sys.stderr)
+        store.rebuild_with_fts(db, meta=sidecar, table=cfg.table)
 
     print(f"Indexé : {len(to_index)} fichiers (ré)indexés, {total_rows} chunks, "
           f"{len(gone)} fichiers retirés.")
