@@ -207,6 +207,44 @@ def test_code_impact_unknown_symbol() -> None:
     assert res["roots"] == [] and res["impacted"] == []
 
 
+# ── Mode fichier ──────────────────────────────────────────────────────────────────
+
+def test_code_impact_file_mode() -> None:
+    pytest.importorskip("tree_sitter_language_pack")
+    files = [
+        (_sf("r", "lib/util.py", "python"), "def helper():\n    return 1\n\ndef other():\n    return 2\n"),
+        (_sf("r", "app/main.py", "python"), "from x import y\ndef run():\n    return helper()\n"),
+    ]
+    g = graph.build_graph(files)
+    # « qu'est-ce qui casse si je supprime lib/util.py » → run (appelle helper)
+    res = graph.code_impact(g, "lib/util.py", direction="callers", depth=2)
+    assert res["scope"] == "file"
+    assert res["files"] == ["r/lib/util.py"]
+    assert len(res["roots"]) == 2                       # helper + other = symboles du fichier
+    assert "run" in {n["qname"] for n in res["impacted"]}
+
+
+def test_code_impact_symbol_takes_precedence_over_path() -> None:
+    pytest.importorskip("tree_sitter_language_pack")
+    g = _chain_graph()
+    res = graph.code_impact(g, "c", direction="callers")   # 'c' est un symbole, pas un chemin
+    assert res["scope"] == "symbol"
+
+
+# ── code_hotspots ─────────────────────────────────────────────────────────────────
+
+def test_code_hotspots_ranking_and_filter() -> None:
+    pytest.importorskip("tree_sitter_language_pack")
+    g = _chain_graph()
+    res = graph.code_hotspots(g, top=5, by="fan_in")
+    qn = [h["qname"] for h in res["hotspots"]]
+    assert "c" in qn and "<module>" not in qn           # module exclu
+    # c (appelé par b) a un fan-in ≥ a (appelé par personne) → c avant a
+    assert qn.index("c") < qn.index("a")
+    # filtre repo inexistant → vide
+    assert graph.code_hotspots(g, repo="absent")["hotspots"] == []
+
+
 def test_load_graph_roundtrip_and_gzip(tmp_path) -> None:
     pytest.importorskip("tree_sitter_language_pack")
     import gzip
