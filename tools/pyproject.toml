@@ -16,6 +16,7 @@ contracts = [
 code-index = [
   "mistralai>=2.4",
   "lancedb>=0.13",
+  "tree-sitter-language-pack>=0.9",   # chunking AST (frontières fonction/classe) PHP/Python/TS/JS
 ]
 
 [tool.setuptools]

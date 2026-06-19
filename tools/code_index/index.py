@@ -19,7 +19,8 @@ from pathlib import Path
 import json
 
 from . import context, embed, meta as meta_mod, store, walk
-from .chunk import chunk_structured, chunk_text
+from .chunk import chunk_structured
+from .chunk_ast import chunk_code
 from .config import EMBED_VERSION, Config, load_config, load_manifest
 
 PRICE_PER_MTOK = 0.15  # codestral-embed-2505, $ / million de tokens
@@ -52,11 +53,12 @@ def _build_rows(blob: FileBlob, cfg: Config, client: object | None,
     (= contexte préfixé) est ce qui est embeddé et indexé en BM25. Sans `client`
     (dry-run), le mode `llm` retombe sur le contexte structurel pour estimer sans API.
     """
-    # Corpus docs : découpe PAR ENTRÉE (registre YAML/contrat/section md) ; code : fenêtres.
+    # Découpe selon le corpus : docs = par entrée (YAML/contrat/section md) ; code = AST
+    # (frontières fonction/classe via tree-sitter, repli char-window si langage non outillé).
     if cfg.corpus == "docs":
         chunks = chunk_structured(blob.src.path, blob.text, cfg.max_input_chars)
     else:
-        chunks = chunk_text(blob.text, cfg.chunk_chars, cfg.overlap_chars)
+        chunks = chunk_code(blob.text, blob.src.lang, cfg.chunk_chars)
     mode = cfg.context_mode
     if client is None and mode == "llm":
         mode = "struct"  # proxy déterministe pour le dry-run (pas d'appel API)
