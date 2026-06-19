@@ -143,11 +143,23 @@ définitions (fonctions/classes/méthodes) reliées par leurs sites d'appel. Il 
 dépend X ? »** (`callees`). C'est le pendant *code* du `lineage` *data* curé — aucun
 embedding, **aucun appel API** (pur AST), donc l'artefact se (re)construit n'importe où.
 
-Résolution **par nom** (multi-langage, pragmatique) : un appel `foo()` pointe vers toute
-définition nommée `foo`. Deux garde-fous data-driven contre les collisions avec des
-primitives : `--max-fanout` (nom trop défini → non relié) et un seuil de fréquence d'appel
-(nom appelé partout, ex. `.push()`, → non relié) ; les fichiers minifiés/bundlés sont exclus.
-Limitation assumée et signalée dans la sortie (champ `ambiguous`).
+**Résolution par cascade à score de confiance** (v2 — état de l'art accessible sans
+compilateur : scope/stack graphs, SCIP, cascade « Codebase-Memory ») au lieu d'une simple
+correspondance de nom :
+
+1. `$this->m()` / `self::m()` / `parent::m()` → résolu dans la classe englobante et sa
+   **hiérarchie** (extends/implements/use trait) — confiance 0.95 ;
+2. `Class::m()` / `new Class()` → classe résolue via `use`/namespace (PHP) ou import (TS/PY)
+   puis méthode/constructeur dans la classe+hiérarchie — 0.90 ;
+3. fonction libre `foo()` : import-exact (`use`, import relatif → fichier) 0.95,
+   même-namespace/même-fichier 0.90, nom unique projet 0.75, sinon **ambigu** 0.35.
+
+Toute résolution est **contrainte à la même langue** que l'appel (un `new Date()` JS ne vise
+pas une classe PHP `Date`). Garde-fous data-driven contre les primitives (`--max-fanout`,
+fréquence d'appel, ex. `.push()`/`range()`), fichiers minifiés exclus ; les arêtes fortes
+(≥0.7) ne sont jamais élaguées. La sortie bucketise en **Certain / Probable / Incertain**
+(certitude d'un chemin = min des confiances), regroupe par **sous-système** (repo + dossier de
+tête) et classe par **centralité PageRank** + fan-in. Ambiguïté de nom affichée (`ambiguous`).
 
 ```bash
 # construire l'artefact (JSON ou JSON.gz — ~1,5 Mo gz pour ~37k nœuds) :
