@@ -92,6 +92,12 @@ exclude_per_repo:
     - "audits/*"
     - "adr/*"
     - "*.md"
+  # ic-data-bot : son propre dataset d'ÉVAL contient les questions ET les réponses
+  # attendues (contamination directe de search_code), et ses fichiers de test sont du
+  # scaffolding (bruit pour « où est implémenté X »). On garde le code du bot (src/).
+  ic-data-bot:
+    - "docs/evals/*"
+    - "tests/*"
 
 # ── Corpus « docs » : gouvernance data-platform (table docs_chunks, modèle texte) ──
 # Chemins RELATIFS au repo data-platform (résolus sous base_dir/data-platform). Chunking par
