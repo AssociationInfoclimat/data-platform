@@ -592,6 +592,20 @@ def resolve_symbol(graph: dict, symbol: str) -> list[str]:
             if n["qname"].lower() == sl or n["qname"].lower().endswith("." + sl)]
 
 
+_CODE_EXT = (".php", ".py", ".ts", ".tsx", ".js", ".jsx")
+
+
+def _looks_like_path(s: str) -> bool:
+    return "/" in s or s.endswith(_CODE_EXT)
+
+
+def resolve_file(graph: dict, path: str) -> list[str]:
+    """Nœuds (hors module) définis dans le(s) fichier(s) dont le chemin se termine par `path`."""
+    pat = path.strip().lstrip("/")
+    return [nid for nid, n in graph.get("nodes", {}).items()
+            if n["kind"] != "module" and n["path"].endswith(pat)]
+
+
 def _subsystem(node: dict) -> str:
     seg = node["path"].split("/", 1)[0]
     return f"{node['repo']}/{seg}" if seg else node["repo"]
@@ -622,8 +636,15 @@ def code_impact(graph: dict, symbol: str, *, direction: str = "callers", depth: 
     if "in" not in graph:
         graph = {**graph, "in": _reverse(graph.get("out", {}))}
     edges = graph["in"] if direction == "callers" else graph.get("out", {})
-    roots = resolve_symbol(graph, symbol)
     nodes = graph.get("nodes", {})
+    roots = resolve_symbol(graph, symbol)
+    # Mode FICHIER : un chemin → tous les symboles du fichier comme graines (« qu'est-ce qui
+    # casse si je supprime ce fichier »). Tenté seulement si le symbole ressemble à un chemin
+    # et qu'aucun symbole exact ne correspond.
+    scope = "symbol"
+    if not roots and _looks_like_path(symbol):
+        roots = resolve_file(graph, symbol)
+        scope = "file"
 
     seeds = set(roots)
     for r in roots:
@@ -666,14 +687,39 @@ def code_impact(graph: dict, symbol: str, *, direction: str = "callers", depth: 
     for x in impacted:
         by_sub[x["subsystem"]] = by_sub.get(x["subsystem"], 0) + 1
         tiers[x["tier"]] += 1
+    files = sorted({f"{nodes[r]['repo']}/{nodes[r]['path']}" for r in roots if r in nodes})
     return {
-        "symbol": symbol, "direction": direction, "depth": depth,
+        "symbol": symbol, "direction": direction, "depth": depth, "scope": scope,
         "roots": [_describe(nodes[r], 0, 1.0, sidecar) for r in roots if r in nodes],
-        "ambiguous": len(roots) > 1,
+        "files": files if scope == "file" else [],
+        "ambiguous": (len(files) > 1) if scope == "file" else (len(roots) > 1),
         "impacted": impacted, "truncated": truncated,
         "by_subsystem": dict(sorted(by_sub.items(), key=lambda kv: -kv[1])),
         "tiers": tiers,
     }
+
+
+def code_hotspots(graph: dict, *, top: int = 20, repo: str | None = None,
+                  subsystem: str | None = None, lang: str | None = None,
+                  by: str = "centrality", sidecar: dict | None = None) -> dict:
+    """Symboles les plus structurellement importants (« hubs ») : top-N par centralité
+    PageRank (défaut) ou fan-in (nb d'appelants), filtrables par repo/sous-système/langage.
+    Les nœuds module sont exclus."""
+    metric = "fan_in" if by == "fan_in" else "centrality"
+    items = [n for n in graph.get("nodes", {}).values() if n["kind"] != "module"]
+    if repo:
+        items = [n for n in items if n["repo"] == repo]
+    if lang:
+        items = [n for n in items if n["lang"] == lang]
+    if subsystem:
+        items = [n for n in items if _subsystem(n) == subsystem]
+    items.sort(key=lambda n: (n.get(metric, 0), n.get("fan_in", 0)), reverse=True)
+    hot = []
+    for n in items[:max(1, top)]:
+        d = _describe(n, 0, 1.0, sidecar)
+        d["metric"] = n.get(metric, 0)
+        hot.append(d)
+    return {"by": metric, "repo": repo, "subsystem": subsystem, "lang": lang, "hotspots": hot}
 
 
 # ── CLI ─────────────────────────────────────────────────────────────────────────
@@ -704,13 +750,16 @@ def _cmd_impact(args: argparse.Namespace) -> int:
     res = code_impact(graph, args.symbol, direction=args.direction, depth=args.depth,
                       sidecar=sidecar)
     if not res["roots"]:
-        print(f"Symbole introuvable : {args.symbol}", file=sys.stderr)
+        print(f"Symbole/fichier introuvable : {args.symbol}", file=sys.stderr)
         return 1
     verb = "appelé par" if args.direction == "callers" else "dépend de"
     t = res["tiers"]
-    print(f"# {args.symbol} — {verb} (prof {args.depth}) — "
+    scope = " [fichier]" if res.get("scope") == "file" else ""
+    print(f"# {args.symbol}{scope} — {verb} (prof {args.depth}) — "
           f"{t['certain']} certains / {t['probable']} probables / {t['incertain']} incertains")
-    if res["ambiguous"]:
+    if res.get("scope") == "file":
+        print(f"  fichier(s) : {', '.join(res['files'])} ({len(res['roots'])} symboles)")
+    elif res["ambiguous"]:
         print(f"  ⚠ {len(res['roots'])} définitions portent ce nom.")
     if res["by_subsystem"]:
         print("  sous-systèmes : " + ", ".join(f"{k} ({v})" for k, v in res["by_subsystem"].items()))
@@ -733,15 +782,43 @@ def main(argv: list[str]) -> int:
     b.add_argument("--repo", action="append", dest="repos", default=None)
     b.add_argument("--max-fanout", type=int, default=6)
     b.set_defaults(func=_cmd_build)
-    q = sub.add_parser("impact", help="Rayon d'impact / dépendances d'un symbole.")
-    q.add_argument("symbol")
+    q = sub.add_parser("impact", help="Rayon d'impact / dépendances d'un symbole ou fichier.")
+    q.add_argument("symbol", help="Nom de symbole (Classe.methode) OU chemin de fichier.")
     q.add_argument("--graph", required=True)
     q.add_argument("--direction", choices=["callers", "callees"], default="callers")
     q.add_argument("--depth", type=int, default=2)
     q.add_argument("--meta", default=None)
     q.set_defaults(func=_cmd_impact)
+
+    h = sub.add_parser("hotspots", help="Symboles les plus centraux (hubs) du code.")
+    h.add_argument("--graph", required=True)
+    h.add_argument("--top", type=int, default=20)
+    h.add_argument("--repo", default=None)
+    h.add_argument("--subsystem", default=None)
+    h.add_argument("--lang", default=None)
+    h.add_argument("--by", choices=["centrality", "fan_in"], default="centrality")
+    h.add_argument("--meta", default=None)
+    h.set_defaults(func=_cmd_hotspots)
+
     args = ap.parse_args(argv)
     return args.func(args)
+
+
+def _cmd_hotspots(args: argparse.Namespace) -> int:
+    graph = load_graph(args.graph)
+    sidecar = json.loads(Path(args.meta).read_text(encoding="utf-8")) if args.meta else None
+    res = code_hotspots(graph, top=args.top, repo=args.repo, subsystem=args.subsystem,
+                        lang=args.lang, by=args.by, sidecar=sidecar)
+    print(f"# Hubs du code (par {res['by']}"
+          + (f", repo={args.repo}" if args.repo else "")
+          + (f", {args.subsystem}" if args.subsystem else "") + ")")
+    for n in res["hotspots"]:
+        url = f"  {n['source_url']}" if n["source_url"] else ""
+        m = n["metric"]
+        mstr = f"{m:.5f}" if isinstance(m, float) else str(m)
+        print(f"  {mstr:>9}  {n['qname']} ({n['kind']}) "
+              f"{n['repo']}/{n['path']}:{n['start_line']}{url}")
+    return 0
 
 
 if __name__ == "__main__":
