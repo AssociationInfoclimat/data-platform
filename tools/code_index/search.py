@@ -145,13 +145,33 @@ def _llm_rerank(client, query: str, results: list[Result], k: int, cfg: Config,
             time.sleep(min(2 ** attempt, 30))
 
 
-def _where(repos: list[str] | None, lang: str | None) -> str | None:
+def _q(value: str) -> str:
+    """Littéral SQL échappé (apostrophes doublées)."""
+    return "'" + value.replace("'", "''") + "'"
+
+
+def _where(repos: list[str] | None, lang: str | None, *,
+           status: str | list[str] | None = None, source: str | None = None,
+           since: str | None = None) -> str | None:
+    """Clause WHERE de filtrage avant rerank. `status` accepte une valeur ou une liste
+    (actif/douteux/mort) ; `source` filtre l'origine (github/gitlab/other) ; `since` est une
+    borne basse YYYY-MM-DD sur `last_commit` (on garde les lignes ≥ `since`)."""
     clauses = []
     if repos:
-        joined = ", ".join("'" + r.replace("'", "''") + "'" for r in repos)
+        joined = ", ".join(_q(r) for r in repos)
         clauses.append(f"repo IN ({joined})")
     if lang:
-        clauses.append("lang = '" + lang.replace("'", "''") + "'")
+        clauses.append("lang = " + _q(lang))
+    if status:
+        if isinstance(status, str):
+            clauses.append("status = " + _q(status))
+        else:
+            joined = ", ".join(_q(s) for s in status)
+            clauses.append(f"status IN ({joined})")
+    if source:
+        clauses.append("source = " + _q(source))
+    if since:
+        clauses.append("last_commit >= " + _q(since))
     return " AND ".join(clauses) if clauses else None
 
 
@@ -183,17 +203,26 @@ def _run_search(cfg: Config, question: str, k: int, where: str | None) -> list[R
 
 
 def search_code(question: str, k: int = 8, repos: list[str] | None = None,
-                lang: str | None = None, config: Config | None = None) -> list[Result]:
-    """Top-`k` chunks de CODE les plus pertinents, filtrables par repo/langage. Le `text`
-    renvoyé reste le chunk **brut**. Signature stable (réutilisée par le wrapper MCP)."""
-    return _run_search(config or load_config("code"), question, k, _where(repos, lang))
+                lang: str | None = None, config: Config | None = None, *,
+                status: str | list[str] | None = None, source: str | None = None,
+                since: str | None = None) -> list[Result]:
+    """Top-`k` chunks de CODE les plus pertinents, filtrables par repo/langage et — appliqués
+    AVANT le rerank — par `status` (actif/douteux/mort), `source` (github/gitlab/other) et
+    `since` (borne basse YYYY-MM-DD sur le dernier commit). Le `text` renvoyé reste le chunk
+    **brut**. Signature stable (réutilisée par le wrapper MCP) : `repos`/`lang` inchangés."""
+    return _run_search(config or load_config("code"), question, k,
+                       _where(repos, lang, status=status, source=source, since=since))
 
 
-def search_docs(question: str, k: int = 6, config: Config | None = None) -> list[Result]:
+def search_docs(question: str, k: int = 6, config: Config | None = None, *,
+                status: str | list[str] | None = None, source: str | None = None,
+                since: str | None = None) -> list[Result]:
     """Top-`k` entrées de GOUVERNANCE (contrats, inventory, catalog, glossaire) les plus
     pertinentes pour `question` — recherche sémantique sur la table `docs_chunks`
-    (embeddings mistral-embed). Complément des outils lexicaux grep/lineage."""
-    return _run_search(config or load_config("docs"), question, k, None)
+    (embeddings mistral-embed). Complément des outils lexicaux grep/lineage. Filtres
+    `status`/`source`/`since` appliqués avant le rerank (cf. `search_code`)."""
+    return _run_search(config or load_config("docs"), question, k,
+                       _where(None, None, status=status, source=source, since=since))
 
 
 def main(argv: list[str]) -> int:
@@ -202,14 +231,21 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--k", type=int, default=8)
     ap.add_argument("--repo", action="append", dest="repos", default=None)
     ap.add_argument("--lang", default=None)
+    ap.add_argument("--status", action="append", dest="status", default=None,
+                    help="Filtre statut (actif/douteux/mort) ; répétable.")
+    ap.add_argument("--source", default=None, help="Origine du repo (github/gitlab/other).")
+    ap.add_argument("--since", default=None, help="Dernier commit ≥ YYYY-MM-DD.")
     ap.add_argument("--corpus", choices=["code", "docs"], default="code")
     ap.add_argument("--full", action="store_true", help="Afficher le chunk entier.")
     args = ap.parse_args(argv)
 
+    status = args.status[0] if args.status and len(args.status) == 1 else args.status
     if args.corpus == "docs":
-        results = search_docs(args.question, k=args.k)
+        results = search_docs(args.question, k=args.k, status=status, source=args.source,
+                              since=args.since)
     else:
-        results = search_code(args.question, k=args.k, repos=args.repos, lang=args.lang)
+        results = search_code(args.question, k=args.k, repos=args.repos, lang=args.lang,
+                              status=status, source=args.source, since=args.since)
     if not results:
         print("Aucun résultat (index vide ?). Lancer d'abord : python -m code_index.index",
               file=sys.stderr)

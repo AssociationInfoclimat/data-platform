@@ -52,6 +52,25 @@ def test_where_escapes_quotes() -> None:
     assert _where(["o'brien"], None) == "repo IN ('o''brien')"
 
 
+def test_where_status_single_and_list() -> None:
+    assert _where(None, None, status="actif") == "status = 'actif'"
+    assert _where(None, None, status=["actif", "douteux"]) == "status IN ('actif', 'douteux')"
+
+
+def test_where_source_filter() -> None:
+    assert _where(None, None, source="github") == "source = 'github'"
+
+
+def test_where_since_lower_bound() -> None:
+    assert _where(None, None, since="2026-01-01") == "last_commit >= '2026-01-01'"
+
+
+def test_where_combines_all_new_filters() -> None:
+    clause = _where(["a"], "php", status="actif", source="github", since="2026-01-01")
+    assert clause == ("repo IN ('a') AND lang = 'php' AND status = 'actif' "
+                      "AND source = 'github' AND last_commit >= '2026-01-01'")
+
+
 def _cfg() -> Config:
     # Pipeline simple (vecteur seul, sans réécriture/rerank) pour tester le mapping isolément ;
     # les modes contextuel/hybride ont leurs propres tests.
@@ -87,6 +106,23 @@ def test_search_code_maps_rows(monkeypatch: pytest.MonkeyPatch) -> None:
     assert isinstance(r, Result)
     assert r.location == "site-infoclimat/forums/index.php:1-20"
     assert r.score == pytest.approx(0.12)
+
+
+def test_search_code_threads_status_source_since(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(search_mod.embed, "make_client", lambda key: object())
+    monkeypatch.setattr(search_mod.embed, "embed_query", lambda *a, **k: [0.1, 0.2])
+    monkeypatch.setattr(search_mod.store, "connect", lambda d: object())
+    captured = {}
+
+    def _fake_search(db, qvec, *, k, where, **kw):  # noqa: ANN001
+        captured["where"] = where
+        return []
+
+    monkeypatch.setattr(search_mod.store, "search", _fake_search)
+    search_code("x", k=3, repos=["r"], lang="php", status="actif", source="github",
+                since="2026-01-01", config=_cfg())
+    assert captured["where"] == ("repo IN ('r') AND lang = 'php' AND status = 'actif' "
+                                 "AND source = 'github' AND last_commit >= '2026-01-01'")
 
 
 def test_search_code_requires_api_key() -> None:
