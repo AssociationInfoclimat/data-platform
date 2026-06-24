@@ -259,3 +259,127 @@ def test_load_graph_roundtrip_and_gzip(tmp_path) -> None:
     pgz = tmp_path / "graph.json.gz"
     pgz.write_bytes(gzip.compress(json.dumps(g).encode("utf-8")))
     assert graph.load_graph(pgz)["nodes"] == g["nodes"]
+
+
+# ── shortest_path ───────────────────────────────────────────────────────────────
+
+def test_shortest_path_src_to_dst() -> None:
+    pytest.importorskip("tree_sitter_language_pack")
+    g = _chain_graph()       # a → b → c (out)
+    res = graph.shortest_path(g, "a", "c")
+    assert res["found"] is True
+    assert res["direction"] == "src->dst"
+    assert [n["qname"] for n in res["path"]] == ["a", "b", "c"]
+    # min_confidence = min des confiances des arêtes du chemin (b→c, a→b sont C_UNIQUE/SAMENS)
+    assert res["min_confidence"] == pytest.approx(min(n["confidence"] for n in res["path"][1:]))
+    assert res["src_roots"] and res["dst_roots"]
+
+
+def test_shortest_path_falls_back_to_reverse_direction() -> None:
+    pytest.importorskip("tree_sitter_language_pack")
+    g = _chain_graph()       # a → b → c (out) : pas de chemin c→a, mais a→c existe
+    res = graph.shortest_path(g, "c", "a")
+    assert res["found"] is True
+    assert res["direction"] == "dst->src"      # trouvé en sens inverse (a→…→c)
+    assert [n["qname"] for n in res["path"]] == ["a", "b", "c"]
+
+
+def test_shortest_path_same_symbol() -> None:
+    pytest.importorskip("tree_sitter_language_pack")
+    g = _chain_graph()
+    res = graph.shortest_path(g, "b", "b")
+    assert res["found"] is True
+    assert [n["qname"] for n in res["path"]] == ["b"]
+    assert res["min_confidence"] == 1.0
+
+
+def test_shortest_path_unresolved_src() -> None:
+    pytest.importorskip("tree_sitter_language_pack")
+    g = _chain_graph()
+    res = graph.shortest_path(g, "inexistant", "c")
+    assert res["found"] is False
+    assert res["src_roots"] == [] and res["direction"] is None
+
+
+def test_shortest_path_no_path_within_depth() -> None:
+    pytest.importorskip("tree_sitter_language_pack")
+    # deux composantes disjointes : x→y et z (isolé) → aucun chemin
+    files = [
+        (_sf("r", "p.py", "python"),
+         "def y():\n    return 1\n\ndef x():\n    return y()\n"),
+        (_sf("r", "q.py", "python"), "def z():\n    return 0\n"),
+    ]
+    g = graph.build_graph(files)
+    res = graph.shortest_path(g, "x", "z")
+    assert res["found"] is False
+
+
+def test_shortest_path_tiebreak_prefers_higher_min_confidence() -> None:
+    pytest.importorskip("tree_sitter_language_pack")
+    # a atteint d par deux chemins de même longueur ; on construit le graphe à la main pour
+    # contrôler les confiances. a→b (0.9)→d (0.9)  vs  a→c (0.4)→d (0.9).
+    nodes = {}
+    for q, ln in (("a", 1), ("b", 2), ("c", 3), ("d", 4)):
+        nid = f"r/m.py:{ln}:{q}"
+        nodes[nid] = {"name": q, "qname": q, "repo": "r", "path": "m.py", "lang": "python",
+                      "kind": "function", "start_line": ln, "end_line": ln,
+                      "fan_in": 0, "centrality": 0.0}
+    out = {
+        "r/m.py:1:a": [["r/m.py:2:b", 0.9], ["r/m.py:3:c", 0.4]],
+        "r/m.py:2:b": [["r/m.py:4:d", 0.9]],
+        "r/m.py:3:c": [["r/m.py:4:d", 0.9]],
+    }
+    g = {"version": "graph-v2", "nodes": nodes, "by_name": {q: [nid] for nid, q in
+         ((nid, n["qname"]) for nid, n in nodes.items())}, "by_fqn": {}, "out": out}
+    res = graph.shortest_path(g, "a", "d")
+    assert res["found"] is True
+    assert [n["qname"] for n in res["path"]] == ["a", "b", "d"]   # min-conf 0.9 préféré à 0.4
+    assert res["min_confidence"] == pytest.approx(0.9)
+
+
+# ── dead_symbols ────────────────────────────────────────────────────────────────
+
+def test_dead_symbols_lists_zero_fanin_functions() -> None:
+    pytest.importorskip("tree_sitter_language_pack")
+    g = _chain_graph()       # a → b → c : seul 'a' a fan_in 0 (et n'est ni classe ni module)
+    res = graph.dead_symbols(g)
+    qn = {s["qname"] for s in res["symbols"]}
+    assert "a" in qn
+    assert "b" not in qn and "c" not in qn        # b et c ont des appelants
+    assert "<module>" not in qn
+    assert res["count"] == len(res["symbols"])
+    assert "caveat" in res and "point" in res["caveat"].lower()   # mentionne les points d'entrée
+
+
+def test_dead_symbols_excludes_classes() -> None:
+    pytest.importorskip("tree_sitter_language_pack")
+    files = [(_sf("r", "lib.php", "php"),
+              "<?php\nclass Orphan { function unused() {} }\n")]
+    g = graph.build_graph(files)
+    res = graph.dead_symbols(g)
+    kinds = {s["kind"] for s in res["symbols"]}
+    assert "class" not in kinds                    # classes exclues même à fan_in 0
+    qn = {s["qname"] for s in res["symbols"]}
+    assert "Orphan" not in qn
+
+
+def test_dead_symbols_repo_and_subsystem_filter() -> None:
+    pytest.importorskip("tree_sitter_language_pack")
+    files = [
+        (_sf("r1", "svc/a.py", "python"), "def lonely():\n    return 1\n"),
+        (_sf("r2", "svc/b.py", "python"), "def other():\n    return 2\n"),
+    ]
+    g = graph.build_graph(files)
+    res = graph.dead_symbols(g, repo="r1")
+    assert {s["repo"] for s in res["symbols"]} == {"r1"}
+    res2 = graph.dead_symbols(g, subsystem="r2/svc")
+    assert {s["subsystem"] for s in res2["symbols"]} == {"r2/svc"}
+
+
+def test_dead_symbols_top_truncation() -> None:
+    pytest.importorskip("tree_sitter_language_pack")
+    src = "".join(f"def f{i}():\n    return {i}\n\n" for i in range(5))
+    g = graph.build_graph([(_sf("r", "many.py", "python"), src)])
+    res = graph.dead_symbols(g, top=2)
+    assert res["count"] == 2
+    assert res["truncated"] is True
