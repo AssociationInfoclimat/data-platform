@@ -71,6 +71,30 @@ schema:
         required: true
         description: 3e composante de la clé naturelle (1/2/3, 3 décades par mois)
 
+  - name: quotidienne
+    physicalName: gold_legacy.quotidienne
+    physicalType: table
+    description: Climatologie quotidienne MF (schéma complet, unités natives)
+    properties:
+      - name: NUM_POSTE
+        physicalType: TEXT
+        required: true
+      - name: AAAAMMJJ
+        physicalType: TIMESTAMPTZ
+        required: true
+
+  - name: quotidienne_autres
+    physicalName: gold_legacy.quotidienne_autres
+    physicalType: table
+    description: Paramètres quotidiens complémentaires MF (schéma complet, unités natives)
+    properties:
+      - name: NUM_POSTE
+        physicalType: TEXT
+        required: true
+      - name: AAAAMMJJ
+        physicalType: TIMESTAMPTZ
+        required: true
+
 team:
   - username: pam
     role: owner
