@@ -39,6 +39,38 @@ schema:
         physicalType: TIMESTAMPTZ
         required: true
 
+  - name: decadaire
+    physicalName: gold_legacy.decadaire
+    physicalType: table
+    description: Climatologie décadaire MF (schéma complet, unités natives)
+    properties:
+      - name: NUM_POSTE
+        physicalType: TEXT
+        required: true
+      - name: AAAAMM
+        physicalType: TIMESTAMPTZ
+        required: true
+      - name: NUM_DECADE
+        physicalType: INTEGER
+        required: true
+        description: 3e composante de la clé naturelle (1/2/3, 3 décades par mois)
+
+  - name: decadaire_agro
+    physicalName: gold_legacy.decadaire_agro
+    physicalType: table
+    description: Climatologie décadaire agrométéo MF (schéma complet, unités natives)
+    properties:
+      - name: NUM_POSTE
+        physicalType: TEXT
+        required: true
+      - name: AAAAMM
+        physicalType: TIMESTAMPTZ
+        required: true
+      - name: NUM_DECADE
+        physicalType: INTEGER
+        required: true
+        description: 3e composante de la clé naturelle (1/2/3, 3 décades par mois)
+
 team:
   - username: pam
     role: owner
