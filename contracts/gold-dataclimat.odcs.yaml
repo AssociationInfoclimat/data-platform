@@ -1,0 +1,236 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:gold-dataclimat
+name: Gold dataclimat (drop-in dataclimat.fr / Data For Good)
+version: 0.1.0
+status: draft
+domain: climato
+dataProduct: gold-dataclimat
+
+description:
+  purpose: >-
+    Catégorie Gold dédiée à dataclimat.fr (projet Data For Good
+    `dataforgoodfr/14_ValorisationDonneeMeteo`) : réplique en « drop-in » les agrégats que
+    leur backend matérialise en SQL (materialized views), pour que le site les consomme via
+    l'API au lieu de les recalculer. Mono-source **Météo-France**, station identifiée par
+    `station_code` = NUM_POSTE. Colonnes et sémantique alignées sur leurs matviews.
+  usage: >-
+    Serving public via /dataclimat/*. Cible : backend dataclimat.fr (remplacement des
+    lectures `FROM mv_*` par des appels API). Relevé des règles métier le 2026-07-18 depuis
+    leur repo public + API prod (voir chom-poc-data/.superpowers/dataclimat-discovery.md).
+
+tags: [meteo, climatologie, meteofrance, gold, diffusion, dataclimat, dataforgood]
+
+servers:
+  - server: diffusion-iceberg
+    type: iceberg
+    environment: production
+    location: s3://chom-ic-lake-diffusion/gold_dataclimat
+
+schema:
+  - name: quotidienne
+    physicalName: gold_dataclimat.quotidienne
+    physicalType: table
+    description: >-
+      Climatologie journalière « jour climatologique » Météo-France, mono-source MF (archive
+      quotidienne officielle, source mf-q). tn/tx/tntxm = valeurs officielles MF. Historique
+      depuis 1816. Brique de base : mensuelle, records, itn en dérivent.
+    properties:
+      - name: station_code
+        physicalType: TEXT
+        required: true
+        description: NUM_POSTE Météo-France
+      - name: date
+        physicalType: DATE
+        required: true
+      - name: tntxm
+        physicalType: DOUBLE
+        description: Moyenne (tn+tx)/2 — midrange officiel MF (°C)
+      - name: tn
+        physicalType: DOUBLE
+        description: Température minimale du jour climatologique (°C)
+      - name: tx
+        physicalType: DOUBLE
+        description: Température maximale du jour climatologique (°C)
+
+  - name: mensuelle
+    physicalName: gold_dataclimat.mensuelle
+    physicalType: table
+    description: Extrêmes mensuels + moyenne, dérivés de gold_dataclimat.quotidienne.
+    properties:
+      - name: station_code
+        physicalType: TEXT
+        required: true
+        description: NUM_POSTE Météo-France
+      - name: date
+        physicalType: DATE
+        required: true
+        description: Mois (premier jour du mois)
+      - name: tnn
+        physicalType: DOUBLE
+        description: Tn minimale du mois (°C)
+      - name: tnn_date
+        physicalType: DATE
+        description: Jour du Tn minimal (tie-break date la plus ancienne)
+      - name: txx
+        physicalType: DOUBLE
+        description: Tx maximale du mois (°C)
+      - name: txx_date
+        physicalType: DATE
+        description: Jour du Tx maximal
+      - name: tmm
+        physicalType: DOUBLE
+        description: Moyenne mensuelle de tntxm, arrondie à 0,1 °C
+
+  - name: records_absolus
+    physicalName: gold_dataclimat.records_absolus
+    physicalType: table
+    description: >-
+      Records absolus figés (chaud/froid) par station × période (all_time / mois / saison).
+      DÉVIATION assumée vs D4G : filtre `classe_recente<=3` NON appliqué (classification
+      d'homogénéité MF absente du lac) ; colonnes `classe_recente`/`date_de_creation`/
+      `date_de_fermeture` omises. À réintroduire au sourcing de la classification.
+    properties:
+      - name: period_type
+        physicalType: TEXT
+        required: true
+        description: all_time | month | season
+      - name: period_value
+        physicalType: TEXT
+        description: NULL (all_time) | '1'..'12' (mois) | spring|summer|autumn|winter
+      - name: record_type
+        physicalType: TEXT
+        required: true
+        description: TX (chaud) | TN (froid)
+      - name: station_code
+        physicalType: TEXT
+        required: true
+        description: NUM_POSTE Météo-France
+      - name: station_name
+        physicalType: TEXT
+      - name: department
+        physicalType: TEXT
+      - name: record_value
+        physicalType: DOUBLE
+        description: Valeur du record (°C)
+      - name: record_date
+        physicalType: DATE
+        description: Date du record (tie-break date la plus ancienne)
+      - name: lat
+        physicalType: DOUBLE
+      - name: lon
+        physicalType: DOUBLE
+      - name: alt
+        physicalType: DOUBLE
+
+  - name: itn
+    physicalName: gold_dataclimat.itn
+    physicalType: table
+    description: >-
+      Indicateur Thermique National journalier = moyenne non pondérée de tntxm sur un panel
+      FIXE de 30 stations de référence Météo-France (règle Reims : bascule 51183001→51449002
+      au 2012-05-08 ; 29 fév synthétique pour les années non bissextiles).
+    properties:
+      - name: date
+        physicalType: DATE
+        required: true
+      - name: year
+        physicalType: INTEGER
+      - name: month
+        physicalType: INTEGER
+      - name: day_of_month
+        physicalType: INTEGER
+      - name: is_fictive
+        physicalType: BOOLEAN
+        description: TRUE si 29 février synthétique (année non bissextile)
+      - name: itn
+        physicalType: DOUBLE
+        description: Indicateur Thermique National du jour (°C)
+
+  - name: itn_baseline
+    physicalName: gold_dataclimat.itn_baseline
+    physicalType: table
+    description: >-
+      Normale 1991-2020 de l'ITN par jour calendaire (moyenne, écart-type, percentiles),
+      base des bandes baseline_mean ± stddev de l'endpoint national-indicator.
+    properties:
+      - name: month
+        physicalType: INTEGER
+        required: true
+      - name: day_of_month
+        physicalType: INTEGER
+        required: true
+      - name: sample_size
+        physicalType: INTEGER
+      - name: itn_mean
+        physicalType: DOUBLE
+      - name: itn_stddev
+        physicalType: DOUBLE
+        description: Écart-type de population (STDDEV_POP)
+      - name: itn_p20
+        physicalType: DOUBLE
+      - name: itn_p80
+        physicalType: DOUBLE
+
+  - name: baseline_1991_2020
+    physicalName: gold_dataclimat.baseline_1991_2020
+    physicalType: table
+    description: >-
+      Normale 1991-2020 de tntxm par station × jour calendaire (base de l'endpoint deviation).
+      29 fév réel (bissextiles) ou synthétique (moy 28/02 & 01/03) ; min 24 années.
+      DÉVIATION assumée vs D4G : filtre `classe_recente<=4` NON appliqué (classification
+      absente du lac) ; filtre first_temperature_date<1997 approximé par « présence de données
+      avant 1997 ». À réintroduire au sourcing de la classification.
+    properties:
+      - name: station_code
+        physicalType: TEXT
+        required: true
+        description: NUM_POSTE Météo-France
+      - name: month
+        physicalType: INTEGER
+        required: true
+      - name: day
+        physicalType: INTEGER
+        required: true
+      - name: sample_count
+        physicalType: INTEGER
+        description: Nombre d'années contributrices (>= 24)
+      - name: baseline_mean_tntxm
+        physicalType: DOUBLE
+        description: Moyenne 1991-2020 de tntxm pour ce jour calendaire (°C)
+
+  - name: first_temperature_date
+    physicalName: gold_dataclimat.first_temperature_date
+    physicalType: table
+    description: >-
+      Premier mois (granularité AAAAMM) où la station dispose d'une température moyenne
+      mensuelle MF — seuil interne de qualification des stations chez D4G.
+    properties:
+      - name: station_code
+        physicalType: TEXT
+        required: true
+        description: NUM_POSTE Météo-France
+      - name: first_temperature_date
+        physicalType: TEXT
+        description: Mois AAAAMM du premier relevé de température
+
+customProperties:
+  - property: lineage
+    value: >-
+      silver.observation_v2 (source mf-q/mf-h) -> gold_dataclimat.quotidienne ->
+      {mensuelle, records_absolus, itn, itn_baseline, baseline_1991_2020, first_temperature_date}
+  - property: dataLicense
+    value: >-
+      Données source Météo-France, Licence Ouverte (Etalab) 2.0 (data.gouv.fr). Méthodologie
+      des agrégats : Data For Good, saison 14 (dataforgoodfr/14_ValorisationDonneeMeteo).
+  - property: attribution
+    value: Météo-France
+  - property: methodologyRef
+    value: >-
+      github.com/dataforgoodfr/14_ValorisationDonneeMeteo (backend/sql/materialized_views).
+      Règles reproduites en drop-in ; déviations documentées (classe_recente absente du lac).
+  - property: deviations
+    value: >-
+      classe_recente (classification d'homogénéité MF) non disponible dans le lac : filtres
+      classe_recente<=3 (records) et <=4 (baseline) non appliqués, colonne classe_recente omise.
+      À réintroduire quand la classification station sera sourcée (mutualisé chantier StatIC).
