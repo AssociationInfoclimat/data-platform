@@ -9,8 +9,9 @@ dataProduct: gold-climato-legacy
 
 description:
   purpose: >-
-    Produits Gold retro-compat : copie fidèle des tables climato Météo-France
-    (schéma complet, unités MF natives), publiée sur le bucket diffusion.
+    Les données climatologiques Météo-France (mensuelles, décadaires, quotidiennes),
+    dans leur format d'origine — pour les sites, apps ou scripts déjà construits sur
+    le schéma Météo-France et qui veulent continuer à s'en servir sans rien changer.
   usage: Serving public via climato.chom.engineering /legacy/*
 
 tags:
@@ -30,7 +31,10 @@ schema:
   - name: mensuelle
     physicalName: gold_legacy.mensuelle
     physicalType: table
-    description: Climatologie mensuelle MF (schéma complet, unités natives)
+    description: >-
+      Le résumé de chaque mois par station — moyenne et extrêmes (jour le plus
+      froid / le plus chaud) : pour des bilans mensuels, au format Météo-France
+      d'origine.
     properties:
       - name: NUM_POSTE
         physicalType: TEXT
@@ -42,7 +46,9 @@ schema:
   - name: decadaire
     physicalName: gold_legacy.decadaire
     physicalType: table
-    description: Climatologie décadaire MF (schéma complet, unités natives)
+    description: >-
+      Cumuls et moyennes par décade (période de 10 jours) par station, au format
+      Météo-France d'origine — utile pour l'agronomie et le suivi des cultures.
     properties:
       - name: NUM_POSTE
         physicalType: TEXT
@@ -58,7 +64,9 @@ schema:
   - name: decadaire_agro
     physicalName: gold_legacy.decadaire_agro
     physicalType: table
-    description: Climatologie décadaire agrométéo MF (schéma complet, unités natives)
+    description: >-
+      Cumuls et moyennes agrométéo par décade (période de 10 jours) par station,
+      au format Météo-France d'origine — pensé pour le suivi des cultures.
     properties:
       - name: NUM_POSTE
         physicalType: TEXT
@@ -74,7 +82,10 @@ schema:
   - name: quotidienne
     physicalName: gold_legacy.quotidienne
     physicalType: table
-    description: Climatologie quotidienne MF (schéma complet, unités natives)
+    description: >-
+      Températures et précipitations journalières par station, au format
+      Météo-France d'origine : pour tracer des courbes de température ou
+      alimenter un tableau de bord compatible avec les outils existants.
     properties:
       - name: NUM_POSTE
         physicalType: TEXT
@@ -86,7 +97,10 @@ schema:
   - name: quotidienne_autres
     physicalName: gold_legacy.quotidienne_autres
     physicalType: table
-    description: Paramètres quotidiens complémentaires MF (schéma complet, unités natives)
+    description: >-
+      Les autres paramètres journaliers (pression, humidité, ensoleillement,
+      vent, neige…) au-delà de la température et de la pluie, au format
+      Météo-France d'origine.
     properties:
       - name: NUM_POSTE
         physicalType: TEXT

@@ -9,11 +9,10 @@ dataProduct: gold-dataclimat
 
 description:
   purpose: >-
-    Catégorie Gold dédiée à dataclimat.fr (projet Data For Good
-    `dataforgoodfr/14_ValorisationDonneeMeteo`) : réplique en « drop-in » les agrégats que
-    leur backend matérialise en SQL (materialized views), pour que le site les consomme via
-    l'API au lieu de les recalculer. Mono-source **Météo-France**, station identifiée par
-    `station_code` = NUM_POSTE. Colonnes et sémantique alignées sur leurs matviews.
+    Les indicateurs climatiques du projet dataclimat.fr (Data For Good) : températures
+    journalières et mensuelles par station, records de chaleur et de froid, normales
+    1991-2020, et l'Indicateur Thermique National — la température moyenne quotidienne de
+    la France. Toutes ces données proviennent de Météo-France.
   usage: >-
     Serving public via /dataclimat/*. Cible : backend dataclimat.fr (remplacement des
     lectures `FROM mv_*` par des appels API). Relevé des règles métier le 2026-07-18 depuis
@@ -32,9 +31,9 @@ schema:
     physicalName: gold_dataclimat.quotidienne
     physicalType: table
     description: >-
-      Climatologie journalière « jour climatologique » Météo-France, mono-source MF (archive
-      quotidienne officielle, source mf-q). tn/tx/tntxm = valeurs officielles MF. Historique
-      depuis 1816. Brique de base : mensuelle, records, itn en dérivent.
+      Températures journalières (min, max, moyenne) par station, valeurs officielles
+      Météo-France, historique depuis 1816 : pour tracer des courbes de température ou
+      alimenter un tableau de bord.
     properties:
       - name: station_code
         physicalType: TEXT
@@ -56,7 +55,9 @@ schema:
   - name: mensuelle
     physicalName: gold_dataclimat.mensuelle
     physicalType: table
-    description: Extrêmes mensuels + moyenne, dérivés de gold_dataclimat.quotidienne.
+    description: >-
+      Le résumé de chaque mois par station — moyenne et extrêmes (jour le plus froid /
+      le plus chaud) : pour des bilans mensuels.
     properties:
       - name: station_code
         physicalType: TEXT
@@ -86,10 +87,8 @@ schema:
     physicalName: gold_dataclimat.records_absolus
     physicalType: table
     description: >-
-      Records absolus figés (chaud/froid) par station × période (all_time / mois / saison).
-      DÉVIATION assumée vs D4G : filtre `classe_recente<=3` NON appliqué (classification
-      d'homogénéité MF absente du lac) ; colonnes `classe_recente`/`date_de_creation`/
-      `date_de_fermeture` omises. À réintroduire au sourcing de la classification.
+      Les records de température (chaud/froid) de chaque station, toute l'année / par
+      mois / par saison : pour afficher « record battu » et les extrêmes historiques.
     properties:
       - name: period_type
         physicalType: TEXT
@@ -127,9 +126,9 @@ schema:
     physicalName: gold_dataclimat.itn
     physicalType: table
     description: >-
-      Indicateur Thermique National journalier = moyenne non pondérée de tntxm sur un panel
-      FIXE de 30 stations de référence Météo-France (règle Reims : bascule 51183001→51449002
-      au 2012-05-08 ; 29 fév synthétique pour les années non bissextiles).
+      L'Indicateur Thermique National — la température moyenne quotidienne de la France
+      (30 stations de référence) : pour suivre vagues de chaleur et de froid à l'échelle
+      du pays.
     properties:
       - name: date
         physicalType: DATE
@@ -151,8 +150,8 @@ schema:
     physicalName: gold_dataclimat.itn_baseline
     physicalType: table
     description: >-
-      Normale 1991-2020 de l'ITN par jour calendaire (moyenne, écart-type, percentiles),
-      base des bandes baseline_mean ± stddev de l'endpoint national-indicator.
+      La normale 1991-2020 de l'ITN, jour par jour : la référence pour dire si une
+      journée est au-dessus ou en dessous de la normale nationale.
     properties:
       - name: month
         physicalType: INTEGER
@@ -176,11 +175,8 @@ schema:
     physicalName: gold_dataclimat.baseline_1991_2020
     physicalType: table
     description: >-
-      Normale 1991-2020 de tntxm par station × jour calendaire (base de l'endpoint deviation).
-      29 fév réel (bissextiles) ou synthétique (moy 28/02 & 01/03) ; min 24 années.
-      DÉVIATION assumée vs D4G : filtre `classe_recente<=4` NON appliqué (classification
-      absente du lac) ; filtre first_temperature_date<1997 approximé par « présence de données
-      avant 1997 ». À réintroduire au sourcing de la classification.
+      La normale de température 1991-2020 de chaque station, jour par jour de l'année :
+      pour calculer l'écart à la normale.
     properties:
       - name: station_code
         physicalType: TEXT
@@ -203,8 +199,8 @@ schema:
     physicalName: gold_dataclimat.first_temperature_date
     physicalType: table
     description: >-
-      Premier mois (granularité AAAAMM) où la station dispose d'une température moyenne
-      mensuelle MF — seuil interne de qualification des stations chez D4G.
+      Depuis quel mois chaque station mesure la température : pour connaître
+      l'ancienneté d'une station.
     properties:
       - name: station_code
         physicalType: TEXT

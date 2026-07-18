@@ -9,11 +9,11 @@ dataProduct: gold-climato-v2
 
 description:
   purpose: >-
-    Produits Gold recalculés depuis le schéma canonique (silver.observation_v2,
-    table longue). Unités conventionnelles (°C, mm), QC de plausibilité
-    physique appliqué en amont (air_temperature ∈ [-90, +60] °C, précipitation
-    horaire ∈ [0, 500] mm) — sans ce filtre tn/tx (donc records/itn) seraient
-    pollués par les aberrations du raw canonique.
+    Les mêmes données climatologiques que la version legacy, mais recalculées avec un
+    contrôle qualité qui écarte les valeurs physiquement impossibles (températures ou
+    cumuls de pluie aberrants), et exprimées en unités simples (°C, mm). Destiné aux
+    usages publics (site web, API, tableaux de bord) qui veulent des chiffres fiables
+    sans avoir à filtrer les données eux-mêmes.
   usage: Serving public via climato.chom.engineering /v2/*
 
 tags:
@@ -35,9 +35,10 @@ schema:
     physicalName: gold_v2.journaliere
     physicalType: table
     description: >-
-      Climatologie journalière v2, recalculée depuis silver.observation_v2
-      (fusionné). tn = min air_temperature du jour, tx = max, tm = tntxm =
-      (tn+tx)/2, rr = Σ précipitation. Unités conventionnelles (°C, mm).
+      Températures journalières (min, max, moyenne) et cumul de précipitation par
+      station, en °C et mm : pour tracer des courbes de température ou alimenter un
+      tableau de bord. Recalculé avec un contrôle qualité qui écarte les valeurs
+      aberrantes.
     properties:
       - name: ic_id
         physicalType: TEXT
@@ -70,8 +71,8 @@ schema:
     physicalName: gold_v2.mensuelle
     physicalType: table
     description: >-
-      Agrégats mensuels v2, dérivés de gold_v2.journaliere (extrêmes datés
-      via arg_min/arg_max, nb_jours_gel = jours avec tn < 0).
+      Le résumé de chaque mois par station — moyennes, extrêmes datés (jour le plus
+      froid / le plus chaud), nombre de jours de gel : pour des bilans mensuels.
     properties:
       - name: ic_id
         physicalType: TEXT
@@ -113,9 +114,9 @@ schema:
     physicalName: gold_v2.records
     physicalType: table
     description: >-
-      Records absolus par mois calendaire v2, dérivés de gold_v2.journaliere,
-      aligné D4G v_records_absolus_par_mois (extrême par station x mois
-      calendaire sur tout l'historique).
+      Les records de température (chaud/froid) de chaque station, par mois
+      calendaire sur tout l'historique : pour afficher « record battu » et les
+      extrêmes historiques.
     properties:
       - name: ic_id
         physicalType: TEXT
@@ -142,10 +143,9 @@ schema:
     physicalName: gold_v2.itn
     physicalType: table
     description: >-
-      Indicateur Thermique National journalier, aligné D4G saison 14
-      (v_itn_daily_all_years). NATIONAL — pas de station : moyenne de tntxm
-      sur les 30 stations de référence (HAVING >= 29/30 disponibles). Série
-      réelle (is_fictive=FALSE partout dans ce build).
+      L'Indicateur Thermique National — la température moyenne quotidienne de la
+      France (30 stations de référence) : pour suivre vagues de chaleur et de froid
+      à l'échelle du pays.
     properties:
       - name: date
         physicalType: DATE
