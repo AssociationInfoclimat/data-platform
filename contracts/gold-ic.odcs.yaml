@@ -1,0 +1,175 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:gold-ic
+name: Gold réseau IC (climatologie réseau Infoclimat)
+version: 0.1.0
+status: draft
+domain: climato
+dataProduct: gold-ic
+
+description:
+  purpose: >-
+    La climatologie du seul réseau de stations Infoclimat — stations participatives
+    et StatIC — calculée à partir des seules mesures Infoclimat, sans apport
+    Météo-France. Températures journalières et mensuelles, records par station.
+    Utile pour valoriser le réseau participatif et le comparer aux données
+    officielles. Contrôle qualité et unités simples (°C, mm) identiques à la
+    version v2.
+  usage: Serving public via climato.chom.engineering /ic/*
+
+tags:
+  - meteo
+  - climatologie
+  - infoclimat
+  - reseau-participatif
+  - gold
+  - diffusion
+  - schema-canonique
+
+servers:
+  - server: diffusion-iceberg
+    type: iceberg
+    environment: production
+    location: s3://chom-ic-lake-diffusion/gold_ic
+
+schema:
+  - name: journaliere
+    physicalName: gold_ic.journaliere
+    physicalType: table
+    description: >-
+      Températures journalières (min, max, moyenne) et cumul de précipitation par
+      station du réseau Infoclimat, en °C et mm : pour tracer des courbes ou
+      alimenter un tableau de bord à partir des mesures IC seules. Contrôle qualité
+      qui écarte les valeurs aberrantes.
+    properties:
+      - name: ic_id
+        physicalType: TEXT
+        required: true
+        description: Identifiant station Infoclimat (crosswalk dim_station)
+      - name: mfid
+        physicalType: TEXT
+        description: NUM_POSTE Météo-France si la station est aussi référencée MF, sinon vide
+      - name: date
+        physicalType: DATE
+        required: true
+      - name: tn
+        physicalType: DOUBLE
+        description: Température min du jour (°C)
+      - name: tx
+        physicalType: DOUBLE
+        description: Température max du jour (°C)
+      - name: tm
+        physicalType: DOUBLE
+        description: (tn+tx)/2 (°C)
+      - name: tntxm
+        physicalType: DOUBLE
+        description: alias de tm (°C)
+      - name: rr
+        physicalType: DOUBLE
+        description: Cumul de précipitation du jour (mm)
+
+  - name: mensuelle
+    physicalName: gold_ic.mensuelle
+    physicalType: table
+    description: >-
+      Le résumé de chaque mois par station du réseau Infoclimat — moyennes, extrêmes
+      datés (jour le plus froid / le plus chaud), nombre de jours de gel : pour des
+      bilans mensuels sur les seules mesures IC.
+    properties:
+      - name: ic_id
+        physicalType: TEXT
+        required: true
+      - name: mfid
+        physicalType: TEXT
+        description: NUM_POSTE Météo-France si la station est aussi référencée MF, sinon vide
+      - name: mois
+        physicalType: TIMESTAMP
+        required: true
+        description: Premier jour du mois (date_trunc('month', date))
+      - name: tnm
+        physicalType: DOUBLE
+        description: Moyenne mensuelle des tn (°C)
+      - name: txm
+        physicalType: DOUBLE
+        description: Moyenne mensuelle des tx (°C)
+      - name: tmm
+        physicalType: DOUBLE
+        description: Moyenne mensuelle des tm (°C)
+      - name: rr
+        physicalType: DOUBLE
+        description: Cumul de précipitation du mois (mm)
+      - name: tnn
+        physicalType: DOUBLE
+        description: Température min du mois (°C)
+      - name: tnn_date
+        physicalType: DATE
+      - name: txx
+        physicalType: DOUBLE
+        description: Température max du mois (°C)
+      - name: txx_date
+        physicalType: DATE
+      - name: nb_jours_gel
+        physicalType: INTEGER
+        description: Nombre de jours du mois avec tn < 0 °C
+
+  - name: records
+    physicalName: gold_ic.records
+    physicalType: table
+    description: >-
+      Les records de température (chaud/froid) de chaque station du réseau Infoclimat,
+      par mois calendaire sur tout l'historique : pour afficher « record battu » et
+      les extrêmes historiques du réseau participatif.
+    properties:
+      - name: ic_id
+        physicalType: TEXT
+        required: true
+      - name: mfid
+        physicalType: TEXT
+        description: NUM_POSTE Météo-France si la station est aussi référencée MF, sinon vide
+      - name: mois_calendaire
+        physicalType: INTEGER
+        required: true
+        description: Mois calendaire (1-12), 3e composante de la clé naturelle
+      - name: txx_max
+        physicalType: DOUBLE
+        description: Record absolu de température max sur le mois calendaire (°C)
+      - name: txx_max_date
+        physicalType: DATE
+      - name: tnn_min
+        physicalType: DOUBLE
+        description: Record absolu de température min sur le mois calendaire (°C)
+      - name: tnn_min_date
+        physicalType: DATE
+
+team:
+  - username: pam
+    role: owner
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+customProperties:
+  - property: lineage
+    value: silver.observation_v2 (source LIKE '%-ic') -> gold_ic.journaliere -> {mensuelle, records}
+  - property: dataLicense
+    value: >-
+      Données du réseau participatif Infoclimat (mesures IC seules), politique
+      opendata Infoclimat.
+  - property: attribution
+    value: Infoclimat
+  - property: methodologyRef
+    value: >-
+      Kernels identiques à gold_v2 (github.com/dataforgoodfr/14_ValorisationDonneeMeteo,
+      backend/sql) — mêmes agrégats journaliers/mensuels/records, appliqués aux seules
+      sources IC.
+  - property: sourceFilter
+    value: >-
+      source LIKE '%-ic' (synop-ic, static-ic, metar-ic, bouees-ic). Exclut les
+      sources Météo-France (mf-*) et les anciens agrégats IC (climato-auto).
+  - property: units
+    value: >-
+      Unités conventionnelles (°C, mm). QC de plausibilité physique appliqué en amont
+      de gold_ic.journaliere (air_temperature ∈ [-90, +60] °C, précipitation horaire
+      ∈ [0, 500] mm) — hérité par mensuelle/records.
