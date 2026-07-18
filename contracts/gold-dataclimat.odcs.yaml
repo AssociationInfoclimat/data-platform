@@ -200,7 +200,8 @@ schema:
     physicalType: table
     description: >-
       Depuis quel mois chaque station mesure la température : pour connaître
-      l'ancienneté d'une station.
+      l'ancienneté d'une station. La date est un texte au format AAAAMM (année
+      puis mois sur deux chiffres) — par exemple « 187206 » = juin 1872.
     properties:
       - name: station_code
         physicalType: TEXT
@@ -208,7 +209,10 @@ schema:
         description: NUM_POSTE Météo-France
       - name: first_temperature_date
         physicalType: TEXT
-        description: Mois AAAAMM du premier relevé de température
+        description: >-
+          Mois du premier relevé de température, texte au format AAAAMM (année +
+          mois sur deux chiffres), ex. « 187206 » = juin 1872. Ni date ISO ni
+          nombre.
 
 customProperties:
   - property: lineage
