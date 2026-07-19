@@ -128,6 +128,52 @@ schema:
           (station_classe.date_fin IS NULL). Le dataset ne retient que classe_recente <= 3
           (iso-comportement D4G v_station_records).
 
+  - name: records_battus
+    physicalName: gold_dataclimat.records_battus
+    physicalType: table
+    description: >-
+      L'HISTORIQUE des records progressivement battus par station : une ligne par date où
+      la station a établi un nouvel extrême (chaud/froid), toute l'année / par mois / par
+      saison. Distinct de records_absolus (extrême figé) — sert la timeline « records
+      battus » de dataclimat.fr (API /records, alias /records/historical).
+    properties:
+      - name: period_type
+        physicalType: TEXT
+        required: true
+        description: all_time | month | season
+      - name: period_value
+        physicalType: TEXT
+        description: NULL (all_time) | '1'..'12' (mois) | spring|summer|autumn|winter
+      - name: record_type
+        physicalType: TEXT
+        required: true
+        description: TX (chaud) | TN (froid)
+      - name: station_code
+        physicalType: TEXT
+        required: true
+        description: NUM_POSTE Météo-France
+      - name: station_name
+        physicalType: TEXT
+      - name: department
+        physicalType: TEXT
+      - name: record_value
+        physicalType: DOUBLE
+        description: Valeur du record établi ce jour-là (°C)
+      - name: record_date
+        physicalType: DATE
+        description: Date à laquelle ce nouvel extrême a été atteint
+      - name: lat
+        physicalType: DOUBLE
+      - name: lon
+        physicalType: DOUBLE
+      - name: alt
+        physicalType: DOUBLE
+      - name: classe_recente
+        physicalType: INTEGER
+        description: >-
+          Classe d'homogénéité MF (1 = meilleure … 5), valeur courante. Filtre
+          classe_recente <= 3 (iso-comportement D4G v_records_battus).
+
   - name: itn
     physicalName: gold_dataclimat.itn
     physicalType: table
@@ -230,7 +276,8 @@ customProperties:
   - property: lineage
     value: >-
       silver.observation_v2 (source mf-q/mf-h) -> gold_dataclimat.quotidienne ->
-      {mensuelle, records_absolus, itn, itn_baseline, baseline_1991_2020, first_temperature_date}
+      {mensuelle, records_absolus, records_battus, itn, itn_baseline, baseline_1991_2020,
+      first_temperature_date}
   - property: dataLicense
     value: >-
       Données source Météo-France, Licence Ouverte (Etalab) 2.0 (data.gouv.fr). Méthodologie
@@ -245,10 +292,13 @@ customProperties:
     value: >-
       classe_recente (classification d'homogénéité MF, 1=meilleure..5) sourcée depuis la table
       station_classe du socle dataclimat de production (valeur courante = date_fin IS NULL).
-      Filtres iso-D4G appliqués : records_absolus classe_recente<=3 (v_station_records),
-      baseline_1991_2020 classe_recente<=4 (v_station_deviation) ; colonne exposée dans les deux.
+      Filtres iso-D4G appliqués : records_absolus + records_battus classe_recente<=3
+      (v_station_records), baseline_1991_2020 classe_recente<=4 (v_station_deviation) ;
+      colonne exposée partout.
   - property: deviations
     value: >-
-      first_temperature_date >= now()-50 ans (records) non appliqué (dates d'ouverture/fermeture
-      de poste absentes du lac) ; l'antériorité est approximée par « au moins une observation
-      avant 1997-01-01 ». date_de_creation/date_de_fermeture du payload D4G omises.
+      first_temperature_date >= now()-50 ans (records_absolus/records_battus) non appliqué
+      (dates d'ouverture/fermeture de poste absentes du lac) ; l'antériorité est approximée
+      par « au moins une observation avant 1997-01-01 » (baseline) — records_battus émet donc
+      l'historique complet dès la 1re observation. date_de_creation/date_de_fermeture du
+      payload D4G omises.
