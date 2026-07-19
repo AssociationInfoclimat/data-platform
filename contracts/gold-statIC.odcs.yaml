@@ -156,6 +156,42 @@ schema:
       - name: tnn_min_date
         physicalType: DATE
 
+  - name: indicateur_reseau
+    physicalName: gold_statIC.indicateur_reseau
+    physicalType: table
+    description: >-
+      L'indicateur thermique national du réseau StatIC — la température moyenne
+      quotidienne de la France, calculée pour être SPATIALEMENT REPRÉSENTATIVE :
+      moyenne par département puis moyenne des départements couverts (et non moyenne
+      brute des stations, qui sur-pondérerait les zones denses). La couverture
+      (nombre de stations, de départements) et la dispersion sont exposées pour la
+      transparence. V1 national ; régional et anomalies vs normales = suite.
+    properties:
+      - name: date
+        physicalType: DATE
+        required: true
+      - name: echelle
+        physicalType: TEXT
+        description: Échelle spatiale ('national' en V1)
+      - name: itn_statIC
+        physicalType: DOUBLE
+        description: Indicateur thermique StatIC du jour, représentatif (°C)
+      - name: tn_moy
+        physicalType: DOUBLE
+        description: Moyenne réseau des tn (par maille puis des mailles) (°C)
+      - name: tx_moy
+        physicalType: DOUBLE
+        description: Moyenne réseau des tx (°C)
+      - name: n_stations
+        physicalType: INTEGER
+        description: Nombre de stations StatIC contribuant ce jour (transparence)
+      - name: n_mailles
+        physicalType: INTEGER
+        description: Nombre de départements couverts ce jour (représentativité)
+      - name: ecart_type
+        physicalType: DOUBLE
+        description: Écart-type inter-stations des tm (dispersion, transparence)
+
 team:
   - username: pam
     role: owner
@@ -167,7 +203,9 @@ support:
 
 customProperties:
   - property: lineage
-    value: silver.observation_v2 (source='static-ic') -> gold_statIC.journaliere -> {mensuelle, records}
+    value: >-
+      silver.observation_v2 (source='static-ic') -> gold_statIC.journaliere ->
+      {mensuelle, records, indicateur_reseau (+ dim.station pour la stratification département)}
   - property: dataLicense
     value: >-
       Données du réseau participatif StatIC (Infoclimat), Licence Ouverte (Etalab)
@@ -182,6 +220,7 @@ customProperties:
     value: >-
       classe_station (siting StatIC) NON sourçable dans le canonique/métadata IC
       inventoriée -> colonne NULL (décision 2026-07-18), à renseigner au sourcing.
-      Indicateur réseau (ITN-StatIC spatialement représentatif) = livraison suivante.
+      Indicateur réseau : V1 national, stratification par DÉPARTEMENT (approximation
+      surfacique ; grille équi-surface = raffinement futur), DOM-TOM exclus.
   - property: units
     value: Unités conventionnelles (°C, mm), QC plausibilité amont comme gold_v2.
