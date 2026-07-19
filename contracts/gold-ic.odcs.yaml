@@ -1,7 +1,7 @@
 apiVersion: v3.0.2
 kind: DataContract
 id: urn:infoclimat:contract:gold-ic
-name: Gold réseau IC (climatologie réseau Infoclimat)
+name: Gold collecte IC (climatologie des sources collectées par Infoclimat, hors Météo-France)
 version: 0.1.0
 status: draft
 domain: climato
@@ -9,19 +9,22 @@ dataProduct: gold-ic
 
 description:
   purpose: >-
-    La climatologie du seul réseau de stations Infoclimat — stations participatives
-    et StatIC — calculée à partir des seules mesures Infoclimat, sans apport
-    Météo-France. Températures journalières et mensuelles, records par station.
-    Utile pour valoriser le réseau participatif et le comparer aux données
-    officielles. Contrôle qualité et unités simples (°C, mm) identiques à la
-    version v2.
+    Les agrégats climatologiques calculés sur TOUTES les sources collectées par
+    Infoclimat À L'EXCLUSION du flux officiel Météo-France : réseaux synoptiques et
+    METAR officiels (décodés depuis les diffusions internationales SYNOP/BUFR),
+    bouées marines, le réseau participatif StatIC et Météo-à-l'École. Ce n'est donc
+    PAS un réseau propre à Infoclimat mais l'ensemble de sa collecte hors
+    Météo-France — un regroupement technique par source. Pour les SEULES stations
+    opérées par Infoclimat, voir gold-statIC (réseau participatif). Températures
+    journalières et mensuelles, records par station ; QC et unités (°C, mm)
+    identiques à v2.
   usage: Serving public via climato.chom.engineering /ic/*
 
 tags:
   - meteo
   - climatologie
   - infoclimat
-  - reseau-participatif
+  - collecte-multi-sources
   - gold
   - diffusion
   - schema-canonique
@@ -38,9 +41,9 @@ schema:
     physicalType: table
     description: >-
       Températures journalières (min, max, moyenne) et cumul de précipitation par
-      station du réseau Infoclimat, en °C et mm : pour tracer des courbes ou
-      alimenter un tableau de bord à partir des mesures IC seules. Contrôle qualité
-      qui écarte les valeurs aberrantes.
+      station, en °C et mm, à partir des sources collectées par Infoclimat hors
+      Météo-France (synop/metar/bouées officiels relayés + StatIC + Météo-à-l'École).
+      Contrôle qualité qui écarte les valeurs aberrantes.
     properties:
       - name: ic_id
         physicalType: TEXT
@@ -72,9 +75,9 @@ schema:
     physicalName: gold_ic.mensuelle
     physicalType: table
     description: >-
-      Le résumé de chaque mois par station du réseau Infoclimat — moyennes, extrêmes
-      datés (jour le plus froid / le plus chaud), nombre de jours de gel : pour des
-      bilans mensuels sur les seules mesures IC.
+      Le résumé de chaque mois par station — moyennes, extrêmes datés (jour le plus
+      froid / le plus chaud), nombre de jours de gel — sur les sources collectées par
+      Infoclimat hors Météo-France.
     properties:
       - name: ic_id
         physicalType: TEXT
@@ -116,9 +119,9 @@ schema:
     physicalName: gold_ic.records
     physicalType: table
     description: >-
-      Les records de température (chaud/froid) de chaque station du réseau Infoclimat,
-      par mois calendaire sur tout l'historique : pour afficher « record battu » et
-      les extrêmes historiques du réseau participatif.
+      Les records de température (chaud/froid) de chaque station, par mois calendaire
+      sur tout l'historique, sur les sources collectées par Infoclimat hors
+      Météo-France : pour afficher « record battu » et les extrêmes historiques.
     properties:
       - name: ic_id
         physicalType: TEXT
@@ -155,10 +158,13 @@ customProperties:
     value: silver.observation_v2 (source LIKE '%-ic') -> gold_ic.journaliere -> {mensuelle, records}
   - property: dataLicense
     value: >-
-      Données du réseau participatif Infoclimat (mesures IC seules), politique
-      opendata Infoclimat.
+      Sources multiples collectées par Infoclimat hors Météo-France : réseaux
+      officiels SYNOP/METAR/bouées (diffusions internationales) et réseaux
+      participatifs StatIC / Météo-à-l'École, redistribués sous la politique
+      opendata Infoclimat. Les données officielles restent sous la licence de leur
+      producteur.
   - property: attribution
-    value: Infoclimat
+    value: Infoclimat (collecte multi-sources hors Météo-France)
   - property: methodologyRef
     value: >-
       Kernels identiques à gold_v2 (github.com/dataforgoodfr/14_ValorisationDonneeMeteo,
@@ -166,8 +172,9 @@ customProperties:
       sources IC.
   - property: sourceFilter
     value: >-
-      source LIKE '%-ic' (synop-ic, static-ic, metar-ic, bouees-ic). Exclut les
-      sources Météo-France (mf-*) et les anciens agrégats IC (climato-auto).
+      source LIKE '%-ic' : synop-ic (SYNOP officiel relayé), metar-ic (METAR),
+      bouees-ic (bouées), static-ic (StatIC participatif), mae-ic (Météo-à-l'École).
+      Exclut les sources Météo-France (mf-*) et les anciens agrégats IC (climato-auto).
   - property: units
     value: >-
       Unités conventionnelles (°C, mm). QC de plausibilité physique appliqué en amont
