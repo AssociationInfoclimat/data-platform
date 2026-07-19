@@ -121,6 +121,12 @@ schema:
         physicalType: DOUBLE
       - name: alt
         physicalType: DOUBLE
+      - name: classe_recente
+        physicalType: INTEGER
+        description: >-
+          Classe d'homogénéité MF de la station (1 = meilleure … 5), valeur courante
+          (station_classe.date_fin IS NULL). Le dataset ne retient que classe_recente <= 3
+          (iso-comportement D4G v_station_records).
 
   - name: itn
     physicalName: gold_dataclimat.itn
@@ -194,6 +200,12 @@ schema:
       - name: baseline_mean_tntxm
         physicalType: DOUBLE
         description: Moyenne 1991-2020 de tntxm pour ce jour calendaire (°C)
+      - name: classe_recente
+        physicalType: INTEGER
+        description: >-
+          Classe d'homogénéité MF de la station (1 = meilleure … 5), valeur courante
+          (station_classe.date_fin IS NULL). Le dataset ne retient que classe_recente <= 4
+          (iso-comportement D4G v_station_deviation).
 
   - name: first_temperature_date
     physicalName: gold_dataclimat.first_temperature_date
@@ -228,9 +240,15 @@ customProperties:
   - property: methodologyRef
     value: >-
       github.com/dataforgoodfr/14_ValorisationDonneeMeteo (backend/sql/materialized_views).
-      Règles reproduites en drop-in ; déviations documentées (classe_recente absente du lac).
+      Règles reproduites en drop-in.
+  - property: classeRecente
+    value: >-
+      classe_recente (classification d'homogénéité MF, 1=meilleure..5) sourcée depuis la table
+      station_classe du socle dataclimat de production (valeur courante = date_fin IS NULL).
+      Filtres iso-D4G appliqués : records_absolus classe_recente<=3 (v_station_records),
+      baseline_1991_2020 classe_recente<=4 (v_station_deviation) ; colonne exposée dans les deux.
   - property: deviations
     value: >-
-      classe_recente (classification d'homogénéité MF) non disponible dans le lac : filtres
-      classe_recente<=3 (records) et <=4 (baseline) non appliqués, colonne classe_recente omise.
-      À réintroduire quand la classification station sera sourcée (mutualisé chantier StatIC).
+      first_temperature_date >= now()-50 ans (records) non appliqué (dates d'ouverture/fermeture
+      de poste absentes du lac) ; l'antériorité est approximée par « au moins une observation
+      avant 1997-01-01 ». date_de_creation/date_de_fermeture du payload D4G omises.
