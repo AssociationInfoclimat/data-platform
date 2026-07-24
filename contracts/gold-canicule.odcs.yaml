@@ -83,9 +83,9 @@ team:
   - username: pam
     role: owner
 support:
-  channel: data
-  tool: email
-  url: mailto:pamahe@proton.me
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
 customProperties:
   - property: lineage
     value: gold_ref.station + communes IGN + INSEE COG -> gold_canicule.station_insee ; silver.observation_v2 + gold_canicule.station_insee -> gold_canicule.station_saison -> gold_canicule.territoire_saison
