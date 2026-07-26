@@ -16,9 +16,11 @@ description:
     Alimente le serving canicule et les surfaces carte/bulletin destinées aux
     collectivités. Données mesurées uniquement — aucune interpolation.
   limitations: >
-    Ne matérialise que les territoires réellement mesurés (>= 1 station). Les
-    statuts approchée/angle mort sont résolus au serving. saison_annee = année
-    civile.
+    station_saison / territoire_saison ne matérialisent que les territoires
+    réellement mesurés (>= 1 station). commune_couverture précalcule au contraire
+    le statut de couverture (mesuree/approchee/angle_mort) pour TOUTES les
+    communes métropolitaines (rayon 25 km ; DROM absents du référentiel géo).
+    saison_annee = année civile ; rang/n_saisons sur l'ère >= 1950 (normales OMM).
 tags: [gold, diffusion, schema-canonique, canicule, climatologie]
 servers:
   - server: diffusion-iceberg
