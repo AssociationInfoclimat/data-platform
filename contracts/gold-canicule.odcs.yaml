@@ -79,6 +79,18 @@ schema:
       - {name: jours_tx35_max, physicalType: INTEGER, required: true, description: max jours Tx>=35}
       - {name: rang_nuits_trop, physicalType: INTEGER, required: true, description: rang de l'année (1=plus chaude)}
       - {name: n_saisons, physicalType: INTEGER, required: true, description: nb d'années disponibles}
+  - name: commune_couverture
+    physicalName: gold_canicule.commune_couverture
+    physicalType: table
+    description: Statut de couverture (mesuree/approchee/angle_mort) par commune INSEE, rayon 25 km.
+    properties:
+      - {name: insee_com, physicalType: TEXT, required: true, description: code INSEE commune}
+      - {name: statut, physicalType: TEXT, required: true, description: mesuree|approchee|angle_mort}
+      - {name: n_stations, physicalType: INTEGER, required: true, description: nb stations mesurées dans la commune}
+      - {name: nearest_station_uid, physicalType: TEXT, required: false, description: UID station mesurée la plus proche (si non mesuree)}
+      - {name: nearest_ic_id, physicalType: TEXT, required: false, description: ic_id de la station la plus proche}
+      - {name: nearest_km, physicalType: DOUBLE, required: false, description: distance à la station la plus proche (km)}
+      - {name: h3_maille, physicalType: TEXT, required: true, description: cellule H3 res 5 du centroïde communal}
 team:
   - username: pam
     role: owner
@@ -88,7 +100,7 @@ support:
     url: mailto:pamahe@proton.me
 customProperties:
   - property: lineage
-    value: gold_ref.station + communes IGN + INSEE COG -> gold_canicule.station_insee ; silver.observation_v2 + gold_canicule.station_insee -> gold_canicule.station_saison -> gold_canicule.territoire_saison
+    value: gold_ref.station + communes IGN + INSEE COG -> gold_canicule.station_insee ; silver.observation_v2 + gold_canicule.station_insee -> gold_canicule.station_saison -> gold_canicule.territoire_saison ; gold_canicule.station_insee + communes IGN -> gold_canicule.commune_couverture (rayon 25 km)
   - property: dataLicense
     value: à préciser (aligné legacy/v2 — données multi-sources StatIC + Météo-France)
   - property: attribution
