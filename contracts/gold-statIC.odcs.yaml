@@ -191,6 +191,62 @@ schema:
       - name: ecart_type
         physicalType: DOUBLE
         description: Écart-type inter-stations des tm (dispersion, transparence)
+  - name: stations
+    physicalName: gold_statIC.stations
+    physicalType: table
+    description: >-
+      L'annuaire du réseau StatIC, triable par département : pour chaque station,
+      tous les paramètres réellement mesurés et leur profondeur temporelle
+      (première/dernière observation, volume). Grain : 1 ligne par
+      (station, paramètre). Stations fermées incluses — les colonnes ouverte et
+      derniere_obs permettent de filtrer. Dérivée de gold_ref (référentiel),
+      refresh quotidien.
+    properties:
+      - name: ic_id
+        physicalType: TEXT
+        required: true
+        description: Identifiant station StatIC (Infoclimat)
+      - name: libelle
+        physicalType: TEXT
+        description: Nom de la station
+      - name: departement
+        physicalType: TEXT
+        description: Département (code, ex. « 31 ») — null hors France
+      - name: pays
+        physicalType: TEXT
+        description: Code pays (ex. FR)
+      - name: latitude
+        physicalType: DOUBLE
+        required: true
+      - name: longitude
+        physicalType: DOUBLE
+        required: true
+      - name: altitude
+        physicalType: INTEGER
+        description: Altitude (m)
+      - name: ouverte
+        physicalType: BOOLEAN
+        required: true
+        description: Station encore ouverte dans le référentiel
+      - name: dh_ouverture
+        physicalType: TIMESTAMP
+        description: Date d'ouverture de la station
+      - name: parametre
+        physicalType: TEXT
+        required: true
+        description: Paramètre mesuré (vocabulaire canonique, cf. /params)
+      - name: premiere_obs
+        physicalType: TIMESTAMP
+        required: true
+        description: Première observation de ce paramètre sur cette station
+      - name: derniere_obs
+        physicalType: TIMESTAMP
+        required: true
+        description: Dernière observation de ce paramètre sur cette station
+      - name: n_obs
+        physicalType: BIGINT
+        required: true
+        description: Nombre total d'observations de ce paramètre
 
 team:
   - username: pam
