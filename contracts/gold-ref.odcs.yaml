@@ -52,8 +52,10 @@ schema:
         required: true
         description: >-
           Identifiant station Infoclimat — IDENTIFIANT CANONIQUE, celui qui fait
-          foi. Hétérogène par conception (code OACI pour les metar, indicatif OMM
-          pour les synop, identifiant d'annuaire pour StatIC).
+          foi. Hétérogène par conception : code OACI pour les metar (FMEE),
+          indicatif OMM à 5 chiffres pour les synop (61980). Les stations StatIC
+          n'ont AUCUNE forme unique (00006, STATIC0253, MNWERO090) : ne présumez
+          d'aucun format, lisez la valeur.
       - name: mfid
         physicalType: TEXT
         description: NUM_POSTE Météo-France si la station est aussi référencée MF, sinon vide
