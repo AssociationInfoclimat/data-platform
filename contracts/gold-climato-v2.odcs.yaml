@@ -26,9 +26,10 @@ tags:
 
 servers:
   - server: diffusion-iceberg
-    type: iceberg
+    type: s3
     environment: production
     location: s3://chom-ic-lake-diffusion/gold_v2
+    format: iceberg
 
 schema:
   - name: journaliere

@@ -24,9 +24,10 @@ description:
 tags: [gold, diffusion, schema-canonique, canicule, climatologie]
 servers:
   - server: diffusion-iceberg
-    type: iceberg
+    type: s3
     environment: production
     location: s3://chom-ic-lake-diffusion/gold_canicule
+    format: iceberg
 schema:
   - name: station_insee
     physicalName: gold_canicule.station_insee

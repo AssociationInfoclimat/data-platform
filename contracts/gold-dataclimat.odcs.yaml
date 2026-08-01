@@ -22,9 +22,10 @@ tags: [meteo, climatologie, meteofrance, gold, diffusion, dataclimat, dataforgoo
 
 servers:
   - server: diffusion-iceberg
-    type: iceberg
+    type: s3
     environment: production
     location: s3://chom-ic-lake-diffusion/gold_dataclimat
+    format: iceberg
 
 schema:
   - name: quotidienne
