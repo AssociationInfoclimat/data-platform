@@ -1,0 +1,195 @@
+# Table de préséance des sources — transcription des règles de fusion du
+# monolithe (lot A2 du chantier schéma canonique, ADR-0004/0007).
+#
+# STATUT : VALIDÉ ET GELÉ le 2026-07-14 (pam) — v1.0.0. Décisions actées le
+# 13/07 (adoption des recommandations issues de la contre-revue sceptique),
+# consultation Discord rendue sans objet par la validation directe. Toute
+# réouverture passe par une nouvelle version majeure. Chaque règle cite sa
+# source fichier:ligne dans le monolithe ; chaque ambiguïté porte sa décision.
+# Reste ouvert (hors gel, porté par D1/E3) : la revue champ par champ des
+# exceptions MF d'AMB-1 au moment d'implémenter la fusion obs_last.
+#
+# Sémantique : `priorite` = liste ordonnée, LA PREMIÈRE VALEUR NON NULLE GAGNE
+# (transcription des COALESCE SQL). `regle` explicite les autres mécanismes
+# (ecrase, min, max, premier_charge…).
+
+meta:
+  version: 1.0.0
+  date_extraction: "2026-07-12"
+  date_decisions: "2026-07-13"
+  statut_decisions: "VALIDÉ-GELÉ (pam, 14/07) — v1.0.0"
+  contre_revue: "2026-07-13 — chaque AMB attaquée par un agent sceptique (code,
+    appelants, git log) ; corrections intégrées : lignes climato décalées,
+    AMB-5/6 = code mort, AMB-3 = masquage affichage (aucune écriture base dans
+    climato.php), max() rr/ens introduit 2025-03-21, bloc enneigement = toute
+    synop FR >= 2021 ; AMB-8/AMB-9 ajoutées"
+  fichiers_analyses:
+    - include/MeteoFrance/combined.php
+    - stations-meteo/climato.php
+    - stations-meteo/tableaux.php
+    - stations-meteo/stations.inc.php
+    - include/MeteoFrance/load_data.php
+    - mobile-api/inc/station-meteo_api.model.php
+  statut: valide-gele-v1
+
+# Dictionnaire des sources (aligne dim_source du modèle canonique)
+sources:
+  synop-ic:   {description: "réseau IC synop, shards V5_data_YYYY.synop_*"}
+  static-ic:  {description: "réseau IC StatIC, shards static_*"}
+  metar-ic:   {description: "réseau IC metar, shards metar_*"}
+  mf-h:       {description: "Météo-France archive horaire (mf_data H)"}
+  mf-htr:     {description: "Météo-France temps réel horaire (HTR)"}
+  mf-i:       {description: "Météo-France archive infra-horaire 6 min (I)"}
+  mf-itr:     {description: "Météo-France temps réel infra-horaire (ITR)"}
+  mf-noaa:    {description: "MF via fichiers NOAA (mf_data['noaa'])"}
+  eca:        {description: "ECA&D, tables eca_*_FR (1881-1999)"}
+  gsod:       {description: "NOAA GSOD (1975-2010)"}
+  climato-auto: {description: "climato_journaliere_auto (agrégats IC)"}
+  climato-manu: {description: "climato_journaliere_injectee (saisie manuelle, tag MANU)"}
+  nivose:     {description: "enneigement NIVOSE (synop FR, an >= 2021)"}
+
+# ---------------------------------------------------------------------------
+# CONTEXTE 1 — SQL combined.php : fusion intra-MF (tables H/HTR/I/ITR)
+# Règle transversale : H > HTR > I/ITR, câblée dans l'ordre des COALESCE.
+# ---------------------------------------------------------------------------
+sql_combined:
+  regle_globale: "archive horaire (H) > temps réel horaire (HTR) > infra-horaire (I/ITR)"
+  ordres_standards:  # fonctions adapted_to_synop/mf *_from_at (COALESCE croisés)
+    id_station:        {priorite: [mf-i.NUM_POSTE, mf-itr.geo_id_insee, mf-h.NUM_POSTE, mf-htr.geo_id_insee], source: "combined.php:26,414"}
+    dh_utc:            {priorite: [mf-i.AAAAMMJJHHMN, mf-itr.validity_time, mf-h.AAAAMMJJHH, mf-htr.validity_time], source: "combined.php:27,415"}
+    temperature:       {priorite: [mf-h.T, mf-htr.t, mf-itr.t], source: "combined.php:28,434"}
+    pression:          {priorite: [mf-h.PMER, mf-h.PSTAT, mf-htr.pmer, mf-htr.pres, mf-itr.pmer, mf-itr.pres], source: "combined.php:29,457"}
+    humidite:          {priorite: [mf-h.U, mf-htr.u, mf-itr.u], source: "combined.php:31,449"}
+    point_de_rosee:    {priorite: [mf-h.TD, mf-htr.td, mf-itr.td], source: "combined.php:32,435"}
+    visibilite:        {priorite: [mf-h.VV, mf-htr.vv, mf-itr.vv], source: "combined.php:33,478"}
+    vent_moyen:        {priorite: [mf-h.FF, mf-h.FF2, mf-htr.ff, mf-itr.ff], conversion: "x3.6 (m/s -> km/h)", source: "combined.php:34,418"}
+    vent_rafales:      {priorite: [mf-h.FXI3S, mf-h.FXI, mf-h.FXY, mf-h.FXI2, mf-htr.raf, mf-htr.fxi, mf-htr.fxy, mf-itr.raf10, mf-itr.fxi10, mf-h.FF, mf-h.FF2, mf-htr.ff, mf-itr.ff], conversion: "x3.6", note: "fallback final sur le vent moyen", source: "combined.php:35,423"}
+    vent_rafales_10min: {priorite: [mf-h.FXY, mf-h.FXI, mf-h.FXI2, mf-h.FXI3S, mf-htr.fxy, mf-htr.raf, mf-htr.fxi, mf-itr.raf10, mf-itr.fxi10, mf-h.FF, mf-h.FF2, mf-htr.ff, mf-itr.ff], conversion: "x3.6", source: "combined.php:36,420"}
+    vent_direction:    {priorite: [mf-h.DD, mf-h.DD2, mf-htr.dd, mf-itr.dd], source: "combined.php:37,419"}
+    temperature_min:   {priorite: [mf-h.TN, mf-htr.tn, mf-h.TNSOL, mf-h.TN50], source: "combined.php:38,436"}
+    temperature_max:   {priorite: [mf-h.TX, mf-htr.tx], source: "combined.php:39,438"}
+    pluie_6mn:         {priorite: [mf-i.RR, mf-itr.rr_per], source: "combined.php:40"}
+    pluie_1h:          {priorite: [mf-h.RR1, mf-htr.rr1], source: "combined.php:41,416"}
+    rayonnement_glo:   {priorite: [mf-h.GLO, mf-h.GLO2, mf-h.UV, mf-h.UV2, mf-htr.ray_glo01, mf-itr.ray_glo01], source: "combined.php:49-50,495"}
+    ensoleillement:    {priorite: [mf-h.INS, mf-htr.insolh, mf-itr.insolh, mf-h.INS2], source: "combined.php:51,501"}
+    neige_au_sol:      {priorite: [mf-h.NEIGETOT, mf-htr.sss, mf-itr.sss], conversion: "sss x100 (m -> cm)", source: "combined.php:58,490"}
+    nebulosite:        {priorite: [mf-h.N, mf-h.NBAS, mf-h.N1, mf-h.N2, mf-h.N3, mf-h.N4, mf-htr.n, mf-itr.n], source: "combined.php:461"}
+    sol_etat:          {priorite: [mf-h.SOL, mf-htr.etat_sol, mf-itr.etat_sol], source: "combined.php:483"}
+    profondeur_temp:   {priorite: [mf-h.T10, mf-htr.t_10, mf-itr.t_10], note: "idem T20/T50/T100", source: "combined.php:441-444"}
+  variantes:
+    - contexte: "fonctions *_from_between (blocs H / HTR / ITR unionnés)"
+      regle: "AUCUN fallback croisé entre tables — chaque bloc mono-source, ordres internes identiques"
+      source: "combined.php:116-149,299-334,557-655,857-957,1148-1151"
+    - contexte: "get_combined_adapted_to_mf_from_between_H — ⚠️ CODE MORT (contre-revue 13/07 : seul appelant = _merged_manually:1565, lui-même jamais appelé)"
+      champ: rayonnement_glo
+      priorite: [mf-h.UV, mf-h.UV2, mf-h.GLO]
+      note: "ORDRE INVERSÉ (UV avant GLO) — seule inversion sur 16 COALESCE GLO/UV du fichier (15 GLO-first), sans commentaire ; sans effet à l'exécution (code mort)"
+      source: "combined.php:1429"
+    - contexte: "get_combined_adapted_to_mf_from_between_H — ⚠️ CODE MORT (idem)"
+      champ: neige_au_sol
+      priorite: [mf-h.NEIGETOT, mf-h.HNEIGEFI1]
+      note: "fallback sur neige fraîche 1h — unique"
+      source: "combined.php:1424"
+    - contexte: "ordre majoritaire réel (contre-revue) : famille synop = COALESCE(GLO, GLO2, UV, UV2) (6 occ., l.49-50,124-125,307-308) ; famille mf = COALESCE(GLO, UV, UV2) SANS GLO2 (8 occ., ex. l.495,632,2702) ; l.2106 (get_live_for_mobile_api, pas get_image_mf_data) = somme de composantes"
+      champ: rayonnement_glo
+    - contexte: "get_image_mf_data (rayo)"
+      regle: "somme de composantes : GLO, sinon GLO2, sinon UV+INFRAR, sinon UV2+INFRAR2, sinon DIR+DIF, sinon DIR2+DIF2"
+      source: "combined.php:2106"
+    - contexte: "get_combined_adapted_to_mf_from_between_merged_manually — ⚠️ CODE MORT (contre-revue 13/07 : AUCUN appelant dans le repo ; îlot mort avec _from_between_H et _from_between_HTR)"
+      regle: "fusion PHP par timestamp : array_merge(HTR, H) l.1574 — les deux SELECT ayant des alias identiques, la ligne HTR est INTÉGRALEMENT remplacée par la ligne H, valeurs NULL comprises ; la prod passe par les variantes SQL COALESCE (H préféré aussi, mais NULL tombe)"
+      source: "combined.php:1562-1582"
+
+# ---------------------------------------------------------------------------
+# CONTEXTE 2 — PHP live ($_DATA_LIVE) : fusion natif IC <-> MF <-> METAR
+# Règle : ordre de chargement + gardes !isset => premier chargé gagne,
+# SAUF exceptions où MF écrase explicitement.
+# ---------------------------------------------------------------------------
+php_live:
+  ordre_chargement:
+    - {rang: 1, source: "natif IC (loadData, genre de la station)", note: "priorité maximale", source_code: "tableaux.php:1373-1429, stations.inc.php:1689"}
+    - {rang: 2, source: nivose, regle: "REMPLACE LA LIGNE ENTIÈRE au timestamp (sans garde) — contre-revue 13/07 : concerne TOUTE station synop FR an >= 2021 (condition l.1431), pas seulement les balises NIVOSE ; clé $dh_utc arrondie à l'heure (natif = 5 min) donc collision aux heures rondes ; le SELECT enneigement n'a ni vent ni pression ni visibilité -> perdus sur collision", source_code: "tableaux.php:1431-1470"}
+    - {rang: 3, source: "VENTOUX synop MF (station spéciale)", source_code: "tableaux.php:1519-1569"}
+    - {rang: 4, source: "MF mf_data (champ par champ, gardes ci-dessous)", source_code: "tableaux.php:1627-1892"}
+    - {rang: 5, source: metar-ic, regle: "générique !isset — ne comble que les trous", source_code: "tableaux.php:1904-1938"}
+  champs:
+    temperature:    {regle: "natif gagne SAUF source native == meteo24 (MF écrase)", source: "tableaux.php:1648-1652, station-meteo_api.model.php:32"}
+    pluie_1h:       {regle: "MF ÉCRASE TOUJOURS si non vide", source: "tableaux.php:1643-1646, station-meteo_api.model.php:26-29"}
+    vent_rafales:   {regle: "MF ÉCRASE TOUJOURS si non vide", source: "tableaux.php:1665-1668"}
+    mf_ecrase_si_non_vide:
+      champs: [neige_au_sol, TNSOL_H, neige_tombee_1h, neige_tombee_3h, plafond_nuageux, duree_precips, PMERMIN_H, ens_h, etat_mer, visi_mer, temps_passe1, temps_passe2, nebulosite, visibilite, tn_h, htn, tx_h, htx, uv]
+      note: "contre-revue 13/07 : nebulosite (l.1702), visibilite (l.1707), tn_h/htn (l.1712-1714), tx_h/htx (l.1716-1718), uv (l.1743-1749) écrasent AUSSI sans !isset — l'écrasement est la RÈGLE (~19 champs), la protection l'exception (6)"
+      source: "tableaux.php:1643-1749"
+    natif_gagne:
+      champs: [humidite, point_de_rosee, vent_moyen, vent_direction, pression]
+      regle: "MF seulement si !isset (l.1653,1657,1661,1669,1673) ; + temperature sauf source native == meteo24 (l.1648-1649)"
+      source: "tableaux.php:1648-1673"
+  contradiction_point_entree:
+    regle: "load_data.php (graphiques MF) écrase TOUT inconditionnellement, sans gardes — préséance IC/MF INCOHÉRENTE selon le point d'entrée du site"
+    source: "include/MeteoFrance/load_data.php:58-68 vs tableaux.php:1627-1892"
+    decision_canonique: "À TRANCHER EN REVUE — le modèle canonique doit choisir UNE règle"
+
+# ---------------------------------------------------------------------------
+# CONTEXTE 3 — Climato quotidienne (agrégats journaliers, climato.php)
+# ---------------------------------------------------------------------------
+climato_quotidienne:
+  # ⚠️ Contre-revue 13/07 : climato.php = AFFICHAGE SEULEMENT (zéro INSERT/UPDATE
+  # dans le fichier). La table stockée climato_journaliere_auto est écrite par
+  # cron/climato_annuelle.inc.php:1794 avec une AUTRE règle (null-fill-ou-
+  # supérieur, l.566-571) -> l'affiché et le stocké peuvent diverger (AMB-9).
+  agregats:
+    tn:   {regle: "min(natif, mf, existant) — le minimum toutes sources gagne", source: "climato.php:1111-1116"}
+    tx:   {regle: "max(natif, mf, existant)", source: "climato.php:1117-1122"}
+    rr:   {regle: "max à 3 termes : rr direct (pluie_24h ou somme rr1h), cumul horaire natif, cumul horaire MF — le terme MF n'est dans le max QUE depuis 2025-03-21 (commit 3bc3747ba « WIP add timescale ») ; écrasable en aval par static (l.1225) et MANU (l.1419-1421)", todo: "TODO l.1133-1134 : forcer MF si toutes les données MF, MÊME SI INFÉRIEURE (arrondis SYNOP) — NON implémenté (ni ici ni dans le cron, qui porte le même commentaire d'intention l.384,616)", source: "climato.php:1130-1136"}
+    ens:  {regle: "idem rr avec garde !is_null et round(...,1) avant comparaison", todo: "TODO l.1140 : forcer MF si complet — NON implémenté", source: "climato.php:1138-1142"}
+    pmoy: {regle: "MF gagne si comptage MF >= comptage natif", source: "climato.php:1144-1147"}
+    divers_max: {champs: [DG_H, dgel, dhr40, dhr80, drr], regle: "max(natif, mf)", source: "climato.php:1148-1152"}
+    cluster_vent2: {regle: "MF remplace si count(mf) >= count(natif)", source: "climato.php:1154-1156"}
+  sources_archives_ordre_effectif:
+    regle: "ordre final effectif (AFFICHAGE) : quotidiennes-mf > climato-manu (MANU) > (eca | gsod | climato-auto selon nullité) ; en amont, ECA écrase aussi les obs synop natives déjà chargées (>= 1920)"
+    note_nommage: "le bloc « noaa » l.1304 = GSOD (table V5_climato_noaa) ; mf_data['noaa'] l.1431 = quotidiennes MF officielles lues via Timescale au format noaa — deux choses différentes"
+    detail:
+      - {source: synop-natif, periode: ">= 1920", regle: "chargé d'abord (bloc l.527), écrasé ensuite par ECA sans garde", source_code: "climato.php:527,860-1074"}
+      - {source: eca, periode: "1881-1999 (condition l.1251)", regle: "écrit sans garde de nullité là où ECA a la donnée (station dans eca_stations + jour présent)", source_code: "climato.php:1251-1302"}
+      - {source: gsod, periode: "1975-2010 (condition l.1304)", regle: "tn/tx/rr seulement si null (is_null/is_nullv) — ECA gagne le recouvrement par ordre + asymétrie des gardes ; temps_omm appendé sans garde ; bug latent : (float)null -> 0.0 mm sur rr", source_code: "climato.php:1304-1362"}
+      - {source: climato-auto, regle: "seulement si null ; exclut VENTOUX", source_code: "climato.php:1377-1388"}
+      - {source: climato-manu, regle: "force si non null, tag MANU, pose $output[d]['manual']=true (jamais reconsulté ensuite)", source_code: "climato.php:1407-1428"}
+      - {source: quotidiennes-mf, regle: "force si isset, champ par champ, source réécrite en 'mf' — MASQUE la saisie manuelle À L'AFFICHAGE (la ligne MANU reste intacte en base) ; stations avec MFID seulement ; non borné en année", source_code: "climato.php:1431-1485"}
+  fenetres_jour:
+    regle: "h>18 -> Tn attribuée à J+1 ; h>6 -> Tx à J, sinon J-1"
+    source: "climato.php:1046-1080"
+  cas_stations:
+    - {station: "98404003 (DDU)", regle: "fenêtres Tx 21Z-21Z, Tn 9Z-9Z, vent 15Z-15Z", source: "climato.php:1018-1045"}
+    - {station: "VENTOUX", regle: "exclu de climato-auto ; synop MF dédié", source: "climato.php:1365, tableaux.php:1473"}
+
+# ---------------------------------------------------------------------------
+# AMBIGUÏTÉS À TRANCHER EN REVUE (le canonique ne doit PAS les reproduire
+# aveuglément — chacune demande une décision)
+# ---------------------------------------------------------------------------
+ambiguites:  # résumés amendés par la contre-revue du 13/07 ; décisions actées 13/07 (pam)
+  - id: AMB-1
+    resume: "préséance IC/MF dépend du point d'entrée : tableaux.php protège 6 champs (!isset) et en écrase ~19 ; la page graphiques (graphiques.inc.php:176 -> load_data.php:68) réapplique MF sur TOUT sans garde"
+    decision: "règle canonique = natif IC prioritaire par défaut + exceptions MF explicites REVUES CHAMP PAR CHAMP (base : gardes tableaux.php, mais la liste actuelle est incohérente — nebulosite/visibilite écrasées sans justification documentée, à statuer champ par champ au moment du gel) ; la règle 'MF écrase tout' des graphiques n'est PAS portée. AMPLEUR (prod RO, 13/07) : 15 752 correspondances mf_stations, TOUTES de genre synop (15 745 FR + 3 PF + 2 NC, 2 STID hors annuaire) — le conflit concerne le réseau synop, pas les StatIC"
+  - id: AMB-2
+    resume: "rr/ens : trois règles concurrentes — page (max 3 termes, terme MF depuis 2025-03-21), cron stocké (null-fill-ou-supérieur), TODO jamais codé (forcer MF si complet, même si inférieure)"
+    decision: "la règle du CRON (le stocké, climato_annuelle.inc.php:566-571 null-fill-ou-supérieur) fait foi pour le Gold — c'est la référence de la réconciliation F1 ; l'intention TODO (forcer MF si complet) = amélioration candidate post-bascule, rejeu dédié et mesurable"
+  - id: AMB-3
+    resume: "les quotidiennes MF officielles MASQUENT la saisie manuelle MANU à l'affichage (ordre d'exécution, badge source réécrit 'mf') — pas de perte en base aujourd'hui, mais le canonique matérialisera la fusion"
+    decision: "climato-manu AU SOMMET (une correction humaine ne cède que devant un humain) + JOURNAL DES CONFLITS : quand une source auto contredit une valeur MANU au même (jour, champ), MANU tient et le conflit est loggé pour revue (canal admin, lot G2) ; écart d'affichage vs prod assumé et documenté"
+  - id: AMB-4
+    resume: "ECA > GSOD sur 1975-1999 par ordre + asymétrie des gardes (pas de règle explicite) ; ECA écrase aussi les obs synop natives chargées (1920-1999)"
+    decision: "ordre explicite gravé : eca > gsod sur le recouvrement 1975-1999 (ECA&D homogénéisée), ET eca > synop-natif sur 1881-1999 (l'homogénéisation corrige les biais des obs brutes anciennes) — zéro écart vs l'affichage actuel ; rouvrable sur objection climatologique argumentée en consultation"
+  - id: AMB-5
+    resume: "ordre rayonnement inversé [UV,UV2,GLO] (combined.php:1429, 1 occ. sur 16) — dans du CODE MORT"
+    decision: "ordre canonique = GLO d'abord (l'ordre majoritaire vivant, 15/16) ; l'îlot mort n'est pas porté (suppression au lot E3) ; GIT BLAME FAIT (13/07) : l'inversion date du commit de CRÉATION de la fonction (1c66ca63f, WIP 2026-02-19, migration Timescale) qui contient LES DEUX ordres le même jour — coquille de copie jamais relue car fonction jamais branchée, pas un choix documenté ; dans le modèle long GLO et UV restent des paramètres distincts, cet ordre ne sert qu'aux vues de compatibilité"
+  - id: AMB-6
+    resume: "_merged_manually : array_merge remplace la ligne HTR entière par la ligne H, NULL compris — CODE MORT"
+    decision: "sémantique UNIVERSELLE de la table : « source prioritaire » = première valeur NON NULLE gagne (COALESCE) — un NULL ne remplace JAMAIS une valeur ; l'îlot mort n'est pas porté ; le besoin d'invalidation explicite d'une mesure relève du canal qualité/flags du modèle canonique, pas de la préséance"
+  - id: AMB-7
+    resume: "bloc enneigement (toute synop FR >= 2021, pas seulement NIVOSE) remplace la ligne $_DATA_LIVE entière à l'heure ronde — champs natifs hors SELECT (vent, pression, visibilité) perdus sur collision"
+    decision: "préséance PAR PARAMÈTRE : l'enneigement ne gagne que sur les paramètres qu'il fournit, les autres champs du même horodatage survivent ; le comportement ligne-entière est traité comme bug non porté ; CONTRÔLE FAIT (prod RO, 13/07) : janvier 2026 = 1 164 lignes enneigement / 101 stations, ZÉRO ligne synop native pour ces stations → aucune collision observée, décision sans écart vs prod"
+  - id: AMB-8
+    resume: "DÉCOUVERTE contre-revue : les blocs MF MariaDB (elseif tableaux.php:1579) et TimescaleDB (:1762, inconditionnel) s'exécutent TOUS LES DEUX -> double application, mélange possible si les magasins divergent ; conversion uv différente entre blocs (:1744 vs :1885)"
+    decision: "dans le canonique, UNE SEULE source MF par observation — le dual-source se résout à l'INGESTION, jamais à l'affichage ; côté legacy, clarifier avec l'équipe si la double passe est un état transitoire connu et si le bloc MariaDB doit être retiré (hors périmètre A2, à porter au lot E3)"
+  - id: AMB-9
+    resume: "DÉCOUVERTE contre-revue : climato affichée (climato.php, fusion au rendu) != climato stockée (cron climato_annuelle.inc.php:566-571,1794) — deux règles, deux résultats possibles selon le consommateur"
+    decision: "le STOCKÉ fait foi (cohérent avec AMB-2) : le Gold canonique matérialise la fusion du cron, et les pages deviennent des consommateurs du stocké au lieu de recalculer leur propre fusion au rendu"
