@@ -148,6 +148,34 @@ moteur du chaud ; si la rétention nécessaire dépasse ~3-4 ans (usage réel de
 pages), la frontière chaud/froid d'ADR-0006 est à recalibrer avant d'agrandir
 le chaud.
 
+## Amendement 2026-07-16 — `obs_last.source_prio` (préséance à l'upsert)
+
+Le POC D1 a révélé que la coquille `obs_last` déployée (PK `station_id,
+parametre_id, duree_s` ; colonnes `dh_utc, valeur, qc_flag`) **ne stocke pas
+la source** — or la règle de préséance A2 à l'upsert (« une source moins
+prioritaire ne remplace jamais une valeur plus prioritaire au même dh_utc »,
+qui empêche le ping-pong entre D2 et D2b sur la même case) a besoin de
+connaître la source de la valeur en place pour arbitrer.
+
+**Décision (pam, 16/07)** : ajouter `source_prio smallint NOT NULL` à
+`obs_last` — le **rang de préséance** (petit = prioritaire), directement
+comparable, plus compact qu'un `source_id` + jointure. Ordre v1 (préséance A2,
+AMB-1 « natif IC prioritaire par défaut ») :
+
+| source_prio | source | |
+|---|---|---|
+| 0 | moderation (saisie humaine) | AMB-3, priorité absolue |
+| 10-14 | synop-ic, static-ic, metar-ic, bouees-ic, mae-ic | natif IC |
+| 20-22 | mf-h, mf-i, mf-q | Météo-France |
+
+Règle d'upsert : `ON CONFLICT (station_id, parametre_id, duree_s) DO UPDATE`
+si `excluded.dh_utc > obs_last.dh_utc` (récence) **OU** (`=` ET
+`excluded.source_prio < obs_last.source_prio`, préséance à dh_utc égal).
+Backfill équivalent : par clé, `ORDER BY dh_utc DESC, source_prio ASC LIMIT 1`.
+Les exceptions par paramètre d'AMB-1 (certains params où MF écrase) sont une
+**raffinement Gold/v2**, pas portées dans ce rang total v1 (obs_last =
+« dernière valeur » live, IC-natif-gagne par défaut est défendable).
+
 ## Références
 
 - Étude compagnon « serving chaud » 2026-07-11 (workspace — DDL cible complet,
