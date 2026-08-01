@@ -1,0 +1,130 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:gold-climato-legacy
+name: Gold climato legacy (copie MF retro-compat)
+version: 0.1.0
+status: draft
+domain: climato
+dataProduct: gold-climato-legacy
+
+description:
+  purpose: >-
+    Les données climatologiques Météo-France (mensuelles, décadaires, quotidiennes),
+    dans leur format d'origine — pour les sites, apps ou scripts déjà construits sur
+    le schéma Météo-France et qui veulent continuer à s'en servir sans rien changer.
+  usage: Serving public via climato.chom.engineering /legacy/*
+
+tags:
+  - meteo
+  - climatologie
+  - meteofrance
+  - gold
+  - diffusion
+
+servers:
+  - server: diffusion-iceberg
+    type: s3
+    environment: production
+    location: s3://chom-ic-lake-diffusion/gold_legacy
+    format: iceberg
+
+schema:
+  - name: mensuelle
+    physicalName: gold_legacy.mensuelle
+    physicalType: table
+    description: >-
+      Le résumé de chaque mois par station — moyenne et extrêmes (jour le plus
+      froid / le plus chaud) : pour des bilans mensuels, au format Météo-France
+      d'origine.
+    properties:
+      - name: NUM_POSTE
+        physicalType: TEXT
+        required: true
+      - name: AAAAMM
+        physicalType: TIMESTAMPTZ
+        required: true
+
+  - name: decadaire
+    physicalName: gold_legacy.decadaire
+    physicalType: table
+    description: >-
+      Cumuls et moyennes par décade (période de 10 jours) par station, au format
+      Météo-France d'origine — utile pour l'agronomie et le suivi des cultures.
+    properties:
+      - name: NUM_POSTE
+        physicalType: TEXT
+        required: true
+      - name: AAAAMM
+        physicalType: TIMESTAMPTZ
+        required: true
+      - name: NUM_DECADE
+        physicalType: INTEGER
+        required: true
+        description: 3e composante de la clé naturelle (1/2/3, 3 décades par mois)
+
+  - name: decadaire_agro
+    physicalName: gold_legacy.decadaire_agro
+    physicalType: table
+    description: >-
+      Cumuls et moyennes agrométéo par décade (période de 10 jours) par station,
+      au format Météo-France d'origine — pensé pour le suivi des cultures.
+    properties:
+      - name: NUM_POSTE
+        physicalType: TEXT
+        required: true
+      - name: AAAAMM
+        physicalType: TIMESTAMPTZ
+        required: true
+      - name: NUM_DECADE
+        physicalType: INTEGER
+        required: true
+        description: 3e composante de la clé naturelle (1/2/3, 3 décades par mois)
+
+  - name: quotidienne
+    physicalName: gold_legacy.quotidienne
+    physicalType: table
+    description: >-
+      Températures et précipitations journalières par station, au format
+      Météo-France d'origine : pour tracer des courbes de température ou
+      alimenter un tableau de bord compatible avec les outils existants.
+    properties:
+      - name: NUM_POSTE
+        physicalType: TEXT
+        required: true
+      - name: AAAAMMJJ
+        physicalType: TIMESTAMPTZ
+        required: true
+
+  - name: quotidienne_autres
+    physicalName: gold_legacy.quotidienne_autres
+    physicalType: table
+    description: >-
+      Les autres paramètres journaliers (pression, humidité, ensoleillement,
+      vent, neige…) au-delà de la température et de la pluie, au format
+      Météo-France d'origine.
+    properties:
+      - name: NUM_POSTE
+        physicalType: TEXT
+        required: true
+      - name: AAAAMMJJ
+        physicalType: TIMESTAMPTZ
+        required: true
+
+team:
+  - username: pam
+    role: owner
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+customProperties:
+  - property: lineage
+    value: bronze.mf_mensuelle -> gold_legacy.mensuelle
+  - property: dataLicense
+    value: >-
+      Données source Météo-France, Licence Ouverte (Etalab) 2.0
+      (meteo.data.gouv.fr) — attribution Météo-France requise.
+  - property: attribution
+    value: Météo-France / Infoclimat

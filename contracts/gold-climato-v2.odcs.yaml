@@ -1,0 +1,197 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:gold-climato-v2
+name: Gold climato v2 (recalcul canonique)
+version: 0.1.0
+status: draft
+domain: climato
+dataProduct: gold-climato-v2
+
+description:
+  purpose: >-
+    Les mêmes données climatologiques que la version legacy, mais recalculées avec un
+    contrôle qualité qui écarte les valeurs physiquement impossibles (températures ou
+    cumuls de pluie aberrants), et exprimées en unités simples (°C, mm). Destiné aux
+    usages publics (site web, API, tableaux de bord) qui veulent des chiffres fiables
+    sans avoir à filtrer les données eux-mêmes.
+  usage: Serving public via climato.chom.engineering /v2/*
+
+tags:
+  - meteo
+  - climatologie
+  - meteofrance
+  - gold
+  - diffusion
+  - schema-canonique
+
+servers:
+  - server: diffusion-iceberg
+    type: s3
+    environment: production
+    location: s3://chom-ic-lake-diffusion/gold_v2
+    format: iceberg
+
+schema:
+  - name: journaliere
+    physicalName: gold_v2.journaliere
+    physicalType: table
+    description: >-
+      Températures journalières (min, max, moyenne) et cumul de précipitation par
+      station, en °C et mm : pour tracer des courbes de température ou alimenter un
+      tableau de bord. Recalculé avec un contrôle qualité qui écarte les valeurs
+      aberrantes.
+    properties:
+      - name: ic_id
+        physicalType: TEXT
+        required: true
+        description: Identifiant station Infoclimat (crosswalk dim_station)
+      - name: mfid
+        physicalType: TEXT
+        required: true
+        description: NUM_POSTE Météo-France (crosswalk dim_station)
+      - name: date
+        physicalType: DATE
+        required: true
+      - name: tn
+        physicalType: DOUBLE
+        description: Température min du jour (°C)
+      - name: tx
+        physicalType: DOUBLE
+        description: Température max du jour (°C)
+      - name: tm
+        physicalType: DOUBLE
+        description: (tn+tx)/2 (°C)
+      - name: tntxm
+        physicalType: DOUBLE
+        description: alias de tm (°C)
+      - name: rr
+        physicalType: DOUBLE
+        description: Cumul de précipitation du jour (mm)
+
+  - name: mensuelle
+    physicalName: gold_v2.mensuelle
+    physicalType: table
+    description: >-
+      Le résumé de chaque mois par station — moyennes, extrêmes datés (jour le plus
+      froid / le plus chaud), nombre de jours de gel : pour des bilans mensuels.
+    properties:
+      - name: ic_id
+        physicalType: TEXT
+        required: true
+      - name: mfid
+        physicalType: TEXT
+        required: true
+      - name: mois
+        physicalType: TIMESTAMP
+        required: true
+        description: Premier jour du mois (date_trunc('month', date))
+      - name: tnm
+        physicalType: DOUBLE
+        description: Moyenne mensuelle des tn (°C)
+      - name: txm
+        physicalType: DOUBLE
+        description: Moyenne mensuelle des tx (°C)
+      - name: tmm
+        physicalType: DOUBLE
+        description: Moyenne mensuelle des tm (°C)
+      - name: rr
+        physicalType: DOUBLE
+        description: Cumul de précipitation du mois (mm)
+      - name: tnn
+        physicalType: DOUBLE
+        description: Température min du mois (°C)
+      - name: tnn_date
+        physicalType: DATE
+      - name: txx
+        physicalType: DOUBLE
+        description: Température max du mois (°C)
+      - name: txx_date
+        physicalType: DATE
+      - name: nb_jours_gel
+        physicalType: INTEGER
+        description: Nombre de jours du mois avec tn < 0 °C
+
+  - name: records
+    physicalName: gold_v2.records
+    physicalType: table
+    description: >-
+      Les records de température (chaud/froid) de chaque station, par mois
+      calendaire sur tout l'historique : pour afficher « record battu » et les
+      extrêmes historiques.
+    properties:
+      - name: ic_id
+        physicalType: TEXT
+        required: true
+      - name: mfid
+        physicalType: TEXT
+        required: true
+      - name: mois_calendaire
+        physicalType: INTEGER
+        required: true
+        description: Mois calendaire (1-12), 3e composante de la clé naturelle
+      - name: txx_max
+        physicalType: DOUBLE
+        description: Record absolu de température max sur le mois calendaire (°C)
+      - name: txx_max_date
+        physicalType: DATE
+      - name: tnn_min
+        physicalType: DOUBLE
+        description: Record absolu de température min sur le mois calendaire (°C)
+      - name: tnn_min_date
+        physicalType: DATE
+
+  - name: itn
+    physicalName: gold_v2.itn
+    physicalType: table
+    description: >-
+      L'Indicateur Thermique National — la température moyenne quotidienne de la
+      France (30 stations de référence) : pour suivre vagues de chaleur et de froid
+      à l'échelle du pays.
+    properties:
+      - name: date
+        physicalType: DATE
+        required: true
+      - name: year
+        physicalType: INTEGER
+        required: true
+      - name: month
+        physicalType: INTEGER
+        required: true
+      - name: day_of_month
+        physicalType: INTEGER
+        required: true
+      - name: is_fictive
+        physicalType: BOOLEAN
+        description: 29/02 synthétique des années non-bissextiles (toujours FALSE dans ce build)
+      - name: itn
+        physicalType: DOUBLE
+        description: Indicateur Thermique National du jour (°C)
+
+team:
+  - username: pam
+    role: owner
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+customProperties:
+  - property: lineage
+    value: silver.observation_v2 -> gold_v2.journaliere -> {mensuelle, records, itn}
+  - property: dataLicense
+    value: >-
+      Agrégats dérivés de données Météo-France (Licence Ouverte Etalab 2.0)
+      + valeur ajoutée Infoclimat, politique opendata IC.
+  - property: attribution
+    value: Météo-France / Infoclimat
+  - property: methodologyRef
+    value: >-
+      github.com/dataforgoodfr/14_ValorisationDonneeMeteo (backend/sql) —
+      ITN 30 stations réf. ≥29/30, records absolus par mois.
+  - property: units
+    value: >-
+      Unités conventionnelles (°C, mm), pas les unités SI internes du
+      canonique. QC de plausibilité physique appliqué en amont de
+      gold_v2.journaliere (air_temperature ∈ [-90, +60] °C, précipitation
+      horaire ∈ [0, 500] mm) — hérité par mensuelle/records/itn.

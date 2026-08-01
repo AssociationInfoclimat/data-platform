@@ -1,0 +1,110 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:gold-canicule
+name: gold-canicule
+version: 0.1.0
+status: draft
+domain: climatologie
+dataProduct: gold-canicule
+description:
+  purpose: >
+    Socle "observatoire canicule" : indicateurs de chaleur mesurés (nuits
+    tropicales, jours de forte chaleur) par station et par territoire INSEE
+    (commune/EPCI/département), avec rattachement géographique et comptage par
+    source (StatIC / Météo-France principale / secondaire).
+  usage: >
+    Alimente le serving canicule et les surfaces carte/bulletin destinées aux
+    collectivités. Données mesurées uniquement — aucune interpolation.
+  limitations: >
+    station_saison / territoire_saison ne matérialisent que les territoires
+    réellement mesurés (>= 1 station). commune_couverture précalcule au contraire
+    le statut de couverture (mesuree/approchee/angle_mort) pour TOUTES les
+    communes métropolitaines (rayon 25 km ; DROM absents du référentiel géo).
+    saison_annee = année civile ; rang/n_saisons sur l'ère >= 1950 (normales OMM).
+tags: [gold, diffusion, schema-canonique, canicule, climatologie]
+servers:
+  - server: diffusion-iceberg
+    type: s3
+    environment: production
+    location: s3://chom-ic-lake-diffusion/gold_canicule
+    format: iceberg
+schema:
+  - name: station_insee
+    physicalName: gold_canicule.station_insee
+    physicalType: table
+    description: Rattachement station -> commune/EPCI/département + source.
+    properties:
+      - {name: station_uid, physicalType: TEXT, required: true, description: UID station canonique}
+      - {name: ic_id, physicalType: TEXT, required: false, description: identifiant Infoclimat}
+      - {name: source, physicalType: TEXT, required: true, description: statIC|mf_principale|mf_secondaire|autre}
+      - {name: latitude, physicalType: DOUBLE, required: true, description: latitude WGS84}
+      - {name: longitude, physicalType: DOUBLE, required: true, description: longitude WGS84}
+      - {name: insee_com, physicalType: TEXT, required: true, description: code INSEE commune}
+      - {name: nom_com, physicalType: TEXT, required: false, description: nom de la commune}
+      - {name: siren_epci, physicalType: TEXT, required: false, description: code SIREN de l'EPCI}
+      - {name: insee_dep, physicalType: TEXT, required: false, description: code département}
+  - name: station_saison
+    physicalName: gold_canicule.station_saison
+    physicalType: table
+    description: Indicateurs de chaleur par station et par année.
+    properties:
+      - {name: station_uid, physicalType: TEXT, required: true, description: UID station canonique}
+      - {name: ic_id, physicalType: TEXT, required: false, description: identifiant Infoclimat}
+      - {name: source, physicalType: TEXT, required: true, description: source de la station}
+      - {name: insee_com, physicalType: TEXT, required: true, description: code INSEE commune}
+      - {name: siren_epci, physicalType: TEXT, required: false, description: code SIREN EPCI}
+      - {name: insee_dep, physicalType: TEXT, required: false, description: code département}
+      - {name: latitude, physicalType: DOUBLE, required: true, description: latitude WGS84}
+      - {name: longitude, physicalType: DOUBLE, required: true, description: longitude WGS84}
+      - {name: saison_annee, physicalType: INTEGER, required: true, description: année civile}
+      - {name: nb_nuits_tropicales, physicalType: INTEGER, required: true, description: nb nuits Tn>=20 degC}
+      - {name: nb_jours_tx30, physicalType: INTEGER, required: true, description: nb jours Tx>=30 degC}
+      - {name: nb_jours_tx35, physicalType: INTEGER, required: true, description: nb jours Tx>=35 degC}
+      - {name: n_jours_tn, physicalType: INTEGER, required: true, description: nb jours avec Tn valide}
+      - {name: n_jours_tx, physicalType: INTEGER, required: true, description: nb jours avec Tx valide}
+  - name: territoire_saison
+    physicalName: gold_canicule.territoire_saison
+    physicalType: table
+    description: Roll-up par territoire INSEE + comptage source + rang historique.
+    properties:
+      - {name: niveau, physicalType: TEXT, required: true, description: commune|epci|departement}
+      - {name: code, physicalType: TEXT, required: true, description: code INSEE/SIREN du territoire}
+      - {name: saison_annee, physicalType: INTEGER, required: true, description: année civile}
+      - {name: n_stations, physicalType: INTEGER, required: true, description: nb stations mesurées}
+      - {name: n_statIC, physicalType: INTEGER, required: true, description: dont StatIC}
+      - {name: n_mf_principale, physicalType: INTEGER, required: true, description: dont MF principale}
+      - {name: n_mf_secondaire, physicalType: INTEGER, required: true, description: dont MF secondaire}
+      - {name: nuits_trop_moy, physicalType: DOUBLE, required: true, description: moyenne nuits tropicales}
+      - {name: nuits_trop_max, physicalType: INTEGER, required: true, description: max nuits tropicales}
+      - {name: jours_tx30_moy, physicalType: DOUBLE, required: true, description: moyenne jours Tx>=30}
+      - {name: jours_tx30_max, physicalType: INTEGER, required: true, description: max jours Tx>=30}
+      - {name: jours_tx35_moy, physicalType: DOUBLE, required: true, description: moyenne jours Tx>=35}
+      - {name: jours_tx35_max, physicalType: INTEGER, required: true, description: max jours Tx>=35}
+      - {name: rang_nuits_trop, physicalType: INTEGER, required: true, description: rang de l'année (1=plus chaude)}
+      - {name: n_saisons, physicalType: INTEGER, required: true, description: nb d'années disponibles}
+  - name: commune_couverture
+    physicalName: gold_canicule.commune_couverture
+    physicalType: table
+    description: Statut de couverture (mesuree/approchee/angle_mort) par commune INSEE, rayon 25 km.
+    properties:
+      - {name: insee_com, physicalType: TEXT, required: true, description: code INSEE commune}
+      - {name: statut, physicalType: TEXT, required: true, description: mesuree|approchee|angle_mort}
+      - {name: n_stations, physicalType: INTEGER, required: true, description: nb stations mesurées dans la commune}
+      - {name: nearest_station_uid, physicalType: TEXT, required: false, description: UID station mesurée la plus proche (si non mesuree)}
+      - {name: nearest_ic_id, physicalType: TEXT, required: false, description: ic_id de la station la plus proche}
+      - {name: nearest_km, physicalType: DOUBLE, required: false, description: distance à la station la plus proche (km)}
+      - {name: h3_maille, physicalType: TEXT, required: true, description: cellule H3 res 5 du centroïde communal}
+team:
+  - username: pam
+    role: owner
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+customProperties:
+  - property: lineage
+    value: gold_ref.station + communes IGN + INSEE COG -> gold_canicule.station_insee ; silver.observation_v2 + gold_canicule.station_insee -> gold_canicule.station_saison -> gold_canicule.territoire_saison ; gold_canicule.station_insee + communes IGN -> gold_canicule.commune_couverture (rayon 25 km)
+  - property: dataLicense
+    value: à préciser (aligné legacy/v2 — données multi-sources StatIC + Météo-France)
+  - property: attribution
+    value: Infoclimat

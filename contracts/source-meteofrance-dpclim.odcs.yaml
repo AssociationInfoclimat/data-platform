@@ -12,6 +12,7 @@ description:
     Contrat de la SOURCE API DPClim (climatologie stations, données historiques sur commande)
     — référentiel stations + commandes de fichiers CSV horaire / infrahoraire / quotidien /
     mensuel / décadaire / décadaire-agro. Schéma en unités CONVENTIONNELLES (°C, 1/10, m/s).
+    Lecture correcte (NOTE-A, échantillon prod 2026-07-12, amendement ADR-0004) : « °C et 1/10 » = valeurs RÉELLES en °C à précision 0,1 — PAS un facteur x10 ; facteur=1 dans le vocabulaire.
   usage: >-
     Consommé par les pipelines d'ingestion climatologie. Workflow asynchrone : POST
     /commande-station/{freq} → id de commande → GET /commande/fichier?id-cmde={id} → CSV.

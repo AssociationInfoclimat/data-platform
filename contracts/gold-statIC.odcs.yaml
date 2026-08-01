@@ -1,0 +1,283 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:gold-statIC
+name: Gold StatIC (climato du réseau participatif Infoclimat)
+version: 0.1.0
+status: draft
+domain: climato
+dataProduct: gold-statIC
+
+description:
+  purpose: >-
+    La climatologie du réseau de stations participatives StatIC (Infoclimat) :
+    températures journalières et mensuelles, records par station — servie comme un
+    produit Météo-France, mais en assumant la nature participative des stations
+    (emplacements et capteurs hétérogènes) par la TRANSPARENCE plutôt que le
+    masquage : chaque valeur est accompagnée de sa densité d'observations et de son
+    taux de mesures physiquement plausibles. Rien n'est retiré d'autorité ;
+    l'utilisateur filtre selon son besoin.
+  usage: Serving public via climato.chom.engineering /statIC/*
+  limitations: >-
+    classe_station (classification siting StatIC) est présente mais NON RENSEIGNÉE
+    (NULL) : cette classification n'est pas disponible comme donnée sourçable dans
+    le canonique ni la métadata IC inventoriée (décision 2026-07-18). Elle sera
+    renseignée quand la source sera identifiée. Le taux_qc_valide s'appuie sur la
+    plausibilité physique (les obs StatIC sont qc_flag='raw', sans QC amont).
+
+tags:
+  - meteo
+  - climatologie
+  - infoclimat
+  - statIC
+  - reseau-participatif
+  - gold
+  - diffusion
+
+servers:
+  - server: diffusion-iceberg
+    type: s3
+    environment: production
+    location: s3://chom-ic-lake-diffusion/gold_statIC
+    format: iceberg
+
+schema:
+  - name: journaliere
+    physicalName: gold_statIC.journaliere
+    physicalType: table
+    description: >-
+      Températures journalières (min, max, moyenne) et cumul de précipitation par
+      station StatIC, en °C et mm, avec la densité d'observations et le taux de
+      mesures plausibles : pour exploiter le réseau participatif en connaissance de
+      cause.
+    properties:
+      - name: ic_id
+        physicalType: TEXT
+        required: true
+        description: Identifiant station StatIC (Infoclimat)
+      - name: date
+        physicalType: DATE
+        required: true
+      - name: tn
+        physicalType: DOUBLE
+        description: Température min du jour (°C)
+      - name: tx
+        physicalType: DOUBLE
+        description: Température max du jour (°C)
+      - name: tm
+        physicalType: DOUBLE
+        description: (tn+tx)/2 (°C)
+      - name: tntxm
+        physicalType: DOUBLE
+        description: alias de tm (°C)
+      - name: rr
+        physicalType: DOUBLE
+        description: Cumul de précipitation du jour (mm), nul si > 2000 mm (impossible)
+      - name: n_obs
+        physicalType: INTEGER
+        description: Nombre d'observations de température agrégées ce jour (densité)
+      - name: taux_qc_valide
+        physicalType: DOUBLE
+        description: Part des obs de température dans les bornes physiques [-90,+60] °C (0-1)
+      - name: classe_station
+        physicalType: INTEGER
+        description: Classe siting StatIC (1-5) — NON RENSEIGNÉE (déviation, cf. limitations)
+
+  - name: mensuelle
+    physicalName: gold_statIC.mensuelle
+    physicalType: table
+    description: >-
+      Le résumé de chaque mois par station StatIC — moyennes, extrêmes datés, jours
+      de gel — avec la densité et le taux de mesures plausibles du mois.
+    properties:
+      - name: ic_id
+        physicalType: TEXT
+        required: true
+      - name: mois
+        physicalType: TIMESTAMP
+        required: true
+        description: Premier jour du mois
+      - name: tnm
+        physicalType: DOUBLE
+        description: Moyenne mensuelle des tn (°C)
+      - name: txm
+        physicalType: DOUBLE
+        description: Moyenne mensuelle des tx (°C)
+      - name: tmm
+        physicalType: DOUBLE
+        description: Moyenne mensuelle des tm (°C)
+      - name: rr
+        physicalType: DOUBLE
+        description: Cumul de précipitation du mois (mm)
+      - name: tnn
+        physicalType: DOUBLE
+        description: Température min du mois (°C)
+      - name: tnn_date
+        physicalType: DATE
+      - name: txx
+        physicalType: DOUBLE
+        description: Température max du mois (°C)
+      - name: txx_date
+        physicalType: DATE
+      - name: nb_jours_gel
+        physicalType: INTEGER
+        description: Nombre de jours du mois avec tn < 0 °C
+      - name: n_obs
+        physicalType: INTEGER
+        description: Nombre d'observations de température du mois
+      - name: taux_qc_valide
+        physicalType: DOUBLE
+        description: Taux d'obs plausibles du mois, pondéré par la densité (0-1)
+      - name: classe_station
+        physicalType: INTEGER
+        description: Classe siting StatIC — NON RENSEIGNÉE (déviation)
+
+  - name: records
+    physicalName: gold_statIC.records
+    physicalType: table
+    description: >-
+      Les records de température (chaud/froid) de chaque station StatIC, par mois
+      calendaire sur tout l'historique : extrêmes bruts du réseau participatif (à
+      lire avec la densité/qualité de la station).
+    properties:
+      - name: ic_id
+        physicalType: TEXT
+        required: true
+      - name: mois_calendaire
+        physicalType: INTEGER
+        required: true
+        description: Mois calendaire (1-12)
+      - name: txx_max
+        physicalType: DOUBLE
+        description: Record de température max sur le mois calendaire (°C)
+      - name: txx_max_date
+        physicalType: DATE
+      - name: tnn_min
+        physicalType: DOUBLE
+        description: Record de température min sur le mois calendaire (°C)
+      - name: tnn_min_date
+        physicalType: DATE
+
+  - name: indicateur_reseau
+    physicalName: gold_statIC.indicateur_reseau
+    physicalType: table
+    description: >-
+      L'indicateur thermique national du réseau StatIC — la température moyenne
+      quotidienne de la France, calculée pour être SPATIALEMENT REPRÉSENTATIVE :
+      moyenne par département puis moyenne des départements couverts (et non moyenne
+      brute des stations, qui sur-pondérerait les zones denses). La couverture
+      (nombre de stations, de départements) et la dispersion sont exposées pour la
+      transparence. V1 national ; régional et anomalies vs normales = suite.
+    properties:
+      - name: date
+        physicalType: DATE
+        required: true
+      - name: echelle
+        physicalType: TEXT
+        description: Échelle spatiale ('national' en V1)
+      - name: itn_statIC
+        physicalType: DOUBLE
+        description: Indicateur thermique StatIC du jour, représentatif (°C)
+      - name: tn_moy
+        physicalType: DOUBLE
+        description: Moyenne réseau des tn (par maille puis des mailles) (°C)
+      - name: tx_moy
+        physicalType: DOUBLE
+        description: Moyenne réseau des tx (°C)
+      - name: n_stations
+        physicalType: INTEGER
+        description: Nombre de stations StatIC contribuant ce jour (transparence)
+      - name: n_mailles
+        physicalType: INTEGER
+        description: Nombre de départements couverts ce jour (représentativité)
+      - name: ecart_type
+        physicalType: DOUBLE
+        description: Écart-type inter-stations des tm (dispersion, transparence)
+  - name: stations
+    physicalName: gold_statIC.stations
+    physicalType: table
+    description: >-
+      L'annuaire du réseau StatIC, triable par département : pour chaque station,
+      tous les paramètres réellement mesurés et leur profondeur temporelle
+      (première/dernière observation, volume). Grain : 1 ligne par
+      (station, paramètre). Stations fermées incluses — les colonnes ouverte et
+      derniere_obs permettent de filtrer. Dérivée de gold_ref (référentiel),
+      refresh quotidien.
+    properties:
+      - name: ic_id
+        physicalType: TEXT
+        required: true
+        description: Identifiant station StatIC (Infoclimat)
+      - name: libelle
+        physicalType: TEXT
+        description: Nom de la station
+      - name: departement
+        physicalType: TEXT
+        description: Département (code, ex. « 31 ») — null hors France
+      - name: pays
+        physicalType: TEXT
+        description: Code pays (ex. FR)
+      - name: latitude
+        physicalType: DOUBLE
+        required: true
+      - name: longitude
+        physicalType: DOUBLE
+        required: true
+      - name: altitude
+        physicalType: INTEGER
+        description: Altitude (m)
+      - name: ouverte
+        physicalType: BOOLEAN
+        required: true
+        description: Station encore ouverte dans le référentiel
+      - name: dh_ouverture
+        physicalType: TIMESTAMP
+        description: Date d'ouverture de la station
+      - name: parametre
+        physicalType: TEXT
+        required: true
+        description: Paramètre mesuré (vocabulaire canonique, cf. /params)
+      - name: premiere_obs
+        physicalType: TIMESTAMP
+        required: true
+        description: Première observation de ce paramètre sur cette station
+      - name: derniere_obs
+        physicalType: TIMESTAMP
+        required: true
+        description: Dernière observation de ce paramètre sur cette station
+      - name: n_obs
+        physicalType: BIGINT
+        required: true
+        description: Nombre total d'observations de ce paramètre
+
+team:
+  - username: pam
+    role: owner
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+customProperties:
+  - property: lineage
+    value: >-
+      silver.observation_v2 (source='static-ic') -> gold_statIC.journaliere ->
+      {mensuelle, records, indicateur_reseau (+ dim.station pour la stratification département)}
+  - property: dataLicense
+    value: >-
+      Données du réseau participatif StatIC (Infoclimat), Licence Ouverte (Etalab)
+      2.0 (cf. infoclimat.fr/opendata). Licence propre à trancher au besoin (gate CA).
+  - property: attribution
+    value: Infoclimat / réseau StatIC
+  - property: methodologyRef
+    value: >-
+      Kernels identiques à gold_v2 appliqués aux seules obs source='static-ic' ;
+      transparence qualité (n_obs, taux_qc_valide) au lieu d'homogénéisation MF.
+  - property: deviations
+    value: >-
+      classe_station (siting StatIC) NON sourçable dans le canonique/métadata IC
+      inventoriée -> colonne NULL (décision 2026-07-18), à renseigner au sourcing.
+      Indicateur réseau : V1 national, stratification par DÉPARTEMENT (approximation
+      surfacique ; grille équi-surface = raffinement futur), DOM-TOM exclus.
+  - property: units
+    value: Unités conventionnelles (°C, mm), QC plausibilité amont comme gold_v2.

@@ -1,0 +1,157 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:gold-ref
+name: Gold référentiel stations (annuaire géolocalisé + réseau + activité par paramètre)
+version: 0.1.0
+status: draft
+domain: referentiel
+dataProduct: gold-ref
+
+description:
+  purpose: >-
+    Le référentiel unique des stations météo connues d'Infoclimat : identité
+    (ic_id, mfid), géolocalisation, réseau (StatIC participatif / synop, et pour
+    Météo-France le type de poste principale/secondaire), état d'ouverture, et la
+    liste des paramètres réellement mesurés avec leur activité (première/dernière
+    observation, volume). Remplace le feed live stations_xhr.php et les exports
+    GeoJSON figés côté cartes.
+  usage: Serving public via climato.chom.engineering /ref/*
+
+tags:
+  - meteo
+  - referentiel
+  - stations
+  - infoclimat
+  - gold
+  - diffusion
+  - schema-canonique
+
+servers:
+  - server: diffusion-iceberg
+    type: s3
+    environment: production
+    location: s3://chom-ic-lake-diffusion/gold_ref
+    format: iceberg
+
+schema:
+  - name: station
+    physicalName: gold_ref.station
+    physicalType: table
+    description: >-
+      Une ligne par station : identité, géolocalisation, réseau, état d'ouverture,
+      paramètres mesurés (tableau) et date de dernière activité.
+    properties:
+      - name: station_uid
+        physicalType: TEXT
+        required: true
+        description: >-
+          Pivot de jointure interne. uuid5(ns, "ic:" + ic_id) — DÉRIVÉ de ic_id,
+          donc pas plus stable que lui : il change si ic_id change. L'identifiant
+          canonique est ic_id.
+      - name: ic_id
+        physicalType: TEXT
+        required: true
+        description: >-
+          Identifiant station Infoclimat — IDENTIFIANT CANONIQUE, celui qui fait
+          foi. Hétérogène par conception : code OACI pour les metar (FMEE),
+          indicatif OMM à 5 chiffres pour les synop (61980). Les stations StatIC
+          n'ont AUCUNE forme unique (00006, STATIC0253, MNWERO090) : ne présumez
+          d'aucun format, lisez la valeur.
+      - name: mfid
+        physicalType: TEXT
+        description: NUM_POSTE Météo-France si la station est aussi référencée MF, sinon vide
+      - name: genre
+        physicalType: TEXT
+        description: Réseau (static = StatIC participatif, synop = synoptique)
+      - name: type_poste
+        physicalType: TEXT
+        description: Type de poste Météo-France (principale/secondaire), sinon vide
+      - name: libelle
+        physicalType: TEXT
+      - name: libelle_source
+        physicalType: TEXT
+        description: >-
+          Libellé brut du référentiel amont, avant normalisation. Conservé pour
+          traçabilité : 13 087 libellés portent un préfixe laissé par l'import CSV
+          Météo-France (« TEST MF CSV<n> … ») qui ne désigne PAS des stations de
+          test — ce sont des postes Météo-France réels.
+      - name: latitude
+        physicalType: DOUBLE
+        required: true
+      - name: longitude
+        physicalType: DOUBLE
+        required: true
+      - name: altitude
+        physicalType: INTEGER
+        description: Altitude (m)
+      - name: departement
+        physicalType: TEXT
+      - name: pays
+        physicalType: TEXT
+      - name: ouverte
+        physicalType: BOOLEAN
+        description: Station déclarée ouverte dans l'annuaire
+      - name: dh_ouverture
+        physicalType: TIMESTAMP
+      - name: publiable
+        physicalType: BOOLEAN
+        required: true
+        description: >-
+          La station porte au moins une observation dans gold_ref.station_parametre.
+          Seul critère de quarantaine du référentiel diffusé : les endpoints
+          /stations et /ref/stations écartent les lignes à false par défaut
+          (publiable=0 les rouvre).
+      - name: parametres_mesures
+        physicalType: ARRAY
+        description: Clés canoniques des paramètres réellement observés
+      - name: derniere_activite
+        physicalType: TIMESTAMP
+        description: Dernière observation, tous paramètres confondus
+
+  - name: station_parametre
+    physicalName: gold_ref.station_parametre
+    physicalType: table
+    description: >-
+      Pont station × paramètre : pour chaque paramètre observé par une station,
+      première/dernière observation et volume. Fait autorité sur « quelles stations
+      mesurent quoi ».
+    properties:
+      - name: station_uid
+        physicalType: TEXT
+        required: true
+      - name: parametre
+        physicalType: TEXT
+        required: true
+        description: Clé canonique du paramètre (vocabulaire dim_parametre)
+      - name: premiere_obs
+        physicalType: TIMESTAMP
+      - name: derniere_obs
+        physicalType: TIMESTAMP
+      - name: n_obs
+        physicalType: BIGINT
+        description: Nombre d'observations du couple (station, paramètre)
+
+team:
+  - username: pam
+    role: owner
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+customProperties:
+  - property: lineage
+    value: dim.station + silver.observation_v2 -> gold_ref.station_parametre -> gold_ref.station
+  - property: dataLicense
+    value: >-
+      Référentiel multi-sources (réseau participatif StatIC Infoclimat + stations
+      officielles Météo-France et autres producteurs), redistribué sous la politique
+      opendata Infoclimat ; les métadonnées officielles restent sous la licence de
+      leur producteur.
+  - property: attribution
+    value: Infoclimat / réseau StatIC
+  - property: activityWindow
+    value: >-
+      Le serving /ref/stations filtre par défaut sur derniere_activite >= aujourd'hui
+      - 365 jours (paramètre actif_depuis pour élargir/restreindre).

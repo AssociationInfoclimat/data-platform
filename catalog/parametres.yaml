@@ -1,0 +1,1680 @@
+# Vocabulaire contrôlé des paramètres d'observation — ADR-0004 (§7 amendée 2026-07-11)
+#
+# BROUILLON — lot A3, à revoir par une humaine avant fusion. Rigueur > vitesse :
+# les zones d'incertitude sont marquées `unite_incertaine: true` plutôt que devinées.
+#
+# Structure du fichier (5 tranches d'extension, dans l'ordre demandé par le mandat) :
+#   0. Entrées existantes du POC (poc-lakehouse-2025/catalog/parametres.yaml +
+#      parametres_mf_tr.yaml) — 33 entrées, fusionnées en un seul fichier. Les champs
+#      cf_standard_name / unite_si / domaine / description_fr / sources pré-existants
+#      sont repris À L'IDENTIQUE. Extension : de nouvelles clés sont ajoutées au bloc
+#      `sources:` de plusieurs de ces entrées quand une colonne des tranches 1-5
+#      s'avère être la MÊME grandeur (ex. RR1 du Horaire MF = precipitation_amount_1h
+#      existant) — sinon on aurait soit une collision de clé, soit une perte de
+#      traçabilité pour ~20 colonnes wide MF qui n'ont pas de grandeur distincte.
+#      Voir le rapport de restitution pour la discussion de ce choix d'interprétation.
+#   1. Colonnes wide MF consommées — table Timescale `Horaire` (historique, 99 colonnes
+#      utiles hors indicateurs Q*), doc source site-infoclimat/include/MeteoFrance/docs/
+#      H_HTR_I_ITR.txt (section « H »), structure vérifiée contre
+#      data-platform/schemas/timescaledb/schema.sql.gz et le contrat
+#      contracts/horaire-mf-timescale.odcs.yaml.
+#   2. `static.complements` — 33 sous-champs packés (@-séparés), désérialisés par
+#      deserialize_complements() dans site-infoclimat/data/complements.inc.php
+#      (constat : 33 champs réels, pas 34 — l'audit de traduisibilité comptait large).
+#   3. Codes `_H` de `mf_data` (MariaDB, fallback dual-source) — PAS de nouvelles clés :
+#      mf_data_{AAAA}_{MM} porte les MÊMES grandeurs que la tranche 1 (mêmes noms MF
+#      sans le suffixe _H, cf. site-infoclimat/include/MeteoFrance/docs/mf_data.txt qui
+#      liste les deux nomenclatures côte à côte). Cette tranche ajoute donc des sources
+#      `mf_data` sur des entrées déjà créées en tranche 1, uniquement pour les champs
+#      explicitement cités par l'audit comme lus par mobile-api (W1_H/W2_H, B1_H,
+#      TNSOL_H, HNEIGEFI1_H/HNEIGEFI3_H, ETATMER_H). mf_data est en fin de vie planifiée
+#      (contracts/mf-data-fallback.odcs.yaml : ~0% de couverture, un seul écrivain vivant
+#      hors-sujet ici) — dupliquer une source par entrée n'apportait pas de valeur de
+#      gouvernance proportionnée à l'effort.
+#   4. Bouées / mer — table MariaDB `bouees_{MM}_d{d}`, DDL avec COMMENT SQL dans
+#      site-infoclimat/cron/yearly/creer_tables_annee.php:41-68 (source la plus fiable :
+#      commentaires SQL explicites sur les unités/tables OMM).
+#   5. Enneigement (nivo) — source-meteofrance-donnees-libres-nivo.odcs.yaml, alimente
+#      V5_data_mf.enneigement via cron/enneigement/recup_donneespub_mf.php.
+#   6. `mf_quotidienne` — 26 colonnes de mesures de la table Timescale `Quotidienne`
+#      (climatologie quotidienne à mensuelle MF, contracts/quotidienne-mf-timescale.odcs.yaml),
+#      alimentée par telechargement-climatologie-meteo-data-gouv (mêmes CSV data.gouv que le
+#      contrat cite en sourceRepo). 17 colonnes rejoignent des clés EXISTANTES via un bloc
+#      `sources: mf_quotidienne:` supplémentaire à duree_s: 86400 (même grandeur, fenêtre
+#      journalière — RR→precipitation_amount_24h, TN/TX→air_temperature_min/max,
+#      TNSOL/TN50→grass_minimum_temperature_10cm/50cm, DG→duration_of_frost,
+#      DRR→duration_of_precipitation_1h [nom de clé hérité, non renommé — hors périmètre],
+#      FFM/FF2M→wind_speed/wind_speed_2m, FXY/DXY/FXI/DXI/FXI2/DXI2/FXI3S/DXI3S→les 4 couples
+#      wind_speed_of_gust*/wind_from_direction_of_gust*). 6 colonnes (HTN/HTX/HXY/HXI/HXI2/HXI3S)
+#      sont des heures d'occurrence pures → `porte_occurrence: true` sur la clé valeur
+#      correspondante, PAS d'entrée séparée (ADR-0004 §7) ; au passage, deux gaps
+#      pré-existants sont comblés (wind_speed_of_gust_2m/_3s n'avaient pas encore
+#      `porte_occurrence: true` alors que mf_horaire HXI2/HFXI3S existent déjà). 3 colonnes
+#      sont des grandeurs distinctes sans équivalent → nouvelles clés air_temperature_mean
+#      (TM, moyenne vraie horaire), air_temperature_midrange (TNTXM, (TN+TX)/2 — volontairement
+#      PAS fusionnée avec TM) et air_temperature_range (TAMPLI, écart TX-TN, offset=0 car
+#      delta). Le contrat ne documente explicitement que RR/TN/TX (mm, °C) ; les 17 autres
+#      colonnes n'ont ni commentaire d'unité dans le DDL (schemas/timescaledb/schema.sql.gz,
+#      toutes `double precision`/`integer`) ni description dans le contrat — l'unité retenue
+#      vient de la doc source amont (telechargement-climatologie-meteo-data-gouv/src/csv/
+#      quotidiennes/rr-t-vent/parseCSV.ts, qui transcrit la doc MF officielle), facteur=1
+#      partout (cf. NOTE-A : la mention MF « et 1/10 » y est une précision décimale, pas un
+#      facteur d'échelle — les exemples parseCSV.ts sont déjà des décimaux, ex. RR: 1.1).
+#      DG/DRR (durées en minutes) sont marquées `unite_incertaine: true` : seule la doc source
+#      amont confirme l'unité, le contrat est muet même indirectement sur ces deux champs.
+#
+# AVERTISSEMENT DE LECTURE — l'ordre physique du fichier NE suit PAS strictement ces
+# 5 tranches : les entrées sont groupées par PROXIMITÉ THÉMATIQUE pour la relecture
+# humaine (ex. wind_speed_2m est juste après wind_speed, pas dans le bloc « TRANCHE 1 »
+# plus bas). Les commentaires `# TRANCHE N` marquent seulement où commence le GROS des
+# entrées propres à chaque tranche qui n'ont pas de parent thématique en tranche 0.
+# Décompte exact par tranche : voir le rapport de restitution de l'agent (pas
+# reconstituable depuis les seuls marqueurs de section de ce fichier).
+#
+# ─── NOTE-A — TRANCHÉE le 2026-07-12 : échantillon prod Horaire (1980/1989/2024)
+# = unités RÉELLES (°C, hPa), PAS de 1/10 — l'ADR-0004 est à corriger, le contrat
+# horaire-mf-timescale faisait foi. Bornes réelles de la table : 1777 → now. ────────────────────────────────────────
+# H_HTR_I_ITR.txt (doc MF officielle transcrite dans site-infoclimat) documente les
+# colonnes de la table Horaire en convention MF « et 1/10 » (T, RR1, FF, TSV, PMER,
+# PSTAT, PMERMIN, TMER, T10-T100, TNSOL, TN50, TCHAUSSEE, HVAGUE, PVAGUE... = valeurs
+# entières en dixièmes). Mais :
+#   - le contrat contracts/horaire-mf-timescale.odcs.yaml décrit T comme
+#     « REAL — Température sous abri (°C) » SANS mention de 1/10 ;
+#   - le schéma réel (data-platform/schemas/timescaledb/schema.sql.gz) déclare ces
+#     colonnes en `double precision`, compatible avec les deux hypothèses ;
+#   - la vue de production `v_quotidienne_realtime` (schema.sql.gz, définition autour de
+#     la ligne 1605) UNIONne directement `"Horaire"."T"` avec `"HoraireTempsReel".t` (qui
+#     est confirmé en °C réel par le contrat infrahoraire/horaire temps réel) SANS
+#     aucune division par 10 — ce qui n'aurait pas de sens si Horaire.T était encore en
+#     dixièmes.
+# Faisceau d'indices en faveur d'un facteur déjà réel (1) au moment de l'ingestion dans
+# Horaire, contredisant la doc source MF sur le fichier brut. Facteur retenu ICI = 1
+# (aligné sur le contrat et la vue de prod, « les contrats font foi »), mais chaque
+# champ concerné est marqué `unite_incertaine: true` — À CONFIRMER par échantillonnage
+# (`SELECT "T","RR1" FROM "Horaire" ORDER BY "AAAAMMJJHH" DESC LIMIT 20`) avant toute
+# mise en production du vocabulaire. C'est la plus grosse zone d'incertitude de ce
+# brouillon — elle touche ~25 champs numériques continus de la tranche 1.
+# ───────────────────────────────────────────────────────────────────────────────────
+
+version: 0.3.0
+
+parametres:
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # TRANCHE 0 — entrées existantes du POC (33), fusion base + overlay TR
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  air_temperature:
+    cf_standard_name: air_temperature
+    unite_si: K
+    domaine: {min: 180.0, max: 340.0}
+    description_fr: Température de l'air sous abri
+    sources:
+      synop:  {colonne: temperature, unite: degC, facteur: 1, offset: 273.15, duree_s: 0}
+      static: {colonne: temperature, unite: degC, facteur: 1, offset: 273.15, duree_s: 0}
+      metar:  {colonne: temperature, unite: degC, facteur: 1, offset: 273.15, duree_s: 0,
+               note: entier tronqué au degré à la source (tinyint)}
+      bouees: {colonne: temperature, unite: degC, facteur: 1, offset: 273.15, duree_s: 0}
+      mae:    {colonne: temperature, unite: degC, facteur: 1, offset: 273.15, duree_s: 0}
+      mf_horaire_tr:      {colonne: t,  unite: degC, facteur: 1, offset: 273.15, duree_s: 0}
+      mf_infrahoraire_tr: {colonne: t,  unite: degC, facteur: 1, offset: 273.15, duree_s: 0}
+      mf_horaire: {colonne: T, unite: degC, facteur: 1, offset: 273.15, duree_s: 0,
+                   note: "CONFIRMÉ 13/07 (échantillon prod : °C réels, NOTE-A par colonne) — NOTE-A TRANCHÉE 2026-07-12 (échantillon prod : unités réelles, facteur=1 confirmé). Source : site-infoclimat/include/MeteoFrance/docs/H_HTR_I_ITR.txt (section H) ; data-platform/contracts/horaire-mf-timescale.odcs.yaml"}
+      mf_nivo: {colonne: temperature, unite: K, facteur: 1, offset: 0, duree_s: 0,
+                note: "source déjà en Kelvin, offset -273.15 appliqué par le consommateur PHP. Source : data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+
+  air_temperature_min:
+    cf_standard_name: air_temperature
+    unite_si: K
+    domaine: {min: 180.0, max: 340.0}
+    description_fr: Température minimale sur la période de la source (agrégat min)
+    porte_occurrence: true  # cf. ADR-0004 §7 — HTN (mf_horaire), HTN (mf_quotidienne), tn_1h_heure (complements) alimentent dh_occurrence
+    sources:
+      synop:  {colonne: temperature_min, unite: degC, facteur: 1, offset: 273.15, duree_s: null,
+               note: période variable selon heure synoptique (12 h à 06 UTC)}
+      static: {colonne: temperature_min, unite: degC, facteur: 1, offset: 273.15, duree_s: null}
+      mf_horaire_tr: {colonne: tn, unite: degC, facteur: 1, offset: 273.15, duree_s: 3600}
+      mf_horaire: {colonne: TN, unite: degC, facteur: 1, offset: 273.15, duree_s: 3600,
+                   note: "CONFIRMÉ 13/07 (échantillon 2024 : −31,0→40,9 °C) — min « dans l'heure ». NOTE-A TRANCHÉE 2026-07-12 (échantillon prod : unités réelles, facteur=1 confirmé). Source : H_HTR_I_ITR.txt section H"}
+      complements_1h: {colonne: tn_1h, unite: degC, facteur: 1, offset: 273.15, duree_s: 3600,
+                        note: "site-infoclimat/data/complements.inc.php:205 (@Unit °C @Timespan 1h)"}
+      mf_nivo_12h: {colonne: tn_12h, unite: K, facteur: 1, offset: 0, duree_s: 43200,
+                    note: "data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+      mf_nivo_24h: {colonne: tn_24h, unite: K, facteur: 1, offset: 0, duree_s: 86400,
+                    note: "data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+      mf_quotidienne: {colonne: TN, unite: degC, facteur: 1, offset: 273.15, duree_s: 86400,
+                        note: "« température minimale sous abri (en °C et 1/10) » — min journalier, heure d'occurrence HTN portée par porte_occurrence (pas d'entrée séparée). Unité confirmée explicitement par contracts/quotidienne-mf-timescale.odcs.yaml (property TN : REAL, °C, sans mention 1/10 — cohérent avec NOTE-A). Source : contracts/quotidienne-mf-timescale.odcs.yaml ; telechargement-climatologie-meteo-data-gouv/src/csv/quotidiennes/rr-t-vent/parseCSV.ts"}
+
+  air_temperature_max:
+    cf_standard_name: air_temperature
+    unite_si: K
+    domaine: {min: 180.0, max: 340.0}
+    description_fr: Température maximale sur la période de la source (agrégat max)
+    porte_occurrence: true  # cf. ADR-0004 §7 — HTX (mf_horaire), HTX (mf_quotidienne), tx_1h_heure (complements) alimentent dh_occurrence
+    sources:
+      synop:  {colonne: temperature_max, unite: degC, facteur: 1, offset: 273.15, duree_s: null}
+      static: {colonne: temperature_max, unite: degC, facteur: 1, offset: 273.15, duree_s: null}
+      mf_horaire_tr: {colonne: tx, unite: degC, facteur: 1, offset: 273.15, duree_s: 3600}
+      mf_horaire: {colonne: TX, unite: degC, facteur: 1, offset: 273.15, duree_s: 3600,
+                   note: "CONFIRMÉ 13/07 (échantillon 2024 : −29,0→41,7 °C) — max « dans l'heure ». NOTE-A TRANCHÉE 2026-07-12 (échantillon prod : unités réelles, facteur=1 confirmé). Source : H_HTR_I_ITR.txt section H"}
+      complements_1h: {colonne: tx_1h, unite: degC, facteur: 1, offset: 273.15, duree_s: 3600,
+                        note: "site-infoclimat/data/complements.inc.php:212 (@Unit °C @Timespan 1h)"}
+      mf_nivo_12h: {colonne: tx_12h, unite: K, facteur: 1, offset: 0, duree_s: 43200,
+                    note: "data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+      mf_nivo_24h: {colonne: tx_24h, unite: K, facteur: 1, offset: 0, duree_s: 86400,
+                    note: "data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+      mf_quotidienne: {colonne: TX, unite: degC, facteur: 1, offset: 273.15, duree_s: 86400,
+                        note: "« température maximale sous abri (en °C et 1/10) » — max journalier, heure d'occurrence HTX portée par porte_occurrence (pas d'entrée séparée). Unité confirmée explicitement par contracts/quotidienne-mf-timescale.odcs.yaml (property TX : REAL, °C, sans mention 1/10 — cohérent avec NOTE-A). Source : contracts/quotidienne-mf-timescale.odcs.yaml ; telechargement-climatologie-meteo-data-gouv/src/csv/quotidiennes/rr-t-vent/parseCSV.ts"}
+
+  dew_point_temperature:
+    cf_standard_name: dew_point_temperature
+    unite_si: K
+    domaine: {min: 180.0, max: 320.0}
+    description_fr: Température du point de rosée
+    sources:
+      synop:  {colonne: point_de_rosee, unite: degC, facteur: 1, offset: 273.15, duree_s: 0}
+      static: {colonne: point_de_rosee, unite: degC, facteur: 1, offset: 273.15, duree_s: 0}
+      metar:  {colonne: point_de_rosee, unite: degC, facteur: 1, offset: 273.15, duree_s: 0}
+      bouees: {colonne: point_de_rosee, unite: degC, facteur: 1, offset: 273.15, duree_s: 0}
+      mf_horaire_tr:      {colonne: td, unite: degC, facteur: 1, offset: 273.15, duree_s: 0}
+      mf_infrahoraire_tr: {colonne: td, unite: degC, facteur: 1, offset: 273.15, duree_s: 0}
+      mf_horaire: {colonne: TD, unite: degC, facteur: 1, offset: 273.15, duree_s: 0,
+                   note: "NOTE-A TRANCHÉE 2026-07-12 (échantillon prod : °C/hPa réels, facteur=1 confirmé). Source : H_HTR_I_ITR.txt section H"}
+      mf_nivo: {colonne: point_de_rosee, unite: K, facteur: 1, offset: 0, duree_s: 0,
+                note: "data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+
+  relative_humidity:
+    cf_standard_name: relative_humidity
+    unite_si: "%"
+    domaine: {min: 0.0, max: 100.0}
+    description_fr: Humidité relative
+    sources:
+      synop:  {colonne: humidite, unite: "%", facteur: 1, offset: 0, duree_s: 0}
+      static: {colonne: humidite, unite: "%", facteur: 1, offset: 0, duree_s: 0}
+      bouees: {colonne: humidite, unite: "%", facteur: 1, offset: 0, duree_s: 0}
+      mf_horaire_tr:      {colonne: u, unite: "%", facteur: 1, offset: 0, duree_s: 0}
+      mf_infrahoraire_tr: {colonne: u, unite: "%", facteur: 1, offset: 0, duree_s: 0}
+      mf_horaire: {colonne: U, unite: "%", facteur: 1, offset: 0, duree_s: 0,
+                   note: "% déjà entier dans la doc source (pas de mention 1/10) — pas d'incertitude ici. Source : H_HTR_I_ITR.txt section H"}
+      mf_nivo: {colonne: humidite, unite: "%", facteur: 1, offset: 0, duree_s: 0,
+                note: "data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+
+  relative_humidity_min:
+    cf_standard_name: relative_humidity
+    unite_si: "%"
+    domaine: {min: 0.0, max: 100.0}
+    description_fr: Humidité relative minimale sur la période de la source (agrégat min, réseau MF extérieur)
+    porte_occurrence: true  # HUN
+    sources:
+      mf_horaire: {colonne: UN, unite: "%", facteur: 1, offset: 0, duree_s: 3600,
+                   note: "min « dans l'heure ». Source : H_HTR_I_ITR.txt section H"}
+
+  relative_humidity_max:
+    cf_standard_name: relative_humidity
+    unite_si: "%"
+    domaine: {min: 0.0, max: 100.0}
+    description_fr: Humidité relative maximale sur la période de la source (agrégat max, réseau MF extérieur)
+    porte_occurrence: true  # HUX
+    sources:
+      mf_horaire: {colonne: UX, unite: "%", facteur: 1, offset: 0, duree_s: 3600,
+                   note: "max « dans l'heure ». Source : H_HTR_I_ITR.txt section H"}
+
+  air_pressure_at_sea_level:
+    cf_standard_name: air_pressure_at_sea_level
+    unite_si: Pa
+    domaine: {min: 87000.0, max: 108500.0}
+    description_fr: Pression ramenée au niveau de la mer
+    sources:
+      synop:  {colonne: pression, unite: hPa, facteur: 100, offset: 0, duree_s: 0}
+      static: {colonne: pression, unite: hPa, facteur: 100, offset: 0, duree_s: 0}
+      metar:  {colonne: pression, unite: hPa, facteur: 100, offset: 0, duree_s: 0}
+      bouees: {colonne: pression, unite: hPa, facteur: 100, offset: 0, duree_s: 0}
+      mf_horaire_tr:      {colonne: pmer, unite: hPa, facteur: 100, offset: 0, duree_s: 0}
+      mf_infrahoraire_tr: {colonne: pmer, unite: hPa, facteur: 100, offset: 0, duree_s: 0}
+      mf_horaire: {colonne: PMER, unite: hPa, facteur: 100, offset: 0, duree_s: 0,
+                   note: "NOTE-A (documenté 1/10 hPa). Source : H_HTR_I_ITR.txt section H"}
+
+  air_pressure_at_sea_level_min_1h:
+    cf_standard_name: air_pressure_at_sea_level
+    unite_si: Pa
+    domaine: {min: 87000.0, max: 108500.0}
+    description_fr: Minimum horaire de la pression ramenée au niveau de la mer (PMERMIN)
+    sources:
+      mf_horaire: {colonne: PMERMIN, unite: hPa, facteur: 100, offset: 0, duree_s: 3600,
+                   note: "NOTE-A TRANCHÉE 2026-07-12 (échantillon prod : °C/hPa réels, facteur=1 confirmé). Source : H_HTR_I_ITR.txt section H"}
+
+  tendency_of_air_pressure:
+    cf_standard_name: tendency_of_air_pressure
+    unite_si: Pa
+    domaine: {min: -3000.0, max: 3000.0}
+    description_fr: Variation de pression sur 3 heures
+    sources:
+      synop:  {colonne: pression_variation_3h, unite: hPa, facteur: 100, offset: 0, duree_s: 10800}
+      static: {colonne: pression_variation_3h, unite: hPa, facteur: 100, offset: 0, duree_s: 10800}
+      bouees: {colonne: pression_variation_3h, unite: hPa, facteur: 100, offset: 0, duree_s: 10800}
+
+  visibility_in_air:
+    cf_standard_name: visibility_in_air
+    unite_si: m
+    domaine: {min: 0.0, max: 100000.0}
+    description_fr: Visibilité horizontale
+    sources:
+      synop:  {colonne: visibilite, unite: m, facteur: 1, offset: 0, duree_s: 0}
+      static: {colonne: visibilite, unite: m, facteur: 1, offset: 0, duree_s: 0}
+      metar:  {colonne: visibilite, unite: m, facteur: 1, offset: 0, duree_s: 0,
+               note: 9999 = « 10 km ou plus » (valeur censurée, pas une mesure)}
+      bouees: {colonne: visibilite, unite: m, facteur: 1, offset: 0, duree_s: 0}
+      mf_horaire_tr:      {colonne: vv, unite: m, facteur: 1, offset: 0, duree_s: 0}
+      mf_infrahoraire_tr: {colonne: vv, unite: m, facteur: 1, offset: 0, duree_s: 0}
+      mf_horaire: {colonne: VV, unite: m, facteur: 1, offset: 0, duree_s: 0,
+                   note: "en m, pas de mention 1/10. Source : H_HTR_I_ITR.txt section H"}
+
+  wind_speed:
+    cf_standard_name: wind_speed
+    unite_si: m s-1
+    domaine: {min: 0.0, max: 75.0}
+    description_fr: Vitesse du vent moyen (moyenne 10 min)
+    sources:
+      synop:  {colonne: vent_moyen, unite: km h-1, facteur: 0.2777777778, offset: 0, duree_s: 600}
+      static: {colonne: vent_moyen, unite: km h-1, facteur: 0.2777777778, offset: 0, duree_s: 600}
+      metar:  {colonne: vent_moyen, unite: km h-1, facteur: 0.2777777778, offset: 0, duree_s: 600,
+               note: converti des nœuds à l'acquisition (granularité 1,85 km/h)}
+      bouees: {colonne: vent_moyen, unite: km h-1, facteur: 0.2777777778, offset: 0, duree_s: 600}
+      mf_horaire_tr:      {colonne: ff, unite: m s-1, facteur: 1, offset: 0, duree_s: 600,
+                           note: ff MF nativement en m/s (pas de conversion)}
+      mf_infrahoraire_tr: {colonne: ff, unite: m s-1, facteur: 1, offset: 0, duree_s: 600}
+      mf_horaire: {colonne: FF, unite: m s-1, facteur: 1, offset: 0, duree_s: 600,
+                   note: "NOTE-A (documenté 1/10 m/s). Source : H_HTR_I_ITR.txt section H"}
+      mf_nivo: {colonne: vent_moyen, unite: m s-1, facteur: 1, offset: 0, duree_s: 600,
+                note: "data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+      mf_quotidienne: {colonne: FFM, unite: m s-1, facteur: 1, offset: 0, duree_s: 86400,
+                        note: "« moyenne quotidienne de la force du vent moyenné sur 10 mn, à 10 m » — moyenne journalière de la même mesure 10-min que wind_speed (duree_s du sous-jacent inchangé, 600 s ; 86400 est la fenêtre d'agrégation quotidienne, cohérent avec le modèle (paramètre, duree_s) d'ADR-0004 §2). Unité non documentée explicitement par le contrat (DDL : double precision) ; confirmée par la doc source amont. Source : telechargement-climatologie-meteo-data-gouv/src/csv/quotidiennes/rr-t-vent/parseCSV.ts"}
+
+  wind_speed_2m:
+    cf_standard_name: wind_speed
+    unite_si: m s-1
+    domaine: {min: 0.0, max: 60.0}
+    description_fr: Vitesse du vent moyen, variante mesurée à 2 m (FF2, au lieu de 10 m par défaut)
+    sources:
+      mf_horaire: {colonne: FF2, unite: m s-1, facteur: 1, offset: 0, duree_s: 600,
+                   note: "NOTE-A TRANCHÉE 2026-07-12 (échantillon prod : °C/hPa réels, facteur=1 confirmé). Hauteur de mesure (2 m) bornée et fixe, encodée dans la clé (ADR-0004 §7, précédent profondeur/couche). Source : H_HTR_I_ITR.txt section H"}
+      mf_quotidienne: {colonne: FF2M, unite: m s-1, facteur: 1, offset: 0, duree_s: 86400,
+                        note: "« moyenne quotidienne de la force du vent moyenné sur 10 mn, à 2 m » — même remarque que wind_speed/FFM (mf_quotidienne). Unité non documentée explicitement par le contrat ; confirmée par la doc source amont. Source : telechargement-climatologie-meteo-data-gouv/src/csv/quotidiennes/rr-t-vent/parseCSV.ts"}
+
+  wind_from_direction_2m:
+    cf_standard_name: wind_from_direction
+    unite_si: degree
+    domaine: {min: 0.0, max: 360.0}
+    description_fr: Direction d'origine du vent, variante mesurée à 2 m (DD2)
+    sources:
+      mf_horaire: {colonne: DD2, unite: degree, facteur: 1, offset: 0, duree_s: 600,
+                   note: "direction jamais en 1/10 dans la doc source. Source : H_HTR_I_ITR.txt section H"}
+
+  wind_speed_of_gust:
+    cf_standard_name: wind_speed_of_gust
+    unite_si: m s-1
+    domaine: {min: 0.0, max: 120.0}
+    description_fr: Rafale maximale instantanée sur la période de la source
+    porte_occurrence: true  # HXI (mf_horaire)
+    sources:
+      synop:  {colonne: vent_rafales, unite: km h-1, facteur: 0.2777777778, offset: 0, duree_s: null}
+      static: {colonne: vent_rafales, unite: km h-1, facteur: 0.2777777778, offset: 0, duree_s: null}
+      bouees: {colonne: vent_rafales, unite: km h-1, facteur: 0.2777777778, offset: 0, duree_s: null}
+      mf_horaire_tr: {colonne: fxi, unite: m s-1, facteur: 1, offset: 0, duree_s: null,
+                      note: rafale instantanée max, période source}
+      mf_horaire: {colonne: FXI, unite: m s-1, facteur: 1, offset: 0, duree_s: 3600,
+                   note: "« instantané dans l'heure ». NOTE-A TRANCHÉE 2026-07-12 (échantillon prod : °C/hPa réels, facteur=1 confirmé). Source : H_HTR_I_ITR.txt section H"}
+      complements_day: {colonne: rafale_max_day, unite: km h-1, facteur: 0.2777777778, offset: 0, duree_s: 86400,
+                         note: "site-infoclimat/data/complements.inc.php:58 (@Unit km/h @Timespan day)"}
+      mf_quotidienne: {colonne: FXI, unite: m s-1, facteur: 1, offset: 0, duree_s: 86400,
+                        note: "« maximum quotidien de la force maximale horaire du vent instantané, à 10 m » — max journalier du même FXI horaire (mf_horaire), heure d'occurrence HXI portée par porte_occurrence. Unité non documentée explicitement par le contrat (DDL : double precision) ; confirmée par la doc source amont. Source : telechargement-climatologie-meteo-data-gouv/src/csv/quotidiennes/rr-t-vent/parseCSV.ts"}
+
+  wind_from_direction_of_gust:
+    cf_standard_name: null   # pas de standard name CF distinct pour la direction de rafale
+    unite_si: degree
+    domaine: {min: 0.0, max: 360.0}
+    description_fr: Direction associée à la rafale instantanée maximale (DXI)
+    sources:
+      mf_horaire: {colonne: DXI, unite: degree, facteur: 1, offset: 0, duree_s: 3600,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+      mf_quotidienne: {colonne: DXI, unite: degree, facteur: 1, offset: 0, duree_s: 86400,
+                        note: "« direction de FXI (en rose de 360) » — direction associée au max journalier de FXI. Direction jamais en 1/10. Source : telechargement-climatologie-meteo-data-gouv/src/csv/quotidiennes/rr-t-vent/parseCSV.ts"}
+
+  wind_speed_of_gust_hourly:
+    cf_standard_name: wind_speed_of_gust
+    unite_si: m s-1
+    domaine: {min: 0.0, max: 120.0}
+    description_fr: Rafale maximale horaire (FXY MF)
+    porte_occurrence: true  # HXY (mf_horaire, mf_quotidienne)
+    sources:
+      mf_horaire_tr: {colonne: fxy, unite: m s-1, facteur: 1, offset: 0, duree_s: 3600}
+      mf_horaire: {colonne: FXY, unite: m s-1, facteur: 1, offset: 0, duree_s: 3600,
+                   note: "NOTE-A TRANCHÉE 2026-07-12 (échantillon prod : °C/hPa réels, facteur=1 confirmé). Source : H_HTR_I_ITR.txt section H"}
+      mf_quotidienne: {colonne: FXY, unite: m s-1, facteur: 1, offset: 0, duree_s: 86400,
+                        note: "« maximum quotidien de la force maximale horaire du vent moyenné sur 10 mn, à 10 m » — max journalier du même FXY horaire, heure d'occurrence HXY portée par porte_occurrence. Unité non documentée explicitement par le contrat ; confirmée par la doc source amont. Source : telechargement-climatologie-meteo-data-gouv/src/csv/quotidiennes/rr-t-vent/parseCSV.ts"}
+
+  wind_from_direction_of_gust_hourly:
+    cf_standard_name: null
+    unite_si: degree
+    domaine: {min: 0.0, max: 360.0}
+    description_fr: Direction associée à la rafale maximale horaire (DXY)
+    sources:
+      mf_horaire: {colonne: DXY, unite: degree, facteur: 1, offset: 0, duree_s: 3600,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+      mf_quotidienne: {colonne: DXY, unite: degree, facteur: 1, offset: 0, duree_s: 86400,
+                        note: "« direction de FXY (rose de 360) » — direction associée au max journalier de FXY. Source : telechargement-climatologie-meteo-data-gouv/src/csv/quotidiennes/rr-t-vent/parseCSV.ts"}
+
+  wind_speed_of_gust_2m:
+    cf_standard_name: wind_speed_of_gust
+    unite_si: m s-1
+    domaine: {min: 0.0, max: 100.0}
+    description_fr: Rafale instantanée maximale, variante mesurée à 2 m (FXI2)
+    porte_occurrence: true  # HXI2 — gap comblé ici : mf_horaire H_HTR_I_ITR.txt documente déjà HXI2 (heure de FXI2) sans qu'une entrée précédente ne l'ait signalé ; mf_quotidienne HXI2 (heure du max journalier) s'y ajoute
+    sources:
+      mf_horaire: {colonne: FXI2, unite: m s-1, facteur: 1, offset: 0, duree_s: 3600,
+                   note: "NOTE-A TRANCHÉE 2026-07-12 (échantillon prod : °C/hPa réels, facteur=1 confirmé). Source : H_HTR_I_ITR.txt section H"}
+      mf_quotidienne: {colonne: FXI2, unite: m s-1, facteur: 1, offset: 0, duree_s: 86400,
+                        note: "« maximum quotidien de la force maximale horaire du vent instantané, à 2 m » — max journalier du même FXI2 horaire, heure d'occurrence HXI2 portée par porte_occurrence. Unité non documentée explicitement par le contrat ; confirmée par la doc source amont. Source : telechargement-climatologie-meteo-data-gouv/src/csv/quotidiennes/rr-t-vent/parseCSV.ts"}
+
+  wind_from_direction_of_gust_2m:
+    cf_standard_name: null
+    unite_si: degree
+    domaine: {min: 0.0, max: 360.0}
+    description_fr: Direction associée à la rafale maximale à 2 m (DXI2)
+    sources:
+      mf_horaire: {colonne: DXI2, unite: degree, facteur: 1, offset: 0, duree_s: 3600,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+      mf_quotidienne: {colonne: DXI2, unite: degree, facteur: 1, offset: 0, duree_s: 86400,
+                        note: "« direction de FXI2 (rose de 360) » — direction associée au max journalier de FXI2. Source : telechargement-climatologie-meteo-data-gouv/src/csv/quotidiennes/rr-t-vent/parseCSV.ts"}
+
+  wind_speed_of_gust_3s:
+    cf_standard_name: wind_speed_of_gust
+    unite_si: m s-1
+    domaine: {min: 0.0, max: 120.0}
+    description_fr: >-
+      Rafale maximale sur moyenne glissante 3 secondes dans l'heure (FXI3S) — technique
+      de mesure distincte de FXI (« instantané », fréquence d'échantillonnage non
+      documentée)
+    porte_occurrence: true  # HFXI3S (mf_horaire, gap comblé ici — même remarque que wind_speed_of_gust_2m/HXI2), HXI3S (mf_quotidienne). Colonnes de noms différents (HFXI3S vs HXI3S) selon la table, même sémantique (heure d'occurrence)
+    sources:
+      mf_horaire: {colonne: FXI3S, unite: m s-1, facteur: 1, offset: 0, duree_s: 3600,
+                   note: "NOTE-A TRANCHÉE 2026-07-12 (échantillon prod : °C/hPa réels, facteur=1 confirmé). Source : H_HTR_I_ITR.txt section H"}
+      mf_quotidienne: {colonne: FXI3S, unite: m s-1, facteur: 1, offset: 0, duree_s: 86400,
+                        note: "« maximum quotidien de la force maximale horaire du vent moyenné sur 3 s, à 10 m » — max journalier du même FXI3S horaire, heure d'occurrence HXI3S portée par porte_occurrence. Unité non documentée explicitement par le contrat ; confirmée par la doc source amont. Source : telechargement-climatologie-meteo-data-gouv/src/csv/quotidiennes/rr-t-vent/parseCSV.ts"}
+
+  wind_from_direction_of_gust_3s:
+    cf_standard_name: null
+    unite_si: degree
+    domaine: {min: 0.0, max: 360.0}
+    description_fr: Direction associée à la rafale 3 s maximale (DXI3S)
+    sources:
+      mf_horaire: {colonne: DXI3S, unite: degree, facteur: 1, offset: 0, duree_s: 3600,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+      mf_quotidienne: {colonne: DXI3S, unite: degree, facteur: 1, offset: 0, duree_s: 86400,
+                        note: "« direction de FXI3S (rose de 360) » — direction associée au max journalier de FXI3S. Source : telechargement-climatologie-meteo-data-gouv/src/csv/quotidiennes/rr-t-vent/parseCSV.ts"}
+
+  wind_speed_of_gust_10min:
+    cf_standard_name: wind_speed_of_gust
+    unite_si: m s-1
+    domaine: {min: 0.0, max: 120.0}
+    description_fr: Rafale maximale sur les 10 dernières minutes
+    sources:
+      synop:  {colonne: vent_rafales_10min, unite: km h-1, facteur: 0.2777777778, offset: 0, duree_s: 600}
+      static: {colonne: vent_rafales_10min, unite: km h-1, facteur: 0.2777777778, offset: 0, duree_s: 600}
+      metar:  {colonne: vent_rafales_10min, unite: km h-1, facteur: 0.2777777778, offset: 0, duree_s: 600}
+      mf_infrahoraire_tr: {colonne: fxi10, unite: m s-1, facteur: 1, offset: 0, duree_s: 600}
+
+  wind_from_direction:
+    cf_standard_name: wind_from_direction
+    unite_si: degree
+    domaine: {min: 0.0, max: 360.0}
+    description_fr: Direction d'origine du vent
+    sources:
+      synop:  {colonne: vent_direction, unite: degree, facteur: 1, offset: 0, duree_s: 600}
+      static: {colonne: vent_direction, unite: degree, facteur: 1, offset: 0, duree_s: 600}
+      metar:  {colonne: vent_direction, unite: degree, facteur: 1, offset: 0, duree_s: 600}
+      bouees: {colonne: vent_direction, unite: degree, facteur: 1, offset: 0, duree_s: 600}
+      mf_horaire_tr:      {colonne: dd, unite: degree, facteur: 1, offset: 0, duree_s: 600}
+      mf_infrahoraire_tr: {colonne: dd, unite: degree, facteur: 1, offset: 0, duree_s: 600}
+      mf_horaire: {colonne: DD, unite: degree, facteur: 1, offset: 0, duree_s: 600,
+                   note: "direction jamais en 1/10. Source : H_HTR_I_ITR.txt section H"}
+      mf_nivo: {colonne: vent_direction, unite: degree, facteur: 1, offset: 0, duree_s: 600,
+                note: "data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+
+  precipitation_amount_1h:
+    cf_standard_name: precipitation_amount
+    unite_si: kg m-2
+    domaine: {min: 0.0, max: 150.0}
+    description_fr: Cumul de précipitations sur 1 heure
+    sources:
+      synop:  {colonne: pluie_1h, unite: mm, facteur: 1, offset: 0, duree_s: 3600}
+      static: {colonne: pluie_1h, unite: mm, facteur: 1, offset: 0, duree_s: 3600}
+      mae:    {colonne: pluie_1h, unite: mm, facteur: 1, offset: 0, duree_s: 3600}
+      mf_horaire_tr: {colonne: rr1, unite: mm, facteur: 1, offset: 0, duree_s: 3600}
+      mf_horaire: {colonne: RR1, unite: mm, facteur: 1, offset: 0, duree_s: 3600,
+                   note: "NOTE-A (documenté 1/10 mm). Source : H_HTR_I_ITR.txt section H"}
+
+  precipitation_amount_6min:
+    cf_standard_name: precipitation_amount
+    unite_si: kg m-2
+    domaine: {min: 0.0, max: 60.0}
+    description_fr: Cumul de précipitations sur le pas infrahoraire (6 min)
+    sources:
+      mf_infrahoraire_tr: {colonne: rr_per, unite: mm, facteur: 1, offset: 0, duree_s: 360}
+      mf_infrahoraire: {colonne: RR, unite: mm, facteur: 1, offset: 0, duree_s: 360,
+                        note: "archive Timescale Infrahoraire (2,84 Md lignes) — contrat infrahoraire-mf:101-107 (REAL, mm)"}
+
+  duration_of_precipitation_1h:
+    cf_standard_name: null   # durée, pas une grandeur météo CF standard
+    unite_si: s
+    domaine: {min: 0.0, max: 86400.0}  # borne élargie à 86400 (mf_quotidienne, fenêtre journalière) — était 3600 (mf_horaire seul)
+    description_fr: >-
+      Durée effective des précipitations sur la période de la source — horaire (DRR1
+      mf_horaire) ou quotidienne (DRR mf_quotidienne). Le suffixe `_1h` de la clé est un
+      héritage pré-ADR-0004 §7 (créé avant la convention « durée = dimension duree_s, pas
+      de clé suffixée ») ; non renommé ici (renommage = breaking, patron `replace`
+      d'ADR-0002, hors périmètre de cette extension) — la source mf_quotidienne ci-dessous
+      encode correctement sa fenêtre via duree_s: 86400 malgré le nom de clé.
+    sources:
+      mf_horaire: {colonne: DRR1, unite: min, facteur: 60, offset: 0, duree_s: 3600,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+      mf_quotidienne: {colonne: DRR, unite: min, facteur: 60, offset: 0, duree_s: 86400,
+                        note: "CONFIRMÉ 13/07 : minutes (max échantillon = 1440 exactement) — « durée des précipitations (en mn) » — cumul journalier, même grandeur que DRR1 mf_horaire (facteur 60 identique). unite_incertaine car le contrat ne documente pas cette colonne (DDL : integer, sans commentaire d'unité) ; minutes confirmées uniquement par la doc source amont. Source : telechargement-climatologie-meteo-data-gouv/src/csv/quotidiennes/rr-t-vent/parseCSV.ts"}
+
+  precipitation_amount_3h:
+    cf_standard_name: precipitation_amount
+    unite_si: kg m-2
+    domaine: {min: 0.0, max: 300.0}
+    description_fr: Cumul de précipitations sur 3 heures
+    sources:
+      synop:  {colonne: pluie_3h, unite: mm, facteur: 1, offset: 0, duree_s: 10800}
+      static: {colonne: pluie_3h, unite: mm, facteur: 1, offset: 0, duree_s: 10800}
+
+  precipitation_amount_6h:
+    cf_standard_name: precipitation_amount
+    unite_si: kg m-2
+    domaine: {min: 0.0, max: 400.0}
+    description_fr: Cumul de précipitations sur 6 heures
+    sources:
+      synop:  {colonne: pluie_6h, unite: mm, facteur: 1, offset: 0, duree_s: 21600}
+      static: {colonne: pluie_6h, unite: mm, facteur: 1, offset: 0, duree_s: 21600}
+
+  precipitation_amount_12h:
+    cf_standard_name: precipitation_amount
+    unite_si: kg m-2
+    domaine: {min: 0.0, max: 600.0}
+    description_fr: Cumul de précipitations sur 12 heures
+    sources:
+      synop:  {colonne: pluie_12h, unite: mm, facteur: 1, offset: 0, duree_s: 43200}
+      static: {colonne: pluie_12h, unite: mm, facteur: 1, offset: 0, duree_s: 43200}
+
+  precipitation_amount_24h:
+    cf_standard_name: precipitation_amount
+    unite_si: kg m-2
+    domaine: {min: 0.0, max: 1000.0}
+    description_fr: Cumul de précipitations sur 24 heures
+    sources:
+      synop:  {colonne: pluie_24h, unite: mm, facteur: 1, offset: 0, duree_s: 86400}
+      static: {colonne: pluie_24h, unite: mm, facteur: 1, offset: 0, duree_s: 86400}
+      mf_nivo: {colonne: pluie_24h, unite: mm, facteur: 1, offset: 0, duree_s: 86400,
+                note: "data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+      mf_quotidienne: {colonne: RR, unite: mm, facteur: 1, offset: 0, duree_s: 86400,
+                        note: "« quantité de précipitation tombée en 24 heures (de 06h FU le jour J à 06h FU le jour J+1), affectée au jour J ». Unité confirmée explicitement par contracts/quotidienne-mf-timescale.odcs.yaml (property RR : REAL, mm, sans mention 1/10 — cohérent avec NOTE-A). Support = 06 UTC→06 UTC, pas minuit→minuit (différent de pluie_24h synop/static, dont le support est aussi variable — non fusionné plus finement faute d'un sous-typage par borne horaire dans ce vocabulaire). Source : contracts/quotidienne-mf-timescale.odcs.yaml ; telechargement-climatologie-meteo-data-gouv/src/csv/quotidiennes/rr-t-vent/parseCSV.ts"}
+
+  precipitation_amount_10min:
+    cf_standard_name: precipitation_amount
+    unite_si: kg m-2
+    domaine: {min: 0.0, max: 50.0}
+    description_fr: Cumul de précipitations sur 10 minutes (station StatIC weatherlink)
+    sources:
+      complements: {colonne: rr_10mn, unite: mm, facteur: 1, offset: 0, duree_s: 600,
+                    note: "site-infoclimat/data/complements.inc.php:241 (@Unit mm @Timespan 10 minutes)"}
+
+  precipitation_amount_since_0h:
+    cf_standard_name: precipitation_amount
+    unite_si: kg m-2
+    domaine: {min: 0.0, max: 1000.0}
+    description_fr: Cumul de précipitations depuis 00 UTC (support variable dans la journée)
+    sources:
+      static: {colonne: pluie_cumul_0h, unite: mm, facteur: 1, offset: 0, duree_s: null,
+               note: support = minuit→dh_utc, normalisable en aval seulement}
+
+  precipitation_amount_year:
+    cf_standard_name: precipitation_amount
+    unite_si: kg m-2
+    domaine: {min: 0.0, max: 15000.0}
+    description_fr: Cumul de précipitations glissant sur l'année (compteur StatIC weatherlink)
+    sources:
+      complements: {colonne: rr_year, unite: mm, facteur: 1, offset: 0, duree_s: 31536000,
+                    note: "site-infoclimat/data/complements.inc.php:37 (@Unit mm @Timespan year)"}
+
+  rainfall_rate:
+    cf_standard_name: rainfall_rate
+    unite_si: kg m-2 h-1
+    domaine: {min: 0.0, max: 500.0}
+    description_fr: Intensité de précipitation instantanée
+    sources:
+      static: {colonne: pluie_intensite, unite: mm h-1, facteur: 1, offset: 0, duree_s: 0}
+
+  rainfall_rate_max_1h:
+    cf_standard_name: rainfall_rate
+    unite_si: kg m-2 h-1
+    domaine: {min: 0.0, max: 500.0}
+    description_fr: Intensité maximale de précipitation sur 1 heure
+    sources:
+      static: {colonne: pluie_intensite_max_1h, unite: mm h-1, facteur: 1, offset: 0, duree_s: 3600}
+
+  uv_index:
+    cf_standard_name: null   # pas de standard name CF pour l'index UV
+    unite_si: "1"
+    domaine: {min: 0.0, max: 20.0}
+    description_fr: Index UV
+    sources:
+      static: {colonne: uv, unite: centi-index, facteur: 0.01, offset: 0, duree_s: 0,
+               note: "CONFIRMÉ 13/07 : centi-index (échantillon max 1782 ↔ uv_index complements max 17 — les deux sources concordent après /100)"}
+      complements: {colonne: uv_index, unite: "1", facteur: 1, offset: 0, duree_s: 0,
+                    note: "CONFIRMÉ 13/07 : index UV direct (échantillon 0→17, n=1,85 M) — @Unit littéralement 'None' dans le code (site-infoclimat/data/complements.inc.php:9). CAS AMBIGU : deuxième source d'« UV index » distincte de static.uv, relation entre les deux non établie (même grandeur ? capteurs différents selon logiciel d'acquisition weatherlink/vws ?) — à échantillonner avant de fusionner ou de choisir une source prioritaire."}
+      mf_horaire: {colonne: UV_INDICE, unite: "1", facteur: 1, offset: 0, duree_s: 3600,
+                   note: "indice UV horaire MF, sans unité — trou détecté par check_couverture 12/07"}
+
+  uv_index_max:
+    cf_standard_name: null
+    unite_si: "1"
+    domaine: {min: 0.0, max: 20.0}
+    description_fr: Index UV maximal (agrégat max, timespan non documenté à la source)
+    porte_occurrence: false
+    sources:
+      complements: {colonne: uv_index_max, unite: "1", facteur: 1, offset: 0, duree_s: null,
+                    note: "CONFIRMÉ 13/07 : index UV direct (échantillon 0→17) — @Unit 'None', @Timespan 'TODO' dans le code source — aucune des deux n'est documentée. site-infoclimat/data/complements.inc.php:16"}
+
+  duration_of_sunshine:
+    cf_standard_name: duration_of_sunshine
+    unite_si: s
+    domaine: {min: 0.0, max: 86400.0}
+    description_fr: Durée d'ensoleillement sur la période de la source
+    sources:
+      synop:  {colonne: ensoleillement, unite: h, facteur: 3600, offset: 0, duree_s: null,
+               note: échantillon max 22,8 → heures ; support quotidien probable, à confirmer}
+      static: {colonne: ensoleillement, unite: h, facteur: 3600, offset: 0, duree_s: null,
+               unite_incertaine: true,
+               note: "trou détecté par check_couverture 12/07 (colonne Bronze non mappée) ; unité SUPPOSÉE = synop, à échantillonner"}
+      mf_horaire_tr:      {colonne: insolh, unite: min, facteur: 60, offset: 0, duree_s: 3600,
+                           note: HYPOTHÈSE minutes sur l'heure — à valider}
+      mf_infrahoraire_tr: {colonne: insolh, unite: min, facteur: 60, offset: 0, duree_s: 360}
+      mf_horaire: {colonne: INS, unite: min, facteur: 60, offset: 0, duree_s: 3600,
+                   note: "« en mn », pas de mention 1/10 pour les durées. Source : H_HTR_I_ITR.txt section H"}
+
+  surface_downwelling_shortwave_flux_in_air:
+    cf_standard_name: surface_downwelling_shortwave_flux_in_air
+    unite_si: W m-2
+    domaine: {min: 0.0, max: 1500.0}
+    description_fr: Rayonnement global instantané
+    sources:
+      synop:  {colonne: radiations, unite: W m-2, facteur: 1, offset: 0, duree_s: 0}
+
+  soil_temperature:
+    cf_standard_name: soil_temperature
+    unite_si: K
+    domaine: {min: 220.0, max: 340.0}
+    description_fr: >-
+      Température du sol (profondeur non précisée à la source synop/static — CAS
+      AMBIGU : possible doublon partiel avec soil_temperature_10cm si la convention
+      WMO à 10 cm est celle réellement utilisée, non confirmé)
+    sources:
+      synop:  {colonne: temperature_sol, unite: degC, facteur: 1, offset: 273.15, duree_s: 0}
+      static: {colonne: temperature_sol, unite: degC, facteur: 1, offset: 273.15, duree_s: 0,
+               note: "PIÈGE, colonne quasi non alimentée (NULL en base le 2026-06-15) — cf. contracts/static-stations-obs.odcs.yaml"}
+
+  surface_snow_thickness:
+    cf_standard_name: surface_snow_thickness
+    unite_si: m
+    domaine: {min: 0.0, max: 10.0}
+    description_fr: Épaisseur de neige au sol
+    sources:
+      synop:  {colonne: neige_au_sol, unite: cm, facteur: 0.01, offset: 0, duree_s: 0}
+      mf_horaire: {colonne: NEIGETOT, unite: cm, facteur: 0.01, offset: 0, duree_s: 0,
+                   note: "« en cm », pas de mention 1/10. Source : H_HTR_I_ITR.txt section H"}
+      mf_nivo: {colonne: ht_neige, unite: cm, facteur: 0.01, offset: 0, duree_s: 0,
+                note: "data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+      complements: {colonne: snow_height, unite: cm, facteur: 0.01, offset: 0, duree_s: 0,
+                    note: "site-infoclimat/data/complements.inc.php:184 (@Unit cm @Timespan instant)"}
+
+  cloud_area_fraction:
+    cf_standard_name: cloud_area_fraction
+    unite_si: "1"
+    domaine: {min: 0.0, max: 1.0}
+    description_fr: Nébulosité totale (octas convertis en fraction)
+    sources:
+      synop:  {colonne: nebulosite, unite: okta, facteur: 0.125, offset: 0, duree_s: 0,
+               note: enum '0'..'8' à la source, casté numérique}
+      metar:  {colonne: nebulosite, unite: okta, facteur: 0.125, offset: 0, duree_s: 0}
+      bouees: {colonne: nebulosite, unite: okta, facteur: 0.125, offset: 0, duree_s: 0,
+               note: "site-infoclimat/cron/yearly/creer_tables_annee.php:66 (int(2), pas de COMMENT unité — hypothèse octa par cohérence avec synop/metar)"}
+      mf_horaire_tr:      {colonne: n, unite: okta, facteur: 0.125, offset: 0, duree_s: 0}
+      mf_infrahoraire_tr: {colonne: n, unite: okta, facteur: 0.125, offset: 0, duree_s: 0}
+      mf_horaire: {colonne: N, unite: okta, facteur: 0.125, offset: 0, duree_s: 0,
+                   note: "9 = ciel invisible (brouillard/etc.), à traiter en QC hors domaine [0,8]. Source : H_HTR_I_ITR.txt section H"}
+      mf_nivo: {colonne: nebulosite, unite: okta, facteur: 0.125, offset: 0, duree_s: 0,
+                note: "data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+
+  cloud_area_fraction_lowest_layer:
+    cf_standard_name: cloud_area_fraction
+    unite_si: "1"
+    domaine: {min: 0.0, max: 1.0}
+    description_fr: >-
+      Nébulosité de la couche nuageuse principale la plus basse (NBAS) — CAS AMBIGU :
+      relation avec cloud_layer_1_area_fraction (N1, « 1ère couche ») non établie ; les
+      deux pourraient désigner la même couche sous deux conventions MF différentes
+      (couche « principale la plus basse » vs couche numérotée 1) ou être réellement
+      distinctes. À échantillonner en base avant de trancher un éventuel alias.
+    sources:
+      mf_horaire: {colonne: NBAS, unite: okta, facteur: 0.125, offset: 0, duree_s: 0,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+      mf_nivo: {colonne: nbas, unite: okta, facteur: 0.125, offset: 0, duree_s: 0,
+                unite_incertaine: true,
+                note: "colonne 'nbas' du fichier nivo, unité non explicitée dans le contrat (description : « nébulosité basse »). Un second champ 'nnuage1' existe dans le même enregistrement nivo sans que sa relation à nbas soit documentée — cas ambigu supplémentaire, non modélisé séparément. data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+
+  present_weather:
+    cf_standard_name: null   # code OMM 4677/4680, pas une grandeur physique
+    unite_si: "1"
+    domaine: {min: 0.0, max: 510.0}
+    description_fr: Temps présent (code OMM)
+    sources:
+      synop:  {colonne: temps_omm, unite: code, facteur: 1, offset: 0, duree_s: 0}
+      static: {colonne: temps_omm, unite: code, facteur: 1, offset: 0, duree_s: 0}
+      metar:  {colonne: temps_omm, unite: code, facteur: 1, offset: 0, duree_s: 0}
+      bouees: {colonne: temps_omm, unite: code, facteur: 1, offset: 0, duree_s: 0}
+      mf_horaire: {colonne: WW, unite: code, facteur: 1, offset: 0, duree_s: 0,
+                   note: "table OMM 4677/4680. Source : H_HTR_I_ITR.txt section H"}
+      mf_nivo: {colonne: temps_omm, unite: code, facteur: 1, offset: 0, duree_s: 0,
+                note: "data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+
+  sea_surface_temperature:
+    cf_standard_name: sea_surface_temperature
+    unite_si: K
+    domaine: {min: 250.0, max: 310.0}
+    description_fr: Température de surface de la mer
+    sources:
+      bouees: {colonne: temperature_eau, unite: degC, facteur: 1, offset: 273.15, duree_s: 0}
+      mf_horaire: {colonne: TMER, unite: degC, facteur: 1, offset: 273.15, duree_s: 0,
+                   note: "NOTE-A TRANCHÉE 2026-07-12 (échantillon prod : °C/hPa réels, facteur=1 confirmé). Source : H_HTR_I_ITR.txt section H"}
+
+  sea_surface_wave_significant_height:
+    cf_standard_name: sea_surface_wave_significant_height
+    unite_si: m
+    domaine: {min: 0.0, max: 25.0}
+    description_fr: Hauteur significative des vagues
+    sources:
+      bouees: {colonne: hauteur_vagues_1, unite: m, facteur: 1, offset: 0, duree_s: null,
+               note: colonne hauteur_vagues_1 — sémantique exacte (H1/3 vs Hmax) à confirmer}
+      mf_horaire: {colonne: HVAGUE, unite: m, facteur: 0.1, offset: 0, duree_s: null,
+                   unite_incertaine: true,
+                   note: "H_HTR_I_ITR.txt documente explicitement « en m et 1/10 » pour ce champ précis (contrairement à T, où l'évidence est contradictoire — cf. NOTE-A) : facteur 0.1 retenu avec une confiance modérément plus élevée, mais toujours à confirmer par échantillonnage. Source : H_HTR_I_ITR.txt section H"}
+
+  sea_surface_wave_maximum_height:
+    cf_standard_name: null   # non confirmé dans la table CF officielle (recherche 2026-07-12) — laissé null par prudence
+    unite_si: m
+    domaine: {min: 0.0, max: 30.0}
+    description_fr: >-
+      Deuxième mesure de hauteur de vagues (hauteur_vagues_5, bouées) — CAS AMBIGU :
+      la sémantique exacte de « _5 » (Hmax ? période de calcul différente ?) n'est
+      documentée nulle part dans le code consulté ; relation avec
+      sea_surface_wave_significant_height (hauteur_vagues_1) non établie.
+    sources:
+      bouees: {colonne: hauteur_vagues_5, unite: m, facteur: 1, offset: 0, duree_s: null,
+               unite_incertaine: true,
+               note: "site-infoclimat/cron/yearly/creer_tables_annee.php:57 (double, pas de COMMENT SQL sur l'unité — hypothèse m par cohérence avec hauteur_vagues_1)"}
+
+  sea_surface_wave_mean_period:
+    cf_standard_name: sea_surface_wave_mean_period
+    unite_si: s
+    domaine: {min: 0.0, max: 30.0}
+    description_fr: Période moyenne des vagues
+    sources:
+      bouees: {colonne: periode_vagues, unite: s, facteur: 1, offset: 0, duree_s: null}
+      mf_horaire: {colonne: PVAGUE, unite: s, facteur: 0.1, offset: 0, duree_s: null,
+                   unite_incertaine: true,
+                   note: "« en s et 1/10 » documenté explicitement. Facteur 0.1 retenu, confiance modérée (cf. note sur HVAGUE). Source : H_HTR_I_ITR.txt section H"}
+
+  sea_surface_wave_from_direction:
+    cf_standard_name: sea_surface_wave_from_direction
+    unite_si: degree
+    domaine: {min: 0.0, max: 360.0}
+    description_fr: Direction de la houle (sémaphores) — 999 = direction variable (sentinelle, pas une mesure)
+    sources:
+      mf_horaire: {colonne: DIRHOULE, unite: degree, facteur: 1, offset: 0, duree_s: null,
+                   note: "999 = variable, à traiter comme sentinelle QC. Source : H_HTR_I_ITR.txt section H"}
+
+  surface_air_pressure:
+    cf_standard_name: surface_air_pressure
+    unite_si: Pa
+    domaine: {min: 45000.0, max: 108500.0}
+    description_fr: Pression au niveau de la station (non ramenée mer)
+    sources:
+      mf_horaire_tr:      {colonne: pres, unite: hPa, facteur: 100, offset: 0, duree_s: 0}
+      mf_infrahoraire_tr: {colonne: pres, unite: hPa, facteur: 100, offset: 0, duree_s: 0}
+      mf_horaire: {colonne: PSTAT, unite: hPa, facteur: 100, offset: 0, duree_s: 0,
+                   note: "NOTE-A TRANCHÉE 2026-07-12 (échantillon prod : °C/hPa réels, facteur=1 confirmé). Source : H_HTR_I_ITR.txt section H"}
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # TRANCHE 1 — colonnes wide MF `Horaire` (Timescale, historique) consommées,
+  # nouvelles grandeurs (pas de correspondance dans les 33 entrées ci-dessus)
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  duration_of_frost:
+    cf_standard_name: null
+    unite_si: s
+    domaine: {min: 0.0, max: 86400.0}  # borne élargie à 86400 (mf_quotidienne, fenêtre journalière) — était 3600 (mf_horaire seul)
+    description_fr: Durée de gel sous abri (T ≤ 0 °C) sur la période de la source — horaire (DG mf_horaire) ou quotidienne (DG mf_quotidienne)
+    sources:
+      mf_horaire: {colonne: DG, unite: min, facteur: 60, offset: 0, duree_s: 3600,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+      mf_quotidienne: {colonne: DG, unite: min, facteur: 60, offset: 0, duree_s: 86400,
+                        note: "CONFIRMÉ 13/07 : minutes (max échantillon = 1440 exactement) — « durée de gel sous abri (T ≤ 0°C) (en mn) » — cumul journalier, même grandeur que DG mf_horaire (facteur 60 identique). unite_incertaine car contracts/quotidienne-mf-timescale.odcs.yaml ne documente PAS cette colonne (seuls RR/TN/TX ont une property explicite) ; DDL (schemas/timescaledb/schema.sql.gz) déclare seulement `integer`, sans commentaire d'unité. Minutes confirmées uniquement par la doc source amont. Source : telechargement-climatologie-meteo-data-gouv/src/csv/quotidiennes/rr-t-vent/parseCSV.ts"}
+
+  soil_temperature_10cm:
+    cf_standard_name: soil_temperature
+    unite_si: K
+    domaine: {min: 220.0, max: 320.0}
+    description_fr: Température du sol à 10 cm de profondeur (T10 — n'existe pas pour les sémaphores)
+    sources:
+      mf_horaire: {colonne: T10, unite: degC, facteur: 1, offset: 273.15, duree_s: 0,
+                   note: "NOTE-A TRANCHÉE 2026-07-12 (échantillon prod : °C/hPa réels, facteur=1 confirmé). Source : H_HTR_I_ITR.txt section H"}
+      mf_horaire_tr:      {colonne: t_10, unite: degC, facteur: 1, offset: 273.15, duree_s: 0,
+                           note: "confirmé °C réel (pas 1/10) par contracts/infrahoraire-mf.odcs.yaml"}
+      mf_infrahoraire_tr: {colonne: t_10, unite: degC, facteur: 1, offset: 273.15, duree_s: 0}
+
+  soil_temperature_20cm:
+    cf_standard_name: soil_temperature
+    unite_si: K
+    domaine: {min: 220.0, max: 320.0}
+    description_fr: Température du sol à 20 cm de profondeur (T20)
+    sources:
+      mf_horaire: {colonne: T20, unite: degC, facteur: 1, offset: 273.15, duree_s: 0,
+                   note: "NOTE-A TRANCHÉE 2026-07-12 (échantillon prod : °C/hPa réels, facteur=1 confirmé). Source : H_HTR_I_ITR.txt section H"}
+      mf_horaire_tr:      {colonne: t_20, unite: degC, facteur: 1, offset: 273.15, duree_s: 0}
+      mf_infrahoraire_tr: {colonne: t_20, unite: degC, facteur: 1, offset: 273.15, duree_s: 0}
+
+  soil_temperature_50cm:
+    cf_standard_name: soil_temperature
+    unite_si: K
+    domaine: {min: 230.0, max: 315.0}
+    description_fr: Température du sol à 50 cm de profondeur (T50)
+    sources:
+      mf_horaire: {colonne: T50, unite: degC, facteur: 1, offset: 273.15, duree_s: 0,
+                   note: "NOTE-A TRANCHÉE 2026-07-12 (échantillon prod : °C/hPa réels, facteur=1 confirmé). Source : H_HTR_I_ITR.txt section H"}
+      mf_horaire_tr:      {colonne: t_50, unite: degC, facteur: 1, offset: 273.15, duree_s: 0}
+      mf_infrahoraire_tr: {colonne: t_50, unite: degC, facteur: 1, offset: 273.15, duree_s: 0}
+
+  soil_temperature_100cm:
+    cf_standard_name: soil_temperature
+    unite_si: K
+    domaine: {min: 240.0, max: 310.0}
+    description_fr: Température du sol à 1 m de profondeur (T100)
+    sources:
+      mf_horaire: {colonne: T100, unite: degC, facteur: 1, offset: 273.15, duree_s: 0,
+                   note: "NOTE-A TRANCHÉE 2026-07-12 (échantillon prod : °C/hPa réels, facteur=1 confirmé). Source : H_HTR_I_ITR.txt section H"}
+      mf_horaire_tr:      {colonne: t_100, unite: degC, facteur: 1, offset: 273.15, duree_s: 0}
+      mf_infrahoraire_tr: {colonne: t_100, unite: degC, facteur: 1, offset: 273.15, duree_s: 0}
+
+  grass_minimum_temperature_10cm:
+    cf_standard_name: null   # pas de standard name CF pour la « température minimale au-dessus du sol » (grass minimum)
+    unite_si: K
+    domaine: {min: 200.0, max: 330.0}
+    description_fr: >-
+      Température minimale à 10 cm AU-DESSUS du sol (TNSOL) — CAS AMBIGU DE NOMMAGE :
+      malgré le même nombre « 10 », cette grandeur n'a rien à voir avec
+      soil_temperature_10cm (qui est à 10 cm EN DESSOUS du sol) ; ce sont deux capteurs
+      différents mesurant deux positions opposées. Clé volontairement distincte
+      (grass_minimum_temperature_*) pour éviter toute confusion — à signaler
+      explicitement en revue.
+    porte_occurrence: false
+    sources:
+      mf_horaire: {colonne: TNSOL, unite: degC, facteur: 1, offset: 273.15, duree_s: 3600,
+                   note: "NOTE-A TRANCHÉE 2026-07-12 (échantillon prod : °C/hPa réels, facteur=1 confirmé). Source : H_HTR_I_ITR.txt section H"}
+      mf_data: {colonne: TNSOL_H, unite: degC, facteur: 1, offset: 273.15, duree_s: 3600,
+                note: "citée par l'audit comme lue par mobile-api. Source : site-infoclimat/include/MeteoFrance/docs/mf_data.txt ; data-platform/contracts/mf-data-fallback.odcs.yaml"}
+      mf_quotidienne: {colonne: TNSOL, unite: degC, facteur: 1, offset: 273.15, duree_s: 86400,
+                        note: "« température quotidienne minimale à 10 cm au-dessus du sol ». Même colonne MF (TNSOL) que la source mf_horaire ci-dessus, fenêtre journalière au lieu d'horaire — pas de collision (famille, colonne) distincte (mf_quotidienne vs mf_horaire). Unité non documentée explicitement par contracts/quotidienne-mf-timescale.odcs.yaml (DDL : double precision, sans commentaire) ; confirmée par la doc source amont. Source : telechargement-climatologie-meteo-data-gouv/src/csv/quotidiennes/rr-t-vent/parseCSV.ts"}
+
+  grass_minimum_temperature_50cm:
+    cf_standard_name: null
+    unite_si: K
+    domaine: {min: 210.0, max: 325.0}
+    description_fr: >-
+      Température minimale à 50 cm AU-DESSUS du sol (TN50) — même remarque que
+      grass_minimum_temperature_10cm vis-à-vis de soil_temperature_50cm (positions
+      opposées, ne pas fusionner).
+    sources:
+      mf_horaire: {colonne: TN50, unite: degC, facteur: 1, offset: 273.15, duree_s: 3600,
+                   note: "NOTE-A TRANCHÉE 2026-07-12 (échantillon prod : °C/hPa réels, facteur=1 confirmé). Source : H_HTR_I_ITR.txt section H"}
+      mf_quotidienne: {colonne: TN50, unite: degC, facteur: 1, offset: 273.15, duree_s: 86400,
+                        note: "« température quotidienne minimale à 50 cm au-dessus du sol ». Même remarque que grass_minimum_temperature_10cm/TNSOL (mf_quotidienne). Unité non documentée explicitement par le contrat (DDL : double precision) ; confirmée par la doc source amont. Source : telechargement-climatologie-meteo-data-gouv/src/csv/quotidiennes/rr-t-vent/parseCSV.ts"}
+
+  road_surface_temperature:
+    cf_standard_name: null
+    unite_si: K
+    domaine: {min: 230.0, max: 345.0}
+    description_fr: >-
+      Température de surface mesurée sur herbe OU sur bitume selon le poste (TCHAUSSEE)
+      — CAS AMBIGU : la doc source ne permet pas de distinguer, pour une station
+      donnée, laquelle des deux surfaces est réellement mesurée ; la clé « route »
+      est un choix de nommage par défaut (majorité des postes équipés = stations
+      routières), possiblement trompeur pour les postes « herbe ».
+    sources:
+      mf_horaire: {colonne: TCHAUSSEE, unite: degC, facteur: 1, offset: 273.15, duree_s: 0,
+                   note: "NOTE-A TRANCHÉE 2026-07-12 (échantillon prod : °C/hPa réels, facteur=1 confirmé). Source : H_HTR_I_ITR.txt section H"}
+
+  surface_wetness_duration:
+    cf_standard_name: null
+    unite_si: s
+    domaine: {min: 0.0, max: 3600.0}
+    description_fr: Durée d'humectation de la surface dans l'heure (DHUMEC)
+    sources:
+      mf_horaire: {colonne: DHUMEC, unite: min, facteur: 60, offset: 0, duree_s: 3600,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+
+  duration_relative_humidity_below_40pct:
+    cf_standard_name: null
+    unite_si: s
+    domaine: {min: 0.0, max: 3600.0}
+    description_fr: Durée avec humidité relative ≤ 40 % dans l'heure (DHUMI40)
+    sources:
+      mf_horaire: {colonne: DHUMI40, unite: min, facteur: 60, offset: 0, duree_s: 3600,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+
+  duration_relative_humidity_above_80pct:
+    cf_standard_name: null
+    unite_si: s
+    domaine: {min: 0.0, max: 3600.0}
+    description_fr: Durée avec humidité relative ≥ 80 % dans l'heure (DHUMI80)
+    sources:
+      mf_horaire: {colonne: DHUMI80, unite: min, facteur: 60, offset: 0, duree_s: 3600,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+
+  water_vapor_partial_pressure_in_air:
+    cf_standard_name: water_vapor_partial_pressure_in_air   # confirmé NERC Vocabulary Server (miroir CF), non revérifié contre la table officielle cfconventions.org
+    unite_si: Pa
+    domaine: {min: 0.0, max: 7000.0}
+    description_fr: Tension de vapeur (TSV)
+    sources:
+      mf_horaire: {colonne: TSV, unite: hPa, facteur: 100, offset: 0, duree_s: 0,
+                   note: "NOTE-A (documenté 1/10 hPa). Source : H_HTR_I_ITR.txt section H"}
+      mf_data: {colonne: TSV_H, unite: hPa, facteur: 100, offset: 0, duree_s: 0,
+                note: "Source : site-infoclimat/include/MeteoFrance/docs/mf_data.txt"}
+
+  geopotential_height:
+    cf_standard_name: geopotential_height
+    unite_si: m
+    domaine: {min: 700.0, max: 3000.0}
+    description_fr: >-
+      Géopotentiel du poste (GEOP), renseigné uniquement pour les stations d'altitude
+      supérieure à 750 m
+    sources:
+      mf_horaire: {colonne: GEOP, unite: mgp, facteur: 1, offset: 0, duree_s: 0,
+                   note: "CONFIRMÉ 13/07 : mètres géopotentiels (échantillon 1200→1661) — mètre géopotentiel (mgp) assimilé au mètre standard par approximation usuelle — écart réel négligeable aux altitudes concernées mais non vérifié formellement ici. Source : H_HTR_I_ITR.txt section H"}
+
+  cloud_layer_1_area_fraction:
+    cf_standard_name: cloud_area_fraction
+    unite_si: "1"
+    domaine: {min: 0.0, max: 1.0}
+    description_fr: Nébulosité de la 1ère couche nuageuse (N1)
+    sources:
+      mf_horaire: {colonne: N1, unite: okta, facteur: 0.125, offset: 0, duree_s: 0,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+
+  cloud_layer_1_type:
+    cf_standard_name: null   # code SYNOP, pas une grandeur physique
+    unite_si: "1"
+    domaine: {min: 0.0, max: 9.0}
+    description_fr: Genre (code SYNOP OMM-N°407) de la 1ère couche nuageuse (C1)
+    sources:
+      mf_horaire: {colonne: C1, unite: code, facteur: 1, offset: 0, duree_s: 0,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+
+  cloud_layer_1_base_height:
+    cf_standard_name: null   # CF a cloud_base_altitude (référentiel MSL) ; B1 est une hauteur AGL, pas confirmé équivalent — laissé null par prudence
+    unite_si: m
+    domaine: {min: 0.0, max: 15000.0}
+    description_fr: Base de la 1ère couche nuageuse (B1)
+    sources:
+      mf_horaire: {colonne: B1, unite: m, facteur: 1, offset: 0, duree_s: 0,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+      mf_data: {colonne: B1_H, unite: m, facteur: 1, offset: 0, duree_s: 0,
+                note: "citée par l'audit comme « plafond » lu par mobile-api. Source : site-infoclimat/include/MeteoFrance/docs/mf_data.txt"}
+
+  cloud_layer_2_area_fraction:
+    cf_standard_name: cloud_area_fraction
+    unite_si: "1"
+    domaine: {min: 0.0, max: 1.0}
+    description_fr: Nébulosité de la 2ème couche nuageuse (N2)
+    sources:
+      mf_horaire: {colonne: N2, unite: okta, facteur: 0.125, offset: 0, duree_s: 0,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+
+  cloud_layer_2_type:
+    cf_standard_name: null
+    unite_si: "1"
+    domaine: {min: 0.0, max: 9.0}
+    description_fr: Genre de la 2ème couche nuageuse (C2)
+    sources:
+      mf_horaire: {colonne: C2, unite: code, facteur: 1, offset: 0, duree_s: 0,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+
+  cloud_layer_2_base_height:
+    cf_standard_name: null
+    unite_si: m
+    domaine: {min: 0.0, max: 15000.0}
+    description_fr: Base de la 2ème couche nuageuse (B2)
+    sources:
+      mf_horaire: {colonne: B2, unite: m, facteur: 1, offset: 0, duree_s: 0,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+
+  cloud_layer_3_area_fraction:
+    cf_standard_name: cloud_area_fraction
+    unite_si: "1"
+    domaine: {min: 0.0, max: 1.0}
+    description_fr: Nébulosité de la 3ème couche nuageuse (N3)
+    sources:
+      mf_horaire: {colonne: N3, unite: okta, facteur: 0.125, offset: 0, duree_s: 0,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+
+  cloud_layer_3_type:
+    cf_standard_name: null
+    unite_si: "1"
+    domaine: {min: 0.0, max: 9.0}
+    description_fr: Genre de la 3ème couche nuageuse (C3)
+    sources:
+      mf_horaire: {colonne: C3, unite: code, facteur: 1, offset: 0, duree_s: 0,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+
+  cloud_layer_3_base_height:
+    cf_standard_name: null
+    unite_si: m
+    domaine: {min: 0.0, max: 15000.0}
+    description_fr: Base de la 3ème couche nuageuse (B3)
+    sources:
+      mf_horaire: {colonne: B3, unite: m, facteur: 1, offset: 0, duree_s: 0,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+
+  cloud_layer_4_area_fraction:
+    cf_standard_name: cloud_area_fraction
+    unite_si: "1"
+    domaine: {min: 0.0, max: 1.0}
+    description_fr: Nébulosité de la 4ème couche nuageuse (N4)
+    sources:
+      mf_horaire: {colonne: N4, unite: okta, facteur: 0.125, offset: 0, duree_s: 0,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+
+  cloud_layer_4_type:
+    cf_standard_name: null
+    unite_si: "1"
+    domaine: {min: 0.0, max: 9.0}
+    description_fr: Genre de la 4ème couche nuageuse (C4)
+    sources:
+      mf_horaire: {colonne: C4, unite: code, facteur: 1, offset: 0, duree_s: 0,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+
+  cloud_layer_4_base_height:
+    cf_standard_name: null
+    unite_si: m
+    domaine: {min: 0.0, max: 15000.0}
+    description_fr: Base de la 4ème couche nuageuse (B4)
+    sources:
+      mf_horaire: {colonne: B4, unite: m, facteur: 1, offset: 0, duree_s: 0,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+
+  duration_low_visibility_200m:
+    cf_standard_name: null
+    unite_si: s
+    domaine: {min: 0.0, max: 3600.0}
+    description_fr: Durée avec visibilité < 200 m dans l'heure (DVV200)
+    sources:
+      mf_horaire: {colonne: DVV200, unite: min, facteur: 60, offset: 0, duree_s: 3600,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+
+  past_weather_1:
+    cf_standard_name: null   # code OMM 4687, pas une grandeur physique
+    unite_si: "1"
+    domaine: {min: 0.0, max: 9.0}
+    description_fr: Temps passé 1 (code OMM W1)
+    sources:
+      mf_horaire: {colonne: W1, unite: code, facteur: 1, offset: 0, duree_s: 0,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+      mf_data: {colonne: W1_H, unite: code, facteur: 1, offset: 0, duree_s: 0,
+                note: "citée explicitement par l'audit comme lue par mobile-api. Source : site-infoclimat/include/MeteoFrance/docs/mf_data.txt ; data-platform/contracts/mf-data-fallback.odcs.yaml"}
+
+  past_weather_2:
+    cf_standard_name: null
+    unite_si: "1"
+    domaine: {min: 0.0, max: 9.0}
+    description_fr: Temps passé 2 (code OMM W2)
+    sources:
+      mf_horaire: {colonne: W2, unite: code, facteur: 1, offset: 0, duree_s: 0,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+      mf_data: {colonne: W2_H, unite: code, facteur: 1, offset: 0, duree_s: 0,
+                note: "citée explicitement par l'audit. Source : site-infoclimat/include/MeteoFrance/docs/mf_data.txt"}
+
+  ground_state:
+    cf_standard_name: null   # code OMM (table SOL), pas une grandeur physique
+    unite_si: "1"
+    domaine: {min: 0.0, max: 9.0}
+    description_fr: État du sol sans neige (code SOL, table OMM — 0=sec ... 9=très sec avec fissures)
+    sources:
+      mf_horaire: {colonne: SOL, unite: code, facteur: 1, offset: 0, duree_s: 0,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+      mf_data: {colonne: SOL_H, unite: code, facteur: 1, offset: 0, duree_s: 0,
+                note: "Source : site-infoclimat/include/MeteoFrance/docs/mf_data.txt"}
+
+  ground_state_snow:
+    cf_standard_name: null
+    unite_si: "1"
+    domaine: {min: 0.0, max: 9.0}
+    description_fr: État du sol avec neige (code SOLNG, table OMM)
+    sources:
+      mf_horaire: {colonne: SOLNG, unite: code, facteur: 1, offset: 0, duree_s: 0,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+      mf_data: {colonne: SOLNG_H, unite: code, facteur: 1, offset: 0, duree_s: 0,
+                note: "Source : site-infoclimat/include/MeteoFrance/docs/mf_data.txt"}
+
+  sea_visibility_code:
+    cf_standard_name: null   # code OMM (0-9), pas une grandeur physique continue — distinct de visibility_in_air (mètres)
+    unite_si: "1"
+    domaine: {min: 0.0, max: 9.0}
+    description_fr: Visibilité vers la mer pour les sémaphores, codée 0 (< 50 m) à 9 (≥ 50 km) — VVMER
+    sources:
+      mf_horaire: {colonne: VVMER, unite: code, facteur: 1, offset: 0, duree_s: 0,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+
+  sea_state_code:
+    cf_standard_name: null   # échelle Douglas codée, pas une hauteur de vague continue
+    unite_si: "1"
+    domaine: {min: 0.0, max: 9.0}
+    description_fr: >-
+      État de la mer pour les sémaphores, code 0 (calme) à 9 (énorme, > 14 m) — ETATMER.
+      CAS AMBIGU : recouvre partiellement sea_surface_wave_significant_height (échelle
+      Douglas codée vs mesure continue en mètres) ; les deux entrées sont conservées
+      distinctes car les échelles ne sont pas interconvertibles terme à terme.
+    sources:
+      mf_horaire: {colonne: ETATMER, unite: code, facteur: 1, offset: 0, duree_s: 0,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+      mf_data: {colonne: ETATMER_H, unite: code, facteur: 1, offset: 0, duree_s: 0,
+                note: "citée explicitement par l'audit. Source : site-infoclimat/include/MeteoFrance/docs/mf_data.txt"}
+
+  snowfall_thickness_1h:
+    cf_standard_name: thickness_of_snowfall_amount   # confirmé NERC Vocabulary Server (miroir CF)
+    unite_si: m
+    domaine: {min: 0.0, max: 1.0}
+    description_fr: Hauteur de neige fraîche tombée en 1 h (HNEIGEFI1, facultatif hors heures synoptiques)
+    sources:
+      mf_horaire: {colonne: HNEIGEFI1, unite: cm, facteur: 0.01, offset: 0, duree_s: 3600,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+      mf_data: {colonne: HNEIGEFI1_H, unite: cm, facteur: 0.01, offset: 0, duree_s: 3600,
+                note: "citée explicitement par l'audit. Source : site-infoclimat/include/MeteoFrance/docs/mf_data.txt"}
+
+  snowfall_thickness_3h:
+    cf_standard_name: thickness_of_snowfall_amount
+    unite_si: m
+    domaine: {min: 0.0, max: 1.5}
+    description_fr: Hauteur de neige fraîche tombée en 3 h (HNEIGEFI3, facultatif aux heures intermédiaires)
+    sources:
+      mf_horaire: {colonne: HNEIGEFI3, unite: cm, facteur: 0.01, offset: 0, duree_s: 10800,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+      mf_data: {colonne: HNEIGEFI3_H, unite: cm, facteur: 0.01, offset: 0, duree_s: 10800,
+                note: "citée explicitement par l'audit. Source : site-infoclimat/include/MeteoFrance/docs/mf_data.txt"}
+
+  snowfall_thickness_6h:
+    cf_standard_name: thickness_of_snowfall_amount
+    unite_si: m
+    domaine: {min: 0.0, max: 2.0}
+    description_fr: Hauteur de neige fraîche tombée en 6 h, toujours renseignée aux heures synoptiques principales (HNEIGEF)
+    sources:
+      mf_horaire: {colonne: HNEIGEF, unite: cm, facteur: 0.01, offset: 0, duree_s: 21600,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+
+  snow_surface_temperature:
+    cf_standard_name: null   # pas de standard name CF distinct pour la température de surface de la neige
+    unite_si: K
+    domaine: {min: 200.0, max: 275.0}
+    description_fr: Température de surface de la neige (TSNEIGE)
+    sources:
+      mf_horaire: {colonne: TSNEIGE, unite: degC, facteur: 1, offset: 273.15, duree_s: 0,
+                   note: "NOTE-A TRANCHÉE 2026-07-12 (échantillon prod : °C/hPa réels, facteur=1 confirmé). Source : H_HTR_I_ITR.txt section H"}
+      mf_nivo: {colonne: t_neige, unite: K, facteur: 1, offset: 0, duree_s: 0,
+                note: "data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+
+  snow_tube_penetration_depth:
+    cf_standard_name: null
+    unite_si: m
+    domaine: {min: 0.0, max: 5.0}
+    description_fr: Enfoncement du tube de neige (TUBENEIGE)
+    sources:
+      mf_horaire: {colonne: TUBENEIGE, unite: cm, facteur: 0.01, offset: 0, duree_s: 0,
+                   note: "« en cm », pas de mention 1/10. Source : H_HTR_I_ITR.txt section H"}
+
+  surface_downwelling_shortwave_energy_1h:
+    cf_standard_name: null   # accumulation horaire (J/m2), distincte de surface_downwelling_shortwave_flux_in_air (flux instantané W/m2) — pas de standard name CF « intégré dans le temps » confirmé pour cette forme précise
+    unite_si: J m-2
+    domaine: {min: 0.0, max: 5400000.0}
+    description_fr: Rayonnement global cumulé sur l'heure, référentiel UTC (GLO)
+    sources:
+      mf_horaire: {colonne: GLO, unite: J cm-2, facteur: 10000, offset: 0, duree_s: 3600,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+
+  surface_downwelling_shortwave_energy_1h_tsv:
+    cf_standard_name: null
+    unite_si: J m-2
+    domaine: {min: 0.0, max: 5400000.0}
+    description_fr: >-
+      Rayonnement global cumulé sur l'heure, référentiel temps solaire vrai (GLO2) —
+      même grandeur que surface_downwelling_shortwave_energy_1h, référentiel temporel
+      différent (heure TSV et non UTC) ; conservée comme entrée distincte car les deux
+      colonnes coexistent dans le même enregistrement Horaire sans relation triviale
+      (bornes d'heure décalées, pas une simple conversion de fuseau constant)
+    sources:
+      mf_horaire: {colonne: GLO2, unite: J cm-2, facteur: 10000, offset: 0, duree_s: 3600,
+                   note: "seul le _H (GLO2_H) apparaît consommé par mobile-api d'après mf_data.txt — DIR2/DIF2/UV2/INFRAR2/INS2 (mêmes variantes TSV pour d'autres rayonnements) ne le sont pas, cf. non_retenus. Source : H_HTR_I_ITR.txt section H"}
+      mf_data: {colonne: GLO2_H, unite: J cm-2, facteur: 10000, offset: 0, duree_s: 3600,
+                note: "Source : site-infoclimat/include/MeteoFrance/docs/mf_data.txt"}
+
+  surface_direct_downwelling_shortwave_energy_1h:
+    cf_standard_name: null
+    unite_si: J m-2
+    domaine: {min: 0.0, max: 5400000.0}
+    description_fr: Rayonnement direct cumulé sur l'heure, référentiel UTC (DIR)
+    sources:
+      mf_horaire: {colonne: DIR, unite: J cm-2, facteur: 10000, offset: 0, duree_s: 3600,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+
+  surface_diffuse_downwelling_shortwave_energy_1h:
+    cf_standard_name: null
+    unite_si: J m-2
+    domaine: {min: 0.0, max: 2000000.0}
+    description_fr: Rayonnement diffus cumulé sur l'heure, référentiel UTC (DIF)
+    sources:
+      mf_horaire: {colonne: DIF, unite: J cm-2, facteur: 10000, offset: 0, duree_s: 3600,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+
+  surface_downwelling_infrared_energy_1h:
+    cf_standard_name: null   # MF documente « infra-rouge », non confirmé équivalent au longwave CF (bande spectrale non précisée dans la doc source)
+    unite_si: J m-2
+    domaine: {min: 0.0, max: 1800000.0}
+    description_fr: Rayonnement infrarouge cumulé sur l'heure, référentiel UTC (INFRAR)
+    sources:
+      mf_horaire: {colonne: INFRAR, unite: J cm-2, facteur: 10000, offset: 0, duree_s: 3600,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # TRANCHE 2 — static.complements (33 sous-champs packés, site-infoclimat/data/
+  # complements.inc.php) : nouvelles grandeurs. Les fusions (uv_index, snow_height,
+  # tn_1h/tx_1h, rafale_max_day) sont déjà faites dans les entrées de la tranche 0.
+  # fuseau (offset de fuseau horaire de la station) est un métadonnée, pas une
+  # observation → non_retenus. heure_tn_interieur/heure_tx_interieur/
+  # heure_hr_interieur_min/heure_hr_interieur_max/tx_heure/tn_heure sont des heures
+  # d'occurrence pures → portées par porte_occurrence, pas d'entrée séparée.
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  surface_downwelling_shortwave_flux_in_air_max_day:
+    cf_standard_name: null   # variante « max journalier » de surface_downwelling_shortwave_flux_in_air ; pas de standard name CF pour l'agrégat max
+    unite_si: W m-2
+    domaine: {min: 0.0, max: 1500.0}
+    description_fr: Rayonnement global maximal instantané sur la journée (solar_rad_max)
+    sources:
+      complements: {colonne: solar_rad_max, unite: "W m-2", facteur: 1, offset: 0, duree_s: 86400,
+                    note: "CONFIRMÉ 13/07 : W/m² (99,9985 % ≤ 1500 ; ~30 aberrantes → QC) — @Unit 'None' dans le code — unité W/m2 supposée par cohérence avec radiations/GLO, NON confirmée. site-infoclimat/data/complements.inc.php:23"}
+
+  air_temperature_max_month:
+    cf_standard_name: air_temperature
+    unite_si: K
+    domaine: {min: 180.0, max: 340.0}
+    description_fr: Température maximale du mois glissant (compteur StatIC weatherlink, tx_month)
+    sources:
+      complements: {colonne: tx_month, unite: degC, facteur: 1, offset: 273.15, duree_s: 2678400,
+                    note: "site-infoclimat/data/complements.inc.php:30 (@Unit °C @Timespan month)"}
+
+  air_temperature_min_month:
+    cf_standard_name: air_temperature
+    unite_si: K
+    domaine: {min: 180.0, max: 340.0}
+    description_fr: Température minimale du mois glissant (compteur StatIC weatherlink, tn_month)
+    sources:
+      complements: {colonne: tn_month, unite: degC, facteur: 1, offset: 273.15, duree_s: 2678400,
+                    note: "site-infoclimat/data/complements.inc.php:51 (@Unit °C @Timespan month)"}
+
+  evapotranspiration_month:
+    cf_standard_name: null   # pas d'équivalent CF direct pour l'évapotranspiration potentielle (ET_month, non distingué actual/potential dans la source)
+    unite_si: kg m-2
+    domaine: {min: 0.0, max: 300.0}
+    description_fr: Évapotranspiration cumulée du mois glissant (ET_month)
+    sources:
+      complements: {colonne: ET_month, unite: "unknown", facteur: 1, offset: 0, duree_s: 2678400,
+                    unite_incertaine: true,
+                    note: "@Unit littéralement 'TODO' dans le code — mm (kg/m2) supposé par convention météo usuelle, NON confirmé. site-infoclimat/data/complements.inc.php:44"}
+
+  evapotranspiration_year:
+    cf_standard_name: null
+    unite_si: kg m-2
+    domaine: {min: 0.0, max: 2500.0}
+    description_fr: Évapotranspiration cumulée glissante sur l'année (ET_year)
+    sources:
+      complements: {colonne: ET_year, unite: "unknown", facteur: 1, offset: 0, duree_s: 31536000,
+                    unite_incertaine: true,
+                    note: "@Unit 'TODO' dans le code. site-infoclimat/data/complements.inc.php:114"}
+
+  ic_indoor_air_temperature:
+    cf_standard_name: null   # air_temperature CF suppose implicitement une mesure extérieure sous abri météo standard ; distinction volontaire pour une mesure intérieure
+    unite_si: K
+    domaine: {min: 250.0, max: 330.0}
+    description_fr: Température intérieure (capteur console StatIC weatherlink, t_interieur)
+    sources:
+      complements: {colonne: t_interieur, unite: degC, facteur: 1, offset: 273.15, duree_s: 0,
+                    note: "site-infoclimat/data/complements.inc.php:65 (@Unit °C @Timespan instant)"}
+
+  ic_indoor_air_temperature_min_day:
+    cf_standard_name: null
+    unite_si: K
+    domaine: {min: 250.0, max: 330.0}
+    description_fr: Température intérieure minimale du jour (tn_interieur_day)
+    porte_occurrence: true  # heure_tn_interieur
+    sources:
+      complements: {colonne: tn_interieur_day, unite: degC, facteur: 1, offset: 273.15, duree_s: 86400,
+                    note: "site-infoclimat/data/complements.inc.php:72 (@Timespan TODO — jour supposé par le nom du champ, non confirmé)"}
+
+  ic_indoor_air_temperature_max_day:
+    cf_standard_name: null
+    unite_si: K
+    domaine: {min: 250.0, max: 330.0}
+    description_fr: Température intérieure maximale du jour (tx_interieur_day)
+    porte_occurrence: true  # heure_tx_interieur
+    sources:
+      complements: {colonne: tx_interieur_day, unite: degC, facteur: 1, offset: 273.15, duree_s: 86400,
+                    note: "site-infoclimat/data/complements.inc.php:79 (@Timespan TODO)"}
+
+  wind_chill_of_temperature:
+    cf_standard_name: wind_chill_of_temperature   # nom plausible d'après connaissance générale des conventions CF, NON revérifié contre la table officielle
+    unite_si: K
+    domaine: {min: 200.0, max: 320.0}
+    description_fr: Refroidissement éolien ressenti (windchill)
+    sources:
+      complements: {colonne: windchill, unite: "unknown", facteur: 1, offset: 0, duree_s: 0,
+                    unite_incertaine: true,
+                    note: "@Unit littéralement 'None' — impossible de déterminer si la valeur stockée est déjà en °C, en K, ou dans une autre échelle (le calcul windchill des consoles Davis peut être en °F selon la locale). site-infoclimat/data/complements.inc.php:100"}
+
+  ic_heat_index:
+    cf_standard_name: null   # heat index = indice empirique NWS US, pas de standard name CF
+    unite_si: K
+    domaine: {min: 270.0, max: 330.0}
+    description_fr: Indice de chaleur ressentie (heat_index)
+    sources:
+      complements: {colonne: heat_index, unite: "unknown", facteur: 1, offset: 0, duree_s: 0,
+                    unite_incertaine: true,
+                    note: "@Unit 'None' — même réserve que windchill. site-infoclimat/data/complements.inc.php:107"}
+
+  ic_indoor_relative_humidity:
+    cf_standard_name: null
+    unite_si: "%"
+    domaine: {min: 0.0, max: 100.0}
+    description_fr: Humidité relative intérieure (hr_interieur)
+    sources:
+      complements: {colonne: hr_interieur, unite: "%", facteur: 1, offset: 0, duree_s: 0,
+                    note: "site-infoclimat/data/complements.inc.php:122 (@Unit % @Timespan instant)"}
+
+  ic_indoor_relative_humidity_min:
+    cf_standard_name: null
+    unite_si: "%"
+    domaine: {min: 0.0, max: 100.0}
+    description_fr: Humidité relative intérieure minimale (hr_interieur_min)
+    porte_occurrence: true  # heure_hr_interieur_min
+    sources:
+      complements: {colonne: hr_interieur_min, unite: "%", facteur: 1, offset: 0, duree_s: null,
+                    note: "@Timespan TODO. site-infoclimat/data/complements.inc.php:130"}
+
+  ic_indoor_relative_humidity_max:
+    cf_standard_name: null
+    unite_si: "%"
+    domaine: {min: 0.0, max: 100.0}
+    description_fr: Humidité relative intérieure maximale (hr_interieur_max)
+    porte_occurrence: true  # heure_hr_interieur_max
+    sources:
+      complements: {colonne: hr_interieur_max, unite: "%", facteur: 1, offset: 0, duree_s: null,
+                    note: "@Timespan TODO. site-infoclimat/data/complements.inc.php:138"}
+
+  ic_battery_voltage:
+    cf_standard_name: null
+    unite_si: V
+    domaine: {min: 0.0, max: 15.0}
+    description_fr: Tension de la batterie de la station (battery_tension)
+    technique: true  # ADR-0004 §7 — mesure technique, exclue par défaut des produits météo
+    sources:
+      complements: {colonne: battery_tension, unite: V, facteur: 1, offset: 0, duree_s: 0,
+                    note: "site-infoclimat/data/complements.inc.php:191 (@Unit V @Timespan instant)"}
+
+  surface_downwelling_shortwave_energy_10min:
+    cf_standard_name: null
+    unite_si: J m-2
+    domaine: {min: 0.0, max: 900000.0}
+    description_fr: Énergie solaire cumulée sur 10 minutes (solar_energy_10mn, StatIC)
+    sources:
+      complements: {colonne: solar_energy_10mn, unite: MJ m-2, facteur: 1000000, offset: 0, duree_s: 600,
+                    note: "site-infoclimat/data/complements.inc.php:198 (@Unit MJ/m² @Timespan 10 minutes)"}
+
+  ic_snow_depth_sensor_quality_factor:
+    cf_standard_name: null
+    unite_si: "1"
+    domaine: {min: 0.0, max: 600.0}  # plage constructeur SR50, échantillon 13/07 max 422
+    description_fr: Facteur qualité du capteur de hauteur de neige SR50A, lié à surface_snow_thickness (sr50_qfactor)
+    technique: true  # ADR-0004 §7 — facteur qualité instrument, exemple cité explicitement par l'ADR
+    sources:
+      complements: {colonne: sr50_qfactor, unite: "1", facteur: 1, offset: 0, duree_s: 0,
+                    note: "CONFIRMÉ 13/07 : facteur qualité SR50 sans unité (échantillon 0→422, plage constructeur ~0-600) — @Unit littéralement 'arbitrary' dans le code — pas d'unité SI réelle, domaine de valeur du capteur SR50A à vérifier auprès du fabricant. site-infoclimat/data/complements.inc.php:233"}
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # TRANCHE 3 — codes `_H` de mf_data (MariaDB fallback) : voir note en tête de
+  # fichier. Les grandeurs sont IDENTIQUES à la tranche 1 ; seules les sources
+  # explicitement citées par l'audit comme lues par mobile-api ont reçu un bloc
+  # `mf_data` dédié (déjà ajouté ci-dessus : past_weather_1/2, cloud_layer_1_base_height,
+  # grass_minimum_temperature_10cm, snowfall_thickness_1h/3h, sea_state_code,
+  # ground_state, ground_state_snow, water_vapor_partial_pressure_in_air).
+  # Aucune nouvelle entrée dans cette tranche.
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # TRANCHE 4 — bouées / mer (site-infoclimat/cron/yearly/creer_tables_annee.php:41-68)
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  sea_ice_accretion_code:
+    cf_standard_name: null   # code OMM 1751, pas une grandeur physique continue
+    unite_si: "1"
+    domaine: {min: 0.0, max: 9.0}
+    description_fr: Accrétion de glace sur la structure (code table OMM 1751, acc_glace)
+    sources:
+      bouees: {colonne: acc_glace, unite: code, facteur: 1, offset: 0, duree_s: 0,
+               note: "site-infoclimat/cron/yearly/creer_tables_annee.php:63 (COMMENT SQL : 'table omm 1751')"}
+
+  sea_ice_thickness:
+    cf_standard_name: sea_ice_thickness
+    unite_si: m
+    domaine: {min: 0.0, max: 5.0}
+    description_fr: Épaisseur de la glace de mer accrétée (epaisseur_glace)
+    sources:
+      bouees: {colonne: epaisseur_glace, unite: cm, facteur: 0.01, offset: 0, duree_s: 0,
+               note: "site-infoclimat/cron/yearly/creer_tables_annee.php:64 (COMMENT SQL : 'centimetres')"}
+
+  sea_ice_accretion_rate_code:
+    cf_standard_name: null   # code OMM 3551, pas une grandeur physique continue
+    unite_si: "1"
+    domaine: {min: 0.0, max: 9.0}
+    description_fr: Taux d'accrétion de glace (code table OMM 3551, vitesse_glace)
+    sources:
+      bouees: {colonne: vitesse_glace, unite: code, facteur: 1, offset: 0, duree_s: 0,
+               note: "site-infoclimat/cron/yearly/creer_tables_annee.php:65 (COMMENT SQL : 'table omm 3551')"}
+
+  cloud_type_low:
+    cf_standard_name: null   # code SYNOP (Atlas international des nuages OMM-N°407), pas une grandeur physique
+    unite_si: "1"
+    domaine: {min: 0.0, max: 9.0}
+    description_fr: Genre des nuages bas (code SYNOP, CL)
+    sources:
+      bouees: {colonne: CL, unite: code, facteur: 1, offset: 0, duree_s: 0,
+               note: "site-infoclimat/cron/yearly/creer_tables_annee.php:60"}
+      mf_horaire: {colonne: CL, unite: code, facteur: 1, offset: 0, duree_s: 0,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+      mf_nivo: {colonne: cl, unite: code, facteur: 1, offset: 0, duree_s: 0,
+                note: "data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+
+  cloud_type_medium:
+    cf_standard_name: null
+    unite_si: "1"
+    domaine: {min: 0.0, max: 9.0}
+    description_fr: Genre des nuages moyens (code SYNOP, CM)
+    sources:
+      bouees: {colonne: CM, unite: code, facteur: 1, offset: 0, duree_s: 0,
+               note: "site-infoclimat/cron/yearly/creer_tables_annee.php:61"}
+      mf_horaire: {colonne: CM, unite: code, facteur: 1, offset: 0, duree_s: 0,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+      mf_nivo: {colonne: cm, unite: code, facteur: 1, offset: 0, duree_s: 0,
+                note: "data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+
+  cloud_type_high:
+    cf_standard_name: null
+    unite_si: "1"
+    domaine: {min: 0.0, max: 9.0}
+    description_fr: Genre des nuages élevés (code SYNOP, CH)
+    sources:
+      bouees: {colonne: CH, unite: code, facteur: 1, offset: 0, duree_s: 0,
+               note: "site-infoclimat/cron/yearly/creer_tables_annee.php:62"}
+      mf_horaire: {colonne: CH, unite: code, facteur: 1, offset: 0, duree_s: 0,
+                   note: "Source : H_HTR_I_ITR.txt section H"}
+      mf_nivo: {colonne: ch, unite: code, facteur: 1, offset: 0, duree_s: 0,
+                note: "data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # TRANCHE 5 — enneigement (nivo), data-platform/contracts/
+  # source-meteofrance-donnees-libres-nivo.odcs.yaml. Champs avalanche/nivologie
+  # ultra-spécialisés (codes bulletin) volontairement laissés en non_retenus — voir
+  # bloc non_retenus.mf_nivo en fin de fichier pour la justification du périmètre.
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  cloud_base_height_lowest_layer:
+    cf_standard_name: null
+    unite_si: m
+    domaine: {min: 0.0, max: 15000.0}
+    description_fr: >-
+      Hauteur de la base de la couche nuageuse basse (hbas, nivo) — CAS AMBIGU : relation
+      avec cloud_layer_1_base_height (B1) non établie, même remarque que
+      cloud_area_fraction_lowest_layer vis-à-vis de N1/NBAS.
+    sources:
+      mf_nivo: {colonne: hbas, unite: m, facteur: 1, offset: 0, duree_s: 0,
+                unite_incertaine: true,
+                note: "unité non explicitée dans le contrat, m supposé par cohérence avec B1-B4. data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+
+  snow_state_code:
+    cf_standard_name: null   # code descriptif OMM (ESNEIGE), pas une grandeur physique
+    unite_si: "1"
+    domaine: {min: 0.0, max: 9.0}
+    description_fr: >-
+      État descriptif de la neige pour les postes nivométéorologiques (etat_neige) —
+      même échelle que le code ESNEIGE documenté dans H_HTR_I_ITR.txt (0=neige fraîche
+      sèche ... 9=surface lisse et glacée), colonne ESNEIGE elle-même non consommée côté
+      wide MF (cf. non_retenus.mf_horaire)
+    sources:
+      mf_nivo: {colonne: etat_neige, unite: code, facteur: 1, offset: 0, duree_s: 0,
+                note: "data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+
+  fresh_snow_thickness:
+    cf_standard_name: thickness_of_snowfall_amount
+    unite_si: m
+    domaine: {min: 0.0, max: 2.0}
+    description_fr: >-
+      Épaisseur de neige fraîche (ssfrai, nivo), fenêtre temporelle variable donnée par
+      le champ compagnon perssfrai (non modélisé séparément — durée de mesure, pas une
+      grandeur météo)
+    sources:
+      mf_nivo: {colonne: ssfrai, unite: cm, facteur: 0.01, offset: 0, duree_s: null,
+                note: "durée réelle dans perssfrai (h), variable. data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+
+  ic_fresh_snow_thickness_secondary:
+    cf_standard_name: thickness_of_snowfall_amount
+    unite_si: m
+    domaine: {min: 0.0, max: 2.0}
+    description_fr: >-
+      Second champ « neige fraîche » du même enregistrement nivo (neige_fraiche) — CAS
+      AMBIGU : sémantique exacte non distinguée de fresh_snow_thickness (ssfrai) dans la
+      documentation source ; conservé comme entrée séparée plutôt que fusionné, faute de
+      certitude sur l'équivalence
+    sources:
+      mf_nivo: {colonne: neige_fraiche, unite: cm, facteur: 0.01, offset: 0, duree_s: null,
+                unite_incertaine: true,
+                note: "data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+
+  snow_probe_depth:
+    cf_standard_name: null
+    unite_si: m
+    domaine: {min: 0.0, max: 10.0}
+    description_fr: Profondeur de sondage du manteau neigeux (prof_sonde, nivo)
+    sources:
+      mf_nivo: {colonne: prof_sonde, unite: cm, facteur: 0.01, offset: 0, duree_s: 0,
+                note: "data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+
+  snow_water_content:
+    cf_standard_name: null
+    unite_si: "%"
+    domaine: {min: 0.0, max: 100.0}
+    description_fr: Teneur en eau du manteau neigeux (teneur_eau, nivo)
+    sources:
+      mf_nivo: {colonne: teneur_eau, unite: "%", facteur: 1, offset: 0, duree_s: 0,
+                note: "data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+
+  snow_grain_diameter:
+    cf_standard_name: null
+    unite_si: m
+    domaine: {min: 0.0, max: 0.02}
+    description_fr: Diamètre du grain de neige prédominant (grain_diametre, nivo)
+    sources:
+      mf_nivo: {colonne: grain_diametre, unite: mm, facteur: 0.001, offset: 0, duree_s: 0,
+                note: "data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+
+  ic_snow_grain_type_code:
+    cf_standard_name: null   # classification internationale de la neige (UNESCO 1990), pas une grandeur physique continue
+    unite_si: "1"
+    domaine: {min: 0.0, max: 9.0}
+    description_fr: >-
+      Type de grain prédominant du manteau neigeux (grain_predom, nivo) — classification
+      internationale de la neige saisonnière, cardinalité exacte du code non vérifiée
+      (domaine 0-9 par défaut, à confirmer)
+    sources:
+      mf_nivo: {colonne: grain_predom, unite: code, facteur: 1, offset: 0, duree_s: 0,
+                unite_incertaine: true,
+                note: "domaine du code non documenté dans le contrat. data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+
+  snow_density:
+    cf_standard_name: snow_density   # confirmé NERC Vocabulary Server (miroir CF)
+    unite_si: kg m-3
+    domaine: {min: 0.0, max: 1000.0}
+    description_fr: Masse volumique de la neige (m_vol_neige, nivo)
+    sources:
+      mf_nivo: {colonne: m_vol_neige, unite: kg m-3, facteur: 1, offset: 0, duree_s: 0,
+                note: "data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+
+  ic_wind_speed_at_altitude_station:
+    cf_standard_name: wind_speed
+    unite_si: m s-1
+    domaine: {min: 0.0, max: 75.0}
+    description_fr: >-
+      Vitesse du vent d'un point de mesure en altitude compagnon (ff_alti, nivo) —
+      second point de mesure dans le même enregistrement, sans identifiant de station
+      propre dans le contrat consulté (limitation de modélisation, non résolue ici)
+    sources:
+      mf_nivo: {colonne: ff_alti, unite: m s-1, facteur: 1, offset: 0, duree_s: 600,
+                note: "data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+
+  ic_wind_from_direction_at_altitude_station:
+    cf_standard_name: wind_from_direction
+    unite_si: degree
+    domaine: {min: 0.0, max: 360.0}
+    description_fr: Direction du vent au point de mesure en altitude compagnon (dd_alti, nivo)
+    sources:
+      mf_nivo: {colonne: dd_alti, unite: degree, facteur: 1, offset: 0, duree_s: 600,
+                note: "data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+
+  ic_snow_thickness_at_altitude_station:
+    cf_standard_name: surface_snow_thickness
+    unite_si: m
+    domaine: {min: 0.0, max: 15.0}
+    description_fr: Hauteur de neige au point de mesure en altitude compagnon (ht_neige_alti, nivo)
+    sources:
+      mf_nivo: {colonne: ht_neige_alti, unite: cm, facteur: 0.01, offset: 0, duree_s: 0,
+                note: "data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+
+  ic_snow_drifting_indicator:
+    cf_standard_name: null
+    unite_si: "1"
+    domaine: {min: 0.0, max: 9.0}
+    description_fr: Indicateur de chasse-neige (chasse_neige, nivo)
+    sources:
+      mf_nivo: {colonne: chasse_neige, unite: "unknown", facteur: 1, offset: 0, duree_s: 0,
+                unite_incertaine: true,
+                note: "échelle du code non documentée dans le contrat (booléen ? intensité ?). data-platform/contracts/source-meteofrance-donnees-libres-nivo.odcs.yaml"}
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # TRANCHE 6 — table Timescale `Quotidienne` (climatologie quotidienne MF,
+  # contracts/quotidienne-mf-timescale.odcs.yaml), famille `mf_quotidienne`.
+  # 23 des 26 colonnes rejoignent des clés existantes (tranches 0/1 ci-dessus,
+  # sources ajoutées en place). Les 3 grandeurs ci-dessous n'ont pas d'équivalent :
+  # TM (moyenne vraie horaire) et TNTXM ((TN+TX)/2) sont DISTINCTES par construction
+  # (cf. site-infoclimat/include/MeteoFrance/quotidiennes.php:556, COALESCE(TNTXM, TM)
+  # — un repli de l'une vers l'autre, pas une fusion) ; TAMPLI est une différence de
+  # température (TX-TN), pas une température absolue.
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  air_temperature_mean:
+    cf_standard_name: air_temperature   # même base que air_temperature_min/_max (cell_methods mean, pas de standard name CF distinct)
+    unite_si: K
+    domaine: {min: 180.0, max: 340.0}
+    description_fr: >-
+      Moyenne quotidienne des températures horaires sous abri (TM) — moyenne calculée à
+      partir des relevés horaires effectivement observés dans la journée, DISTINCTE de
+      air_temperature_midrange (TNTXM, moyenne arithmétique des seuls extrêmes TN/TX).
+      site-infoclimat/include/MeteoFrance/quotidiennes.php:556 traite TNTXM comme un
+      repli (COALESCE) vers TM quand TM est absent, ce qui confirme que ce sont deux
+      calculs différents et non des synonymes.
+    sources:
+      mf_quotidienne: {colonne: TM, unite: degC, facteur: 1, offset: 273.15, duree_s: 86400,
+                        note: "« moyenne quotidienne des températures horaires sous abri ». Unité non documentée explicitement par contracts/quotidienne-mf-timescale.odcs.yaml (DDL : double precision, sans commentaire) ; confirmée par la doc source amont (parseCSV.ts), facteur=1 par cohérence avec RR/TN/TX (NOTE-A : « et 1/10 » = précision décimale, pas facteur d'échelle). Source : telechargement-climatologie-meteo-data-gouv/src/csv/quotidiennes/rr-t-vent/parseCSV.ts"}
+
+  air_temperature_midrange:
+    cf_standard_name: null   # pas de standard name CF pour la moyenne des seuls extrêmes (« midrange » climatologique) ; distinct de air_temperature (cell_methods mean, qui couvrirait plutôt TM)
+    unite_si: K
+    domaine: {min: 180.0, max: 340.0}
+    description_fr: >-
+      Moyenne quotidienne (TN+TX)/2 (TNTXM) — moyenne arithmétique des seuls extrêmes
+      journaliers (« midrange »), DISTINCTE de air_temperature_mean (TM, moyenne vraie
+      des relevés horaires). Volontairement non fusionnée avec TM malgré la parenté
+      sémantique : ce sont deux estimateurs différents de la température moyenne du
+      jour, coexistant dans le même enregistrement Quotidienne (cf. note sur
+      air_temperature_mean).
+    sources:
+      mf_quotidienne: {colonne: TNTXM, unite: degC, facteur: 1, offset: 273.15, duree_s: 86400,
+                        note: "« moyenne quotidienne (TN+TX)/2 » — calcul arithmétique des extrêmes, pas une moyenne des observations horaires. Unité non documentée explicitement par le contrat ; confirmée par la doc source amont. Source : telechargement-climatologie-meteo-data-gouv/src/csv/quotidiennes/rr-t-vent/parseCSV.ts"}
+
+  air_temperature_range:
+    cf_standard_name: null   # pas de standard name CF officiel confirmé pour l'amplitude thermique diurne (DTR climatologique, ETCCDI) — à revérifier
+    unite_si: K
+    domaine: {min: 0.0, max: 40.0}
+    description_fr: >-
+      Amplitude thermique quotidienne, écart entre TX et TN quotidiens (TAMPLI) — DELTA
+      de température, pas une température absolue. site-infoclimat/include/MeteoFrance/
+      quotidiennes.php:718 calcule d'ailleurs COALESCE(TAMPLI, TX-TN), confirmant
+      l'identité entre la colonne et le calcul TX-TN.
+    sources:
+      mf_quotidienne: {colonne: TAMPLI, unite: degC, facteur: 1, offset: 0, duree_s: 86400,
+                        note: "« amplitude thermique quotidienne : écart entre TX et TN quotidiens (TX-TN) ». offset=0 volontairement (une différence en °C égale la même différence en K — ne PAS appliquer +273.15, contrairement à toute température absolue de ce fichier). Unité non documentée explicitement par le contrat ; confirmée par la doc source amont et par le calcul PHP de repli. Source : telechargement-climatologie-meteo-data-gouv/src/csv/quotidiennes/rr-t-vent/parseCSV.ts ; site-infoclimat/include/MeteoFrance/quotidiennes.php:718"}
+
+# Colonnes vues et volontairement NON retenues dans ce vocabulaire (traçabilité
+# ADR-0004). Reprend le bloc du POC (synop/static/metar/bouees/mae inchangé, SAUF
+# bouees : CL, CM, CH, acc_glace, epaisseur_glace, vitesse_glace et hauteur_vagues_5
+# sont RETIRÉS de cette liste car désormais modélisés en tranche 4 — laisser une
+# colonne à la fois "non retenue" et "définie comme paramètre" serait incohérent.
+# nebulosite (bouees) était déjà non_retenu mais rejoint cloud_area_fraction (source
+# ajoutée en tranche 0) pour la même raison ; lat/lng restent non_retenus (position
+# par observation, cf. ADR-0007 amendée §4.2, colonnes observation.lat/lon dédiées et
+# non un paramètre du vocabulaire) ; raw_msg reste hors périmètre (archivistique,
+# Bronze).
+non_retenus:
+  synop: [temps_passe1, temps_passe2, etat_sol, plafond_nuageux, type_nuages, raw_msg, source]
+  static: [complements, source]
+  metar: [source]
+  bouees: [lat, lng, raw_msg]
+  mae: [source]
+  # Tranche 1 — colonnes wide MF Horaire confirmées NON consommées (mf_data.txt,
+  # marquées "--COLONNE--" = absentes de la table mf_data malgré leur présence dans
+  # Horaire). ESNEIGE et CHARGENEIGE : le nom ESNEIGE de la table Horaire n'est pas
+  # consommé, mais la même sémantique de code EST consommée côté nivo → voir
+  # snow_state_code (tranche 5), pas une contradiction.
+  mf_horaire: [DIR2, DIF2, UV, UV2, INFRAR2, INS2, TLAGON, TVEGETAUX, ECOULEMENT,
+               ESNEIGE, CHARGENEIGE]
+  # Tranche 5 — champs nivo hors périmètre météo (codes bulletin avalanche, codes
+  # internes sans grandeur physique associée, ou doublons non résolus jugés trop
+  # spéculatifs pour être modélisés sans confirmation).
+  mf_nivo: [phenspe1, phenspe2, nuage_val, grain_nombre, homogeneite,
+            aval_descr, aval_genre, aval_depart, aval_expo, aval_risque]

@@ -4,9 +4,11 @@
 
 Ce registre recense **où vivent les données personnelles** dans le système d'information, regroupées par finalité. Il constitue la contribution technique de la data-platform au registre des traitements de l'association (art. 30 RGPD).
 
-Les champs juridiques (**base légale**, **durée de conservation**, mesures de sécurité) relèvent du bureau de l'association et sont à confirmer — ils figurent ici en l'état pour être complétés, non comme position arrêtée.
-
 **10 traitements**, **32 tables** porteuses de données personnelles (source de vérité du périmètre : `inventory/tables.yaml`, flag `personal_data`).
+
+- **Responsable de traitement** : Association Infoclimat (responsable de traitement). Délégué / référent à la protection des données : à désigner — bureau.
+- **Socle de sécurité commun** : Hébergement auto-hébergé (Proxmox/LXC, infrastructure interne) ; accès réseau restreint ; chiffrement TLS en bordure (Cloudflare) ; base principale répliquée. Le détail d'exploitation (adresses, ports, sauvegardes) est tenu en interne.
+- **Réserve juridique** : Base légale, durée de conservation, destinataires et transferts hors-UE doivent être validés par le bureau. Les valeurs « à confirmer » sont des constats data, pas une position juridique arrêtée.
 
 ## Gestion des comptes utilisateurs et de l'authentification
 
@@ -15,6 +17,8 @@ Les champs juridiques (**base légale**, **durée de conservation**, mesures de 
 - **Données** : Identité (pseudo), secret (mot de passe haché), email de contact, IP et user-agent de connexion, jetons de session et de réinitialisation
 - **Base légale** : à confirmer (exécution du service / consentement à l'inscription)
 - **Conservation** : à confirmer (jetons à expiration ; comptes ?)
+- **Localisation** : MariaDB `ct-mariadb-1` (table `connectes` en ENGINE=MEMORY, fenêtre ~5 min)
+- **Mesures de sécurité** : Mots de passe hachés ; jetons de session et de réinitialisation à expiration
 - **Contrat de données** : [`v5-comptes-utilisateurs`](../../contracts/v5-comptes-utilisateurs.odcs.yaml)
 - **Tables** :
     - `mariadb://V5/comptes`
@@ -29,8 +33,12 @@ Les champs juridiques (**base légale**, **durée de conservation**, mesures de 
 - **Identifiant** : `applications-mobiles`
 - **Personnes concernées** : Utilisateurs des applications iOS/Android
 - **Données** : Jetons d'appareil (APNS/FCM), paramètres applicatifs liés au compte
+- **Destinataires** : Apple Push Notification service (APNS) et Google Firebase Cloud Messaging (FCM) pour l'acheminement des notifications
+- **Transferts hors-UE** : Oui — Apple / Google (États-Unis), hors UE — encadrement à confirmer (bureau)
 - **Base légale** : à confirmer (consentement aux notifications)
 - **Conservation** : à confirmer
+- **Localisation** : MariaDB `ct-mariadb-1`
+- **Mesures de sécurité** : socle commun (cf. en-tête)
 - **Contrat de données** : —
 - **Tables** :
     - `mariadb://V5/apns_devices`
@@ -45,6 +53,8 @@ Les champs juridiques (**base légale**, **durée de conservation**, mesures de 
 - **Données** : Lien compte (id_compte), géolocalisation des contributions, contenus, messages privés
 - **Base légale** : à confirmer
 - **Conservation** : à confirmer
+- **Localisation** : MariaDB `ct-mariadb-1`
+- **Mesures de sécurité** : Messages privés (`mp_mp`) — chiffrement au repos à confirmer (bureau)
 - **Contrat de données** : [`photolive`](../../contracts/photolive.odcs.yaml)
 - **Tables** :
     - `mariadb://V5/personnes`
@@ -58,8 +68,12 @@ Les champs juridiques (**base légale**, **durée de conservation**, mesures de 
 - **Identifiant** : `vie-associative`
 - **Personnes concernées** : Adhérents de l'association
 - **Données** : Identité, coordonnées, paiements (dont HelloAsso), pouvoirs de vote
+- **Destinataires** : HelloAsso (encaissement des cotisations / dons en ligne)
+- **Transferts hors-UE** : Non (HelloAsso — France / UE) — à confirmer (bureau)
 - **Base légale** : à confirmer (obligation légale comptable / exécution de l'adhésion)
 - **Conservation** : à confirmer (obligations comptables et statutaires)
+- **Localisation** : MariaDB `ct-mariadb-1`
+- **Mesures de sécurité** : socle commun (cf. en-tête)
 - **Contrat de données** : —
 - **Tables** :
     - `mariadb://asso/asso_adherants`
@@ -72,8 +86,11 @@ Les champs juridiques (**base légale**, **durée de conservation**, mesures de 
 - **Identifiant** : `boutique`
 - **Personnes concernées** : Clients de la boutique
 - **Données** : Identité, coordonnées de livraison, données de commande
+- **Destinataires** : Prestataires de paiement et de livraison — à confirmer (bureau)
 - **Base légale** : à confirmer (exécution du contrat de vente)
 - **Conservation** : à confirmer (obligations comptables)
+- **Localisation** : MariaDB `ct-mariadb-1`
+- **Mesures de sécurité** : socle commun (cf. en-tête)
 - **Contrat de données** : —
 - **Tables** :
     - `mariadb://V5/boutique_commandes`
@@ -85,6 +102,8 @@ Les champs juridiques (**base légale**, **durée de conservation**, mesures de 
 - **Données** : Lien compte, inscriptions
 - **Base légale** : à confirmer
 - **Conservation** : à confirmer
+- **Localisation** : MariaDB `ct-mariadb-1`
+- **Mesures de sécurité** : socle commun (cf. en-tête)
 - **Contrat de données** : —
 - **Tables** :
     - `mariadb://concoursprevi/participants_v5`
@@ -97,6 +116,8 @@ Les champs juridiques (**base légale**, **durée de conservation**, mesures de 
 - **Données** : Lien compte, pseudo, périmètre d'habilitation
 - **Base légale** : à confirmer
 - **Conservation** : à confirmer
+- **Localisation** : MariaDB `ct-mariadb-1`
+- **Mesures de sécurité** : socle commun (cf. en-tête)
 - **Contrat de données** : [`previsions-bulletins`](../../contracts/previsions-bulletins.odcs.yaml)
 - **Tables** :
     - `mariadb://V5_prevs/previsionnistes`
@@ -109,6 +130,8 @@ Les champs juridiques (**base légale**, **durée de conservation**, mesures de 
 - **Données** : Lien compte propriétaire, adresses IP des stations
 - **Base légale** : à confirmer
 - **Conservation** : à confirmer
+- **Localisation** : MariaDB `ct-mariadb-1`
+- **Mesures de sécurité** : Authentification HMAC des stations autonomes (serveur-station-autonome)
 - **Contrat de données** : [`static-stations-obs`](../../contracts/static-stations-obs.odcs.yaml)
 - **Tables** :
     - `mariadb://V5_data_params/static_ip`
@@ -121,6 +144,8 @@ Les champs juridiques (**base légale**, **durée de conservation**, mesures de 
 - **Données** : Identifiants FTP
 - **Base légale** : à confirmer
 - **Conservation** : à confirmer
+- **Localisation** : MariaDB `ct-mariadb-1` (table d'auth ProFTPD)
+- **Mesures de sécurité** : Transport FTP (en clair ?) — à confirmer (bureau)
 - **Contrat de données** : —
 - **Tables** :
     - `mariadb://proftpd/ftpuser`
@@ -132,6 +157,8 @@ Les champs juridiques (**base légale**, **durée de conservation**, mesures de 
 - **Données** : Profils et sessions des membres
 - **Base légale** : à confirmer
 - **Conservation** : gérée par IPBoard — hors périmètre data-platform
+- **Localisation** : MariaDB `ct-mariadb-1`, via l'application tierce IPBoard (gestion autonome)
+- **Mesures de sécurité** : socle commun (cf. en-tête)
 - **Contrat de données** : [`forums2-ipboard`](../../contracts/forums2-ipboard.odcs.yaml)
 - **Note** : Base applicative tierce (IPBoard), gestion autonome. Les tables forums/ibf_* sont mortes (ancienne version, candidates à suppression — à confirmer côté RGPD).
 - **Tables** :

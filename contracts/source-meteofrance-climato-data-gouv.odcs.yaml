@@ -55,7 +55,7 @@ customProperties:
       auth: none
       probeUrl: https://object.files.data.gouv.fr/meteofrance/data/synchro_ftp/BASE/HOR/H_descriptif_champs.csv
       verified: "✅ open data (sans token)"
-      unitsNote: Unités CONVENTIONNELLES (°C, 1/10) — pas SI. Indicateur qualité Q* (ou C* pour DecadaireAgro).
+      unitsNote: "Unités CONVENTIONNELLES (°C, 1/10) — pas SI. Lecture correcte (NOTE-A, échantillon prod 2026-07-12, amendement ADR-0004) : « °C et 1/10 » = valeurs RÉELLES en °C à précision 0,1 — PAS un facteur x10 ; facteur=1 dans le vocabulaire. Indicateur qualité Q* (ou C* pour DecadaireAgro)."
       descriptor: BASE/{FREQ}/{FREQ}_descriptif_champs.csv (ex. H_descriptif_champs.csv)
       quirks:
         - Sans auth (Licence Ouverte Etalab 2.0).

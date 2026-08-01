@@ -6,18 +6,25 @@ dans le système d'information, regroupées par finalité.
 
 | Fichier | Rôle |
 |---|---|
-| `traitements.yaml` | **Source** — traitements (finalité, personnes, données, base légale, conservation) et tables rattachées. À éditer ici. |
+| `traitements.yaml` | **Source** — en-tête `meta` (responsable, socle de sécurité, réserve juridique) + traitements (finalité, personnes, données, destinataires, transferts, base légale, conservation, localisation, sécurité) et tables rattachées. À éditer ici. |
 | `registre-traitements.md` | **Généré** par `tools/build_rgpd_register.py`. Ne pas éditer à la main. |
+
+Modèle de fiche calqué sur un registre art. 30 de référence. Champs par traitement :
+`finalite`, `personnes`, `donnees`, `destinataires?`, `transferts?`, `base_legale`,
+`conservation`, `localisation`, `securite?`, `contrat?`, `note?`, `tables` (les `?` sont
+optionnels — une fiche sans `securite` retombe sur le socle commun de l'en-tête).
 
 ## Périmètre et limites
 
 - Le **périmètre des données personnelles** fait foi depuis `inventory/tables.yaml`
   (flag `personal_data: true`). Le générateur échoue si une table flaggée manque au
   registre ou inversement — le registre ne peut pas dériver en silence de l'inventaire.
-- Les champs **juridiques** (base légale, durée de conservation, mesures de sécurité,
-  exercice des droits) relèvent du **bureau de l'association** et sont à confirmer. Ce
-  volet documente le *factuel data* (quelles données, où, pour quelle finalité), pas la
-  position légale arrêtée.
+- Le **factuel data** (quelles données, où — `localisation`, destinataires/transferts
+  constatés, mesures de sécurité techniques connues) est renseigné par le volet
+  data-platform à partir de l'inventaire et du code.
+- Les champs **juridiques** (base légale, durée de conservation, qualification des
+  transferts, exercice des droits) relèvent du **bureau de l'association** et restent
+  marqués « à confirmer » : ce sont des constats, pas la position légale arrêtée.
 
 ## Régénérer / vérifier
 
