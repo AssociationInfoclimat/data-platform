@@ -43,11 +43,17 @@ schema:
       - name: station_uid
         physicalType: TEXT
         required: true
-        description: Identifiant canonique de station (UUID)
+        description: >-
+          Pivot de jointure interne. uuid5(ns, "ic:" + ic_id) — DÉRIVÉ de ic_id,
+          donc pas plus stable que lui : il change si ic_id change. L'identifiant
+          canonique est ic_id.
       - name: ic_id
         physicalType: TEXT
         required: true
-        description: Identifiant station Infoclimat
+        description: >-
+          Identifiant station Infoclimat — IDENTIFIANT CANONIQUE, celui qui fait
+          foi. Hétérogène par conception (code OACI pour les metar, indicatif OMM
+          pour les synop, identifiant d'annuaire pour StatIC).
       - name: mfid
         physicalType: TEXT
         description: NUM_POSTE Météo-France si la station est aussi référencée MF, sinon vide
@@ -59,6 +65,13 @@ schema:
         description: Type de poste Météo-France (principale/secondaire), sinon vide
       - name: libelle
         physicalType: TEXT
+      - name: libelle_source
+        physicalType: TEXT
+        description: >-
+          Libellé brut du référentiel amont, avant normalisation. Conservé pour
+          traçabilité : 13 087 libellés portent un préfixe laissé par l'import CSV
+          Météo-France (« TEST MF CSV<n> … ») qui ne désigne PAS des stations de
+          test — ce sont des postes Météo-France réels.
       - name: latitude
         physicalType: DOUBLE
         required: true
@@ -77,6 +90,14 @@ schema:
         description: Station déclarée ouverte dans l'annuaire
       - name: dh_ouverture
         physicalType: TIMESTAMP
+      - name: publiable
+        physicalType: BOOLEAN
+        required: true
+        description: >-
+          La station porte au moins une observation dans gold_ref.station_parametre.
+          Seul critère de quarantaine du référentiel diffusé : les endpoints
+          /stations et /ref/stations écartent les lignes à false par défaut
+          (publiable=0 les rouvre).
       - name: parametres_mesures
         physicalType: ARRAY
         description: Clés canoniques des paramètres réellement observés
