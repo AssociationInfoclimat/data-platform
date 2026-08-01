@@ -27,10 +27,12 @@ grandeur physique vit sous des formes incompatibles selon le système :
 - **Types** : `temperature` en `float` (synop/static), `tinyint` (metar — troncature
   au degré entier), `double` (bouées, mf_data) ; `nebulosite` en `enum('0'..'8')` ici,
   `int(2)` ou `tinyint(4)` là.
-- **Unités** : conventions MF au 1/10 (°C, mm) dans l'historique Timescale, unités
-  usuelles converties (°C, hPa, m/s) dans les tables temps réel, SI (K, Pa) dans l'API
-  brute — le piège K vs °C est déjà documenté comme incohérence entre contrats
-  (`climato-mf-timescale` vs `horaire-mf-timescale`).
+- **Unités** : unités RÉELLES (°C, hPa, mm) dans l'historique Timescale — corrigé par
+  l'amendement du 2026-07-13 ci-dessous : le contrat annonçait une convention au 1/10,
+  l'échantillonnage prod l'a réfutée — unités usuelles converties (°C, hPa, m/s) dans
+  les tables temps réel, SI (K, Pa) dans l'API brute ; le piège K vs °C est déjà
+  documenté comme incohérence entre contrats (`climato-mf-timescale` vs
+  `horaire-mf-timescale`).
 - **Support temporel encodé dans les noms de colonnes** : `pluie_1h`/`pluie_3h`/
   `pluie_6h`/`pluie_12h`/`pluie_24h`/`pluie_cumul_0h`, `temperature_min`/`_max` sur des
   fenêtres implicites, `vent_rafales` vs `vent_rafales_10min` — la durée est une
@@ -56,7 +58,8 @@ unique de vérité dont tables et outils dérivent.
    - `domaine` (bornes physiques plausibles min/max — socle des contrôles qualité) ;
    - `description_fr` ;
    - `sources` : le **mapping par système** — colonne famille IC (`synop.temperature`),
-     code MF historique (`T`, facteur 1/10), colonne temps réel (`t`, K), code `_H`,
+     code MF historique (`T`, facteur 1 — °C réels, amendement 2026-07-13), colonne
+     temps réel (`t`, K), code `_H`,
      élément ECA&D, id du dictionnaire `static_qualite` — avec pour chacun le facteur
      et l'offset de conversion vers l'unité SI.
    Ordre de grandeur : ~150 entrées ; la matière existe déjà (contrats
@@ -110,9 +113,9 @@ unique de vérité dont tables et outils dérivent.
 ## Justification
 
 - **Les conversions d'unités deviennent structurellement uniques.** Un seul endroit
-  (le mapping) porte « MF historique = 1/10 °C » ; la conversion vers l'affichage vit
-  dans les vues Gold, une fois, testée. Le bug K vs °C cesse d'être possible par
-  construction.
+  (le mapping) porte par exemple « uv StatIC = centi-index, facteur 1/100 » (vérifié
+  par échantillon prod, revue A3) ; la conversion vers l'affichage vit dans les vues
+  Gold, une fois, testée. Le bug K vs °C cesse d'être possible par construction.
 - **Évolution additive sans ALTER.** Un nouveau capteur StatIC ou un nouveau champ MF
   = une entrée YAML + une ligne de mapping — pas de migration sur des tables de
   centaines de GiB, pas de bump majeur en cascade.
@@ -141,6 +144,26 @@ unique de vérité dont tables et outils dérivent.
 **Critère de réouverture** : si le YAML unique devient ingérable (>500 entrées,
 conflits de MR fréquents), éclater par domaine (`parametres/{thermo,vent,precip}.yaml`)
 sans changer le contrat d'interface des vues.
+
+## Amendement 2026-07-13 — unités de l'historique Timescale MF (NOTE-A)
+
+La version initiale de cet ADR affirmait, sur la foi du contrat
+`source-meteofrance-*`, que l'historique Timescale MF suivait les « conventions
+MF au 1/10 » (°C, mm stockés en dixièmes). **C'est faux, et corrigé** :
+l'échantillonnage prod du 2026-07-12 (SELECT sur `Horaire`, années 1980/1989/
+2024 : T min −30,3 / max 36,9 / moyenne 13,1 en 1980 ; PMER en hPa réels) est
+sans ambiguïté — **les valeurs sont en unités réelles, `facteur = 1`** dans
+tous les mappings concernés du vocabulaire.
+
+Conséquences :
+1. le contrat ODCS source est à corriger (il documentait une convention que la
+   donnée ne suit pas) ;
+2. règle de méthode ajoutée à la revue A3 : **toute unité douteuse se tranche
+   par échantillon prod, jamais par le seul contrat ou la seule doc** (patron
+   `sample_unites`) — le contrat décrit une intention, l'échantillon décrit la
+   donnée ;
+3. les 20 mappings encore `unite_incertaine` restent exclus de l'unpivot
+   (garde `load_vocab`) tant qu'ils n'ont pas leur échantillon.
 
 ## Références
 

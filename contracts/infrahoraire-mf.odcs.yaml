@@ -18,6 +18,7 @@ description:
     Unités : la table temps réel (InfrahoraireTempsReel) est en conventions météo
     usuelles — °C, hPa, m/s (vérifié en base le 2026-06-15). La table historique
     (Infrahoraire) suit les conventions MF (°C et 1/10, mm et 1/10).
+    Lecture correcte (NOTE-A, échantillon prod 2026-07-12, amendement ADR-0004) : « °C et 1/10 » = valeurs RÉELLES en °C à précision 0,1 — PAS un facteur x10 ; facteur=1 dans le vocabulaire.
   limitations: >-
     Couverture limitée aux stations MF. Les données temps réel peuvent être révisées par
     la passe historique. Pas de garantie de complétude par station (pannes capteurs).
