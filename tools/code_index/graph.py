@@ -722,6 +722,123 @@ def code_hotspots(graph: dict, *, top: int = 20, repo: str | None = None,
     return {"by": metric, "repo": repo, "subsystem": subsystem, "lang": lang, "hotspots": hot}
 
 
+# ── Requête : shortest_path ─────────────────────────────────────────────────────
+
+_DEAD_EXCLUDE_KINDS = _CLASS_KINDS | {"module"}
+
+
+def _bfs_path(out: dict, srcs: set[str], dsts: set[str], max_depth: int
+              ) -> tuple[list[str], float] | None:
+    """Plus court chemin (en nb d'arêtes) d'une graine `srcs` vers une graine `dsts` dans
+    `out`. Départage : à longueur égale, on garde le chemin dont la confiance MINIMALE le long
+    du chemin est la plus haute. Renvoie (liste de nids, min_confidence) ou None.
+
+    BFS par couches : on explore couche par couche (toutes à la même distance) ; dès qu'une
+    couche contient une cible on s'arrête (longueur minimale garantie). Pour chaque nœud on
+    mémorise le meilleur (min-conf) prédécesseur à cette distance."""
+    if srcs & dsts:                       # src == dst (ou recouvrement) : chemin trivial
+        nid = next(iter(srcs & dsts))
+        return [nid], 1.0
+    # best[nid] = (min_conf du meilleur chemin jusqu'ici, prédécesseur) à la distance courante.
+    best: dict[str, tuple[float, str | None]] = {s: (1.0, None) for s in srcs}
+    frontier = set(srcs)
+    depth = 0
+    while frontier and depth < max_depth:
+        depth += 1
+        nxt: dict[str, tuple[float, str | None]] = {}
+        for nid in frontier:
+            pconf = best[nid][0]
+            for tgt, c in out.get(nid, []):
+                if tgt in best:           # déjà atteint plus tôt (distance ≤) → ne pas régresser
+                    continue
+                path_conf = min(pconf, c)
+                if tgt not in nxt or path_conf > nxt[tgt][0]:
+                    nxt[tgt] = (path_conf, nid)
+        if not nxt:
+            break
+        # cibles atteintes à cette couche : on prend celle de meilleure confiance minimale.
+        reached = [t for t in nxt if t in dsts]
+        if reached:
+            best.update(nxt)
+            tgt = max(reached, key=lambda t: nxt[t][0])
+            path = [tgt]
+            while best[path[-1]][1] is not None:
+                path.append(best[path[-1]][1])
+            path.reverse()
+            return path, best[tgt][0]
+        best.update(nxt)
+        frontier = set(nxt)
+    return None
+
+
+def shortest_path(graph: dict, src: str, dst: str, *, max_depth: int = 8,
+                  sidecar: dict | None = None) -> dict:
+    """Plus court chemin d'appel entre deux symboles dans le graphe de code.
+
+    BFS sur `graph["out"]` depuis n'importe quelle racine de `src` vers n'importe quelle racine
+    de `dst`. Départage à longueur égale : confiance MINIMALE la plus haute (chemin le plus
+    sûr). Si aucun chemin src→dst sous `max_depth`, on tente dst→src et on le signale via
+    `direction`. Chaque nœud du chemin porte la confiance de son arête entrante."""
+    nodes = graph.get("nodes", {})
+    out = graph.get("out", {})
+    src_roots = resolve_symbol(graph, src)
+    dst_roots = resolve_symbol(graph, dst)
+    base = {"found": False, "path": [], "min_confidence": 0.0,
+            "src_roots": src_roots, "dst_roots": dst_roots, "direction": None}
+    if not src_roots or not dst_roots:
+        return base
+
+    def _render(path: list[str], min_conf: float, direction: str) -> dict:
+        # confiance de l'arête ENTRANTE de chaque nœud (1.0 pour la racine) ; en sens inverse
+        # le chemin reste exprimé src→…→dst pour la lisibilité, mais les arêtes sont celles
+        # parcourues (dst→src dans `out`).
+        confs = [1.0]
+        for i in range(1, len(path)):
+            edge = dict(out.get(path[i - 1], []))
+            confs.append(edge.get(path[i], 0.0))
+        rendered = [_describe(nodes[n], i, confs[i], sidecar)
+                    for i, n in enumerate(path) if n in nodes]
+        return {"found": True, "path": rendered, "min_confidence": round(min_conf, 2),
+                "src_roots": src_roots, "dst_roots": dst_roots, "direction": direction}
+
+    fwd = _bfs_path(out, set(src_roots), set(dst_roots), max_depth)
+    if fwd is not None:
+        return _render(fwd[0], fwd[1], "src->dst")
+    rev = _bfs_path(out, set(dst_roots), set(src_roots), max_depth)
+    if rev is not None:
+        return _render(rev[0], rev[1], "dst->src")
+    return base
+
+
+# ── Requête : dead_symbols ──────────────────────────────────────────────────────
+
+_DEAD_CAVEAT = ("attention : les points d'entrée (routes, mains de cron, hooks, callbacks de "
+                "framework) ont légitimement 0 appelant intra-projet sous résolution statique "
+                "et ne doivent pas être supprimés à l'aveugle.")
+
+
+def dead_symbols(graph: dict, *, repo: str | None = None, subsystem: str | None = None,
+                 top: int = 30, sidecar: dict | None = None) -> dict:
+    """Symboles à fan-in nul (« code potentiellement mort ») : fonctions/méthodes jamais
+    appelées dans le graphe. Exclut classes/interfaces/traits/enums et nœuds module (un type
+    sans appelant n'est pas du code mort au même titre qu'une fonction). Filtrable par
+    repo/sous-système. Tri repo→path→ligne, plafonné à `top`. Voir `caveat` : les points
+    d'entrée ont légitimement 0 appelant."""
+    items = [n for n in graph.get("nodes", {}).values()
+             if n.get("fan_in", 0) == 0
+             and n["kind"] not in _DEAD_EXCLUDE_KINDS
+             and n["qname"] != MODULE_QNAME]
+    if repo:
+        items = [n for n in items if n["repo"] == repo]
+    if subsystem:
+        items = [n for n in items if _subsystem(n) == subsystem]
+    items.sort(key=lambda n: (n["repo"], n["path"], n["start_line"]))
+    truncated = len(items) > top
+    symbols = [_describe(n, 0, 1.0, sidecar) for n in items[:max(0, top)]]
+    return {"count": len(symbols), "truncated": truncated, "symbols": symbols,
+            "caveat": _DEAD_CAVEAT}
+
+
 # ── CLI ─────────────────────────────────────────────────────────────────────────
 
 def _cmd_build(args: argparse.Namespace) -> int:
@@ -772,6 +889,43 @@ def _cmd_impact(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_path(args: argparse.Namespace) -> int:
+    graph = load_graph(args.graph)
+    sidecar = json.loads(Path(args.meta).read_text(encoding="utf-8")) if args.meta else None
+    res = shortest_path(graph, args.src, args.dst, max_depth=args.max_depth, sidecar=sidecar)
+    if not res["src_roots"] or not res["dst_roots"]:
+        miss = args.src if not res["src_roots"] else args.dst
+        print(f"Symbole introuvable : {miss}", file=sys.stderr)
+        return 1
+    if not res["found"]:
+        print(f"# Aucun chemin d'appel entre {args.src} et {args.dst} (prof ≤ {args.max_depth}).")
+        return 1
+    arrow = "→" if res["direction"] == "src->dst" else "← (sens inverse)"
+    print(f"# {args.src} {arrow} {args.dst} — {len(res['path'])} nœuds, "
+          f"confiance min {res['min_confidence']}")
+    for n in res["path"]:
+        url = f"  {n['source_url']}" if n["source_url"] else ""
+        print(f"  [{n['tier']}] {n['qname']} ({n['kind']}) "
+              f"{n['repo']}/{n['path']}:{n['start_line']}{url}")
+    return 0
+
+
+def _cmd_dead(args: argparse.Namespace) -> int:
+    graph = load_graph(args.graph)
+    sidecar = json.loads(Path(args.meta).read_text(encoding="utf-8")) if args.meta else None
+    res = dead_symbols(graph, repo=args.repo, subsystem=args.subsystem, top=args.top,
+                       sidecar=sidecar)
+    print(f"# Symboles à fan-in nul (code potentiellement mort) — {res['count']} affichés"
+          + (f", repo={args.repo}" if args.repo else "")
+          + (f", {args.subsystem}" if args.subsystem else "")
+          + (" — tronqué" if res["truncated"] else ""))
+    print(f"  ⚠ {res['caveat']}")
+    for n in res["symbols"]:
+        url = f"  {n['source_url']}" if n["source_url"] else ""
+        print(f"  {n['qname']} ({n['kind']}) {n['repo']}/{n['path']}:{n['start_line']}{url}")
+    return 0
+
+
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description="Graphe d'appels du code Infoclimat (tree-sitter).")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -799,6 +953,22 @@ def main(argv: list[str]) -> int:
     h.add_argument("--by", choices=["centrality", "fan_in"], default="centrality")
     h.add_argument("--meta", default=None)
     h.set_defaults(func=_cmd_hotspots)
+
+    p = sub.add_parser("path", help="Plus court chemin d'appel entre deux symboles.")
+    p.add_argument("src", help="Symbole de départ (Classe.methode).")
+    p.add_argument("dst", help="Symbole d'arrivée (Classe.methode).")
+    p.add_argument("--graph", required=True)
+    p.add_argument("--max-depth", type=int, default=8)
+    p.add_argument("--meta", default=None)
+    p.set_defaults(func=_cmd_path)
+
+    d = sub.add_parser("dead", help="Symboles à fan-in nul (code potentiellement mort).")
+    d.add_argument("--graph", required=True)
+    d.add_argument("--top", type=int, default=30)
+    d.add_argument("--repo", default=None)
+    d.add_argument("--subsystem", default=None)
+    d.add_argument("--meta", default=None)
+    d.set_defaults(func=_cmd_dead)
 
     args = ap.parse_args(argv)
     return args.func(args)
