@@ -36,9 +36,15 @@ def check(data: dict, inventory: set[str]) -> list[str]:
     return errors
 
 
+def _flat(value) -> str:
+    """Aplatit un scalaire YAML multi-ligne (bloc `>-`) en une ligne."""
+    return ' '.join(str(value).split())
+
+
 def render(data: dict, inventory: set[str]) -> str:
     n_tr = len(data['traitements'])
     n_tab = len({t for tr in data['traitements'] for t in tr['tables']})
+    meta = data.get('meta', {})
     lines = [
         "# Registre des traitements de données personnelles — volet data-platform",
         "",
@@ -49,22 +55,34 @@ def render(data: dict, inventory: set[str]) -> str:
         "d'information, regroupées par finalité. Il constitue la contribution technique "
         "de la data-platform au registre des traitements de l'association (art. 30 RGPD).",
         "",
-        "Les champs juridiques (**base légale**, **durée de conservation**, mesures de "
-        "sécurité) relèvent du bureau de l'association et sont à confirmer — ils figurent "
-        "ici en l'état pour être complétés, non comme position arrêtée.",
-        "",
         f"**{n_tr} traitements**, **{n_tab} tables** porteuses de données personnelles "
         f"(source de vérité du périmètre : `inventory/tables.yaml`, flag `personal_data`).",
         "",
     ]
+    if meta.get('responsable'):
+        lines += [f"- **Responsable de traitement** : {_flat(meta['responsable'])}"]
+    if meta.get('socle_securite'):
+        lines += [f"- **Socle de sécurité commun** : {_flat(meta['socle_securite'])}"]
+    if meta.get('note_juridique'):
+        lines += [f"- **Réserve juridique** : {_flat(meta['note_juridique'])}"]
+    lines.append("")
+
     for tr in data['traitements']:
         lines.append(f"## {tr['finalite']}")
         lines.append("")
         lines.append(f"- **Identifiant** : `{tr['id']}`")
         lines.append(f"- **Personnes concernées** : {tr['personnes']}")
         lines.append(f"- **Données** : {tr['donnees']}")
+        if tr.get('destinataires'):
+            lines.append(f"- **Destinataires** : {_flat(tr['destinataires'])}")
+        if tr.get('transferts'):
+            lines.append(f"- **Transferts hors-UE** : {_flat(tr['transferts'])}")
         lines.append(f"- **Base légale** : {tr['base_legale']}")
         lines.append(f"- **Conservation** : {tr['conservation']}")
+        if tr.get('localisation'):
+            lines.append(f"- **Localisation** : {_flat(tr['localisation'])}")
+        lines.append(f"- **Mesures de sécurité** : "
+                     f"{_flat(tr['securite']) if tr.get('securite') else 'socle commun (cf. en-tête)'}")
         contrat = tr.get('contrat')
         if contrat:
             lines.append(f"- **Contrat de données** : [`{contrat}`]"
@@ -72,7 +90,7 @@ def render(data: dict, inventory: set[str]) -> str:
         else:
             lines.append("- **Contrat de données** : —")
         if tr.get('note'):
-            lines.append(f"- **Note** : {' '.join(str(tr['note']).split())}")
+            lines.append(f"- **Note** : {_flat(tr['note'])}")
         lines.append("- **Tables** :")
         for t in tr['tables']:
             dead = t not in inventory

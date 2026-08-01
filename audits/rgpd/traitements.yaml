@@ -3,12 +3,32 @@
 # Recense OÙ vivent les données personnelles dans le SI, regroupées par finalité.
 # C'est la contribution technique de la data-platform au registre des traitements
 # de l'association (art. 30 RGPD) — les champs juridiques (base légale, durée de
-# conservation, mesures de sécurité) relèvent du bureau et restent à confirmer.
+# conservation) relèvent du bureau et restent à confirmer.
 #
 # Chaque table `personal_data: true` de inventory/tables.yaml DOIT figurer ici
 # (sinon `tools/build_rgpd_register.py` échoue). Réciproquement, retirer une table
 # de l'inventaire impose de la retirer ici.
-version: 1
+#
+# Champs par traitement (modèle art. 30, calqué sur un registre de référence) :
+#   finalite, personnes, donnees, destinataires?, transferts?, base_legale,
+#   conservation, localisation, securite?, contrat?, note?, tables
+# Les champs `?` sont optionnels (omis = retombe sur le socle commun de `meta`).
+version: 2
+
+# Identité et socle communs à tous les traitements (art. 30, en-tête du registre).
+meta:
+  responsable: >-
+    Association Infoclimat (responsable de traitement). Délégué / référent à la
+    protection des données : à désigner — bureau.
+  socle_securite: >-
+    Hébergement auto-hébergé (Proxmox/LXC, infrastructure interne) ; accès réseau
+    restreint ; chiffrement TLS en bordure (Cloudflare) ; base principale répliquée.
+    Le détail d'exploitation (adresses, ports, sauvegardes) est tenu en interne.
+  note_juridique: >-
+    Base légale, durée de conservation, destinataires et transferts hors-UE doivent
+    être validés par le bureau. Les valeurs « à confirmer » sont des constats data,
+    pas une position juridique arrêtée.
+
 traitements:
   - id: comptes-authentification
     finalite: Gestion des comptes utilisateurs et de l'authentification
@@ -16,6 +36,8 @@ traitements:
     donnees: Identité (pseudo), secret (mot de passe haché), email de contact, IP et user-agent de connexion, jetons de session et de réinitialisation
     base_legale: à confirmer (exécution du service / consentement à l'inscription)
     conservation: à confirmer (jetons à expiration ; comptes ?)
+    localisation: MariaDB `ct-mariadb-1` (table `connectes` en ENGINE=MEMORY, fenêtre ~5 min)
+    securite: Mots de passe hachés ; jetons de session et de réinitialisation à expiration
     contrat: v5-comptes-utilisateurs
     tables:
       - mariadb://V5/comptes
@@ -29,8 +51,11 @@ traitements:
     finalite: Notifications push et paramètres des applications mobiles
     personnes: Utilisateurs des applications iOS/Android
     donnees: Jetons d'appareil (APNS/FCM), paramètres applicatifs liés au compte
+    destinataires: Apple Push Notification service (APNS) et Google Firebase Cloud Messaging (FCM) pour l'acheminement des notifications
+    transferts: Oui — Apple / Google (États-Unis), hors UE — encadrement à confirmer (bureau)
     base_legale: à confirmer (consentement aux notifications)
     conservation: à confirmer
+    localisation: MariaDB `ct-mariadb-1`
     contrat: null
     tables:
       - mariadb://V5/apns_devices
@@ -44,6 +69,8 @@ traitements:
     donnees: Lien compte (id_compte), géolocalisation des contributions, contenus, messages privés
     base_legale: à confirmer
     conservation: à confirmer
+    localisation: MariaDB `ct-mariadb-1`
+    securite: Messages privés (`mp_mp`) — chiffrement au repos à confirmer (bureau)
     contrat: photolive
     tables:
       - mariadb://V5/personnes
@@ -56,8 +83,11 @@ traitements:
     finalite: Gestion des adhérents, cotisations et votes de l'association
     personnes: Adhérents de l'association
     donnees: Identité, coordonnées, paiements (dont HelloAsso), pouvoirs de vote
+    destinataires: HelloAsso (encaissement des cotisations / dons en ligne)
+    transferts: Non (HelloAsso — France / UE) — à confirmer (bureau)
     base_legale: à confirmer (obligation légale comptable / exécution de l'adhésion)
     conservation: à confirmer (obligations comptables et statutaires)
+    localisation: MariaDB `ct-mariadb-1`
     contrat: null
     tables:
       - mariadb://asso/asso_adherants
@@ -69,8 +99,10 @@ traitements:
     finalite: Traitement des commandes de la boutique
     personnes: Clients de la boutique
     donnees: Identité, coordonnées de livraison, données de commande
+    destinataires: Prestataires de paiement et de livraison — à confirmer (bureau)
     base_legale: à confirmer (exécution du contrat de vente)
     conservation: à confirmer (obligations comptables)
+    localisation: MariaDB `ct-mariadb-1`
     contrat: null
     tables:
       - mariadb://V5/boutique_commandes
@@ -81,6 +113,7 @@ traitements:
     donnees: Lien compte, inscriptions
     base_legale: à confirmer
     conservation: à confirmer
+    localisation: MariaDB `ct-mariadb-1`
     contrat: null
     tables:
       - mariadb://concoursprevi/participants_v5
@@ -92,6 +125,7 @@ traitements:
     donnees: Lien compte, pseudo, périmètre d'habilitation
     base_legale: à confirmer
     conservation: à confirmer
+    localisation: MariaDB `ct-mariadb-1`
     contrat: previsions-bulletins
     tables:
       - mariadb://V5_prevs/previsionnistes
@@ -103,6 +137,8 @@ traitements:
     donnees: Lien compte propriétaire, adresses IP des stations
     base_legale: à confirmer
     conservation: à confirmer
+    localisation: MariaDB `ct-mariadb-1`
+    securite: Authentification HMAC des stations autonomes (serveur-station-autonome)
     contrat: static-stations-obs
     tables:
       - mariadb://V5_data_params/static_ip
@@ -114,6 +150,8 @@ traitements:
     donnees: Identifiants FTP
     base_legale: à confirmer
     conservation: à confirmer
+    localisation: MariaDB `ct-mariadb-1` (table d'auth ProFTPD)
+    securite: Transport FTP (en clair ?) — à confirmer (bureau)
     contrat: null
     tables:
       - mariadb://proftpd/ftpuser
@@ -124,10 +162,11 @@ traitements:
     donnees: Profils et sessions des membres
     base_legale: à confirmer
     conservation: gérée par IPBoard — hors périmètre data-platform
-    contrat: forums2-ipboard
+    localisation: MariaDB `ct-mariadb-1`, via l'application tierce IPBoard (gestion autonome)
     note: >-
       Base applicative tierce (IPBoard), gestion autonome. Les tables forums/ibf_*
       sont mortes (ancienne version, candidates à suppression — à confirmer côté RGPD).
+    contrat: forums2-ipboard
     tables:
       - mariadb://forums2/core_members
       - mariadb://forums2/core_sessions
