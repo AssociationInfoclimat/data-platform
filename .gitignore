@@ -9,3 +9,10 @@ __pycache__/
 # IDE
 .idea/
 .vscode/
+
+# macOS
+.DS_Store
+
+# Réponse à l'appel d'offres BDD (BPU/DQE, mémoire technique, résumés CA) —
+# volet commercial CONFIDENTIEL : ce dépôt est public, ces pièces n'y entrent pas.
+audits/bdd/
