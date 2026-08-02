@@ -151,11 +151,42 @@ schema:
         description: Record de température max sur le mois calendaire (°C)
       - name: txx_max_date
         physicalType: DATE
+      - name: txx_max_suivant
+        physicalType: DOUBLE
+        description: >-
+          2e valeur DISTINCTE la plus haute de tx sur le mois calendaire (°C) —
+          suivant en VALEUR, pas dans le temps. Un écart important avec txx_max
+          signale un extrême isolé du reste de la série. Vide si le mois
+          calendaire ne porte qu'une seule valeur distincte.
       - name: tnn_min
         physicalType: DOUBLE
         description: Record de température min sur le mois calendaire (°C)
       - name: tnn_min_date
         physicalType: DATE
+      - name: tnn_min_suivant
+        physicalType: DOUBLE
+        description: >-
+          2e valeur DISTINCTE la plus basse de tn sur le mois calendaire (°C) —
+          suivant en VALEUR, pas dans le temps. Un écart important avec tnn_min
+          signale un extrême isolé du reste de la série. Vide si le mois
+          calendaire ne porte qu'une seule valeur distincte.
+      - name: n_jours_tx
+        physicalType: BIGINT
+        description: >-
+          Nombre de jours où tx est renseigné sur ce mois calendaire, tous
+          millésimes confondus : le socle sur lequel txx_max est calculé.
+      - name: n_jours_tn
+        physicalType: BIGINT
+        description: >-
+          Nombre de jours où tn est renseigné sur ce mois calendaire, tous
+          millésimes confondus : le socle sur lequel tnn_min est calculé.
+          Distinct de n_jours_tx — tn et tx ne manquent pas les mêmes jours.
+      - name: premiere_obs
+        physicalType: DATE
+        description: Premier jour mesuré de ce mois calendaire (tn ou tx renseigné)
+      - name: derniere_obs
+        physicalType: DATE
+        description: Dernier jour mesuré de ce mois calendaire (tn ou tx renseigné)
 
   - name: indicateur_reseau
     physicalName: gold_statIC.indicateur_reseau
