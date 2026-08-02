@@ -151,11 +151,6 @@ schema:
         description: Record de température max sur le mois calendaire (°C)
       - name: txx_max_date
         physicalType: DATE
-      - name: tnn_min
-        physicalType: DOUBLE
-        description: Record de température min sur le mois calendaire (°C)
-      - name: tnn_min_date
-        physicalType: DATE
       - name: txx_max_suivant
         physicalType: DOUBLE
         description: >-
@@ -163,6 +158,11 @@ schema:
           suivant en VALEUR, pas dans le temps. Un écart important avec txx_max
           signale un extrême isolé du reste de la série. Vide si le mois
           calendaire ne porte qu'une seule valeur distincte.
+      - name: tnn_min
+        physicalType: DOUBLE
+        description: Record de température min sur le mois calendaire (°C)
+      - name: tnn_min_date
+        physicalType: DATE
       - name: tnn_min_suivant
         physicalType: DOUBLE
         description: >-
