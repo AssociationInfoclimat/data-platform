@@ -71,6 +71,13 @@ schema:
       - name: rr
         physicalType: DOUBLE
         description: Cumul de précipitation du jour (mm)
+      - name: n_obs_rejetees
+        physicalType: BIGINT
+        description: >-
+          Nombre d'observations de température écartées ce jour-là par le contrôle
+          qualité des pics isolés — une valeur isolée au milieu de voisins normaux.
+          Vaut 0 dans l'écrasante majorité des cas. La liste nominative des
+          observations écartées est publiée sur /qc/pic_temperature.
 
   - name: mensuelle
     physicalName: gold_ic.mensuelle

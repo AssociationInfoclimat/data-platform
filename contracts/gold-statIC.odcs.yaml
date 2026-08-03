@@ -81,6 +81,13 @@ schema:
       - name: classe_station
         physicalType: INTEGER
         description: Classe siting StatIC (1-5) — NON RENSEIGNÉE (déviation, cf. limitations)
+      - name: n_obs_rejetees
+        physicalType: BIGINT
+        description: >-
+          Nombre d'observations de température écartées ce jour-là par le contrôle
+          qualité des pics isolés — une valeur isolée au milieu de voisins normaux.
+          Vaut 0 dans l'écrasante majorité des cas. La liste nominative des
+          observations écartées est publiée sur /qc/pic_temperature.
 
   - name: mensuelle
     physicalName: gold_statIC.mensuelle
