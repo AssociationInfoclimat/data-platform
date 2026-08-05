@@ -180,3 +180,5 @@ customProperties:
     value: source_ic_id=67128; canonical_ic_id=61980; canonical_name=Gillot; canonical_latitude=-20.887; canonical_longitude=55.510
   - property: station_67128_territorial_control
     value: source_point=-19.467,55.483; source_territorial_control=fail; canonical_point=-20.887,55.510; canonical_territorial_control=pass; correction_by_proximity=forbidden
+  - property: station_67128_territorial_scenario
+    value: '{"territory":"974","source":{"latitude":-19.467,"longitude":55.483,"expected":false},"canonical":{"latitude":-20.887,"longitude":55.510,"expected":true},"proximityCorrectionAllowed":false}'

@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import yaml
@@ -41,7 +42,6 @@ def test_station_67128_governance_is_immutable_canonical_and_not_proximity_based
     silver_document = contract("silver-ref-station.odcs.yaml")
     bronze = tables(bronze_document)["bronze_ref.station_source"]
     silver = tables(silver_document)
-    station = properties(silver["silver_ref.station"])
     alias_relation = properties(silver["silver_ref.station_alias"])["relation"]
 
     assert custom_properties(bronze_document)["station_67128_immutable_source"] == (
@@ -52,13 +52,19 @@ def test_station_67128_governance_is_immutable_canonical_and_not_proximity_based
         "source_ic_id=67128; canonical_ic_id=61980; canonical_name=Gillot; "
         "canonical_latitude=-20.887; canonical_longitude=55.510"
     )
-    assert custom_properties(silver_document)["station_67128_territorial_control"] == (
-        "source_point=-19.467,55.483; source_territorial_control=fail; "
-        "canonical_point=-20.887,55.510; canonical_territorial_control=pass; "
-        "correction_by_proximity=forbidden"
+    territorial_control = json.loads(
+        custom_properties(silver_document)["station_67128_territorial_scenario"]
     )
-    assert any("territorial" in rule["description"]
-               for rule in station["source_latitude"]["quality"])
-    assert any("territorial" in rule["description"]
-               for rule in station["canonical_latitude"]["quality"])
+    assert territorial_control["territory"] == "974"
+    assert territorial_control["source"] == {
+        "latitude": -19.467,
+        "longitude": 55.483,
+        "expected": False,
+    }
+    assert territorial_control["canonical"] == {
+        "latitude": -20.887,
+        "longitude": 55.510,
+        "expected": True,
+    }
+    assert territorial_control["proximityCorrectionAllowed"] is False
     assert alias_relation["quality"][0]["mustBeIn"] == ["obsolete_alias", "quarantine_redirect"]
