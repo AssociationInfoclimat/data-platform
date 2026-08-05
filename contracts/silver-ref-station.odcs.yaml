@@ -40,7 +40,8 @@ schema:
     description: >-
       Référentiel station canonisé depuis Bronze. Les coordonnées sources sont
       conservées, tandis que les coordonnées canoniques seules sont publiables ;
-      l'anomalie 67128 est mise en quarantaine ou liée par alias en Silver.
+      l'anomalie 67128 est canonisée vers 61980 (Gillot), point WGS84
+      -20.887/55.510, ou mise en quarantaine/alias lorsque cette preuve manque.
     properties:
       - name: ic_id
         physicalType: TEXT
@@ -56,6 +57,12 @@ schema:
             description: Borne WGS84 de latitude, -90 à 90 degrés.
             mustBeGreaterOrEqualTo: -90
             mustBeLessOrEqualTo: 90
+            severity: error
+          - rule: validValues
+            description: >-
+              Contrôle territorial réunionnais : le point source 67128
+              -19.467/55.483 échoue et ne peut jamais justifier une correction
+              par proximité.
             severity: error
       - name: source_longitude
         physicalType: DOUBLE
@@ -74,6 +81,12 @@ schema:
             description: Borne WGS84 de latitude, -90 à 90 degrés.
             mustBeGreaterOrEqualTo: -90
             mustBeLessOrEqualTo: 90
+            severity: error
+          - rule: validValues
+            description: >-
+              Contrôle territorial réunionnais : le point canonique Gillot
+              -20.887/55.510 réussit ; seule une autorité documentée peut
+              établir cette canonisation, jamais la proximité géographique.
             severity: error
       - name: canonical_longitude
         physicalType: DOUBLE
@@ -132,7 +145,15 @@ schema:
       - name: relation
         physicalType: TEXT
         required: true
-        description: Nature de la relation d'alias, notamment alias_obsolete ou quarantined.
+        description: >-
+          Domaine gouverné de relation : obsolete_alias ou quarantine_redirect.
+        quality:
+          - rule: validValues
+            description: Seules obsolete_alias et quarantine_redirect sont admises.
+            mustBeIn:
+              - obsolete_alias
+              - quarantine_redirect
+            severity: error
       - name: correction_rule_id
         physicalType: TEXT
         required: true
@@ -155,3 +176,7 @@ customProperties:
     value: quality_status == canonical
   - property: lineage
     value: bronze_ref.station_source -> silver_ref.station + silver_ref.station_alias
+  - property: station_67128_canonicalization
+    value: source_ic_id=67128; canonical_ic_id=61980; canonical_name=Gillot; canonical_latitude=-20.887; canonical_longitude=55.510
+  - property: station_67128_territorial_control
+    value: source_point=-19.467,55.483; source_territorial_control=fail; canonical_point=-20.887,55.510; canonical_territorial_control=pass; correction_by_proximity=forbidden

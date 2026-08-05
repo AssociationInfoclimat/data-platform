@@ -18,6 +18,10 @@ def properties(table):
     return {item["name"]: item for item in table["properties"]}
 
 
+def custom_properties(document):
+    return {item["property"]: item["value"] for item in document["customProperties"]}
+
+
 def test_station_medallion_contracts_expose_provenance_and_aliases():
     bronze = tables(contract("bronze-ref-station.odcs.yaml"))["bronze_ref.station_source"]
     silver = tables(contract("silver-ref-station.odcs.yaml"))
@@ -30,3 +34,31 @@ def test_station_medallion_contracts_expose_provenance_and_aliases():
     assert {"alias_ic_id", "canonical_ic_id", "relation", "correction_rule_id"} <= alias.keys()
     assert all(value in station["quality_status"]["description"]
                for value in ("canonical", "alias_obsolete", "quarantined"))
+
+
+def test_station_67128_governance_is_immutable_canonical_and_not_proximity_based():
+    bronze_document = contract("bronze-ref-station.odcs.yaml")
+    silver_document = contract("silver-ref-station.odcs.yaml")
+    bronze = tables(bronze_document)["bronze_ref.station_source"]
+    silver = tables(silver_document)
+    station = properties(silver["silver_ref.station"])
+    alias_relation = properties(silver["silver_ref.station_alias"])["relation"]
+
+    assert custom_properties(bronze_document)["station_67128_immutable_source"] == (
+        "ic_id=67128; latitude=-19.467; longitude=55.483; immutable=true"
+    )
+    assert "67128/-19.467/55.483" in bronze["description"]
+    assert custom_properties(silver_document)["station_67128_canonicalization"] == (
+        "source_ic_id=67128; canonical_ic_id=61980; canonical_name=Gillot; "
+        "canonical_latitude=-20.887; canonical_longitude=55.510"
+    )
+    assert custom_properties(silver_document)["station_67128_territorial_control"] == (
+        "source_point=-19.467,55.483; source_territorial_control=fail; "
+        "canonical_point=-20.887,55.510; canonical_territorial_control=pass; "
+        "correction_by_proximity=forbidden"
+    )
+    assert any("territorial" in rule["description"]
+               for rule in station["source_latitude"]["quality"])
+    assert any("territorial" in rule["description"]
+               for rule in station["canonical_latitude"]["quality"])
+    assert alias_relation["quality"][0]["mustBeIn"] == ["obsolete_alias", "quarantine_redirect"]

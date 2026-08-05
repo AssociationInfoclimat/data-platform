@@ -41,7 +41,8 @@ schema:
     description: >-
       Capture append-only du référentiel legacy iceberg://warehouse/dim.station,
       une ligne par (source_snapshot_id, ic_id), y compris les coordonnées
-      erronées de 67128.
+      erronées de 67128/-19.467/55.483, qui restent des valeurs source
+      immuables et auditables.
     properties:
       - name: source_snapshot_id
         physicalType: TEXT
@@ -87,3 +88,5 @@ customProperties:
     value: append-only logique ; aucune capture historique n'est réécrite
   - property: lineage
     value: iceberg://warehouse/dim.station -> bronze_ref.station_source
+  - property: station_67128_immutable_source
+    value: ic_id=67128; latitude=-19.467; longitude=55.483; immutable=true
