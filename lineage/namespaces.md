@@ -37,7 +37,7 @@ jamais bloquante) + forwarder `tools/lineage_forward.py` → backend Marquez sel
 | `api://infoclimat` | `<section>.<action>` | `opendata-v2.export`, `mobile-api.station` |
 | `webhook://infoclimat` | `<reseau>.uplink` | `liveobjects.uplink`, `ttn.uplink` |
 | `daemon://infoclimat` | `<service>.<role>` | `station-autonome.udp-server`, `python-climate-services.pluviometrie` |
-| `batch://chom-poc-data` | `batch.<domaine>_<étape>` | `batch.station_ref_bronze`, `batch.station_ref_gold` |
+| `batch://chom-poc-data` | `batch.<domaine>_<étape>` | `batch.station_ref_bronze`, `batch.gold_ref_station_parametre`, `batch.station_ref_gold` |
 
 ## Règles
 

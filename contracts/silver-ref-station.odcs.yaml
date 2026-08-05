@@ -27,10 +27,10 @@ tags:
   - iceberg
 
 servers:
-  - server: warehouse-iceberg
+  - server: diffusion-iceberg
     type: s3
     environment: production
-    location: iceberg://warehouse
+    location: s3://chom-ic-lake-diffusion/silver_ref
     format: iceberg
 
 schema:
@@ -58,12 +58,6 @@ schema:
             mustBeGreaterOrEqualTo: -90
             mustBeLessOrEqualTo: 90
             severity: error
-          - rule: validValues
-            description: >-
-              Contrôle territorial réunionnais : le point source 67128
-              -19.467/55.483 échoue et ne peut jamais justifier une correction
-              par proximité.
-            severity: error
       - name: source_longitude
         physicalType: DOUBLE
         description: Longitude WGS84 observée dans Bronze, y compris une valeur erronée de 67128.
@@ -82,12 +76,6 @@ schema:
             mustBeGreaterOrEqualTo: -90
             mustBeLessOrEqualTo: 90
             severity: error
-          - rule: validValues
-            description: >-
-              Contrôle territorial réunionnais : le point canonique Gillot
-              -20.887/55.510 réussit ; seule une autorité documentée peut
-              établir cette canonisation, jamais la proximité géographique.
-            severity: error
       - name: canonical_longitude
         physicalType: DOUBLE
         description: Longitude WGS84 validée pour publication lorsque quality_status == canonical.
@@ -104,6 +92,14 @@ schema:
           Décision de publication : canonical est publiable ; alias_obsolete est
           un identifiant remplacé ; quarantined isole une ligne non fiable, dont
           la coordonnée erronée de 67128 avant correction ou alias.
+        quality:
+          - rule: validValues
+            description: Statuts qualité autorisés pour la résolution du référentiel.
+            mustBeIn:
+              - canonical
+              - alias_obsolete
+              - quarantined
+            severity: error
       - name: quality_flags
         physicalType: ARRAY
         description: Drapeaux explicites motivant la décision qualité.
@@ -176,9 +172,16 @@ customProperties:
     value: quality_status == canonical
   - property: lineage
     value: bronze_ref.station_source -> silver_ref.station + silver_ref.station_alias
+  - property: lineageJob
+    value: >-
+      {"datasets":{"silver_ref.station":{"producer":"batch.station_ref_silver","consumers":["batch.station_ref_dim"]},"silver_ref.station_alias":{"producer":"batch.station_ref_silver","consumers":["batch.station_ref_dim"]}}}
   - property: station_67128_canonicalization
     value: source_ic_id=67128; canonical_ic_id=61980; canonical_name=Gillot; canonical_latitude=-20.887; canonical_longitude=55.510
-  - property: station_67128_territorial_control
-    value: source_point=-19.467,55.483; source_territorial_control=fail; canonical_point=-20.887,55.510; canonical_territorial_control=pass; correction_by_proximity=forbidden
   - property: station_67128_territorial_scenario
     value: '{"territory":"974","source":{"latitude":-19.467,"longitude":55.483,"expected":false},"canonical":{"latitude":-20.887,"longitude":55.510,"expected":true},"proximityCorrectionAllowed":false}'
+  - property: correctionEvidencePolicy
+    value: >-
+      {"appliesWhenAny":[{"qualityStatusIn":["alias_obsolete"]},{"qualityFlagsContainAny":["corrected_identity","corrected_coordinates","obsolete_identifier"]}],"requiredFields":["correction_rule_id","authority_uri","authority_checked_at"],"onMissingStatus":"quarantined"}
+  - property: qualityExecution
+    value: >-
+      {"pipeline":"station_reference_build.py","engine":"pipeline","territorialCheck":{"geometryFormat":"GeoJSON","geometryDataset":"communes","coordinatePolicy":{"approvedCorrection":"canonical","otherwise":"source"},"result":{"name":"territorial_check_passed","type":"boolean","blocking":true},"onFailureStatus":"quarantined","failClosed":true}}

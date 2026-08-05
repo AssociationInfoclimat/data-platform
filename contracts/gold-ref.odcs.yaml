@@ -105,10 +105,11 @@ schema:
         physicalType: BOOLEAN
         required: true
         description: >-
-          La station porte au moins une observation dans gold_ref.station_parametre.
-          Seul critère de quarantaine du référentiel diffusé : les endpoints
+          Indicateur d'activité : la station porte au moins une observation dans
+          gold_ref.station_parametre. Ce n'est pas un critère de quarantaine ;
+          les statuts non publiables ont déjà été exclus en amont. Les endpoints
           /stations et /ref/stations écartent les lignes à false par défaut
-          (publiable=0 les rouvre).
+          (publiable=0 les inclut).
       - name: parametres_mesures
         physicalType: ARRAY
         description: Clés canoniques des paramètres réellement observés
@@ -179,7 +180,10 @@ support:
 
 customProperties:
   - property: lineage
-    value: dim_ref.station + dim_ref.station_alias + silver.observation_v2 -> gold_ref.station_parametre -> gold_ref.station
+    value: silver.observation_v2 -> gold_ref.station_parametre ; dim_ref.station + dim_ref.station_alias + gold_ref.station_parametre -> gold_ref.station + gold_ref.station_alias
+  - property: lineageJob
+    value: >-
+      {"datasets":{"gold_ref.station":{"producer":"batch.station_ref_gold","consumers":[]},"gold_ref.station_alias":{"producer":"batch.station_ref_gold","consumers":[]},"gold_ref.station_parametre":{"producer":"batch.gold_ref_station_parametre","consumers":["batch.station_ref_gold"]}}}
   - property: station_67128_alias_resolution
     value: '{"alias_ic_id":"67128","canonical_ic_id":"61980","relation":"obsolete_alias"}'
   - property: publicationPolicy

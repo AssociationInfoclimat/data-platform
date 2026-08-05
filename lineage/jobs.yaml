@@ -41,6 +41,16 @@ jobs:
         name: dim_ref.station
       - namespace: "iceberg://diffusion"
         name: dim_ref.station_alias
+  - pipeline: batch.gold_ref_station_parametre
+    job_namespace: "batch://chom-poc-data"
+    job_name: batch.gold_ref_station_parametre
+    priority_t2: haute
+    inputs:
+      - namespace: "iceberg://warehouse"
+        name: silver.observation_v2
+    outputs:
+      - namespace: "iceberg://diffusion"
+        name: gold_ref.station_parametre
   - pipeline: batch.station_ref_gold
     job_namespace: "batch://chom-poc-data"
     job_name: batch.station_ref_gold

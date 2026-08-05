@@ -3,6 +3,8 @@ from pathlib import Path
 
 import yaml
 
+from tools.lineage_forward import load_declared_datasets
+
 
 ROOT = Path(__file__).parents[2]
 
@@ -23,10 +25,30 @@ def custom_properties(document):
     return {item["property"]: item["value"] for item in document["customProperties"]}
 
 
-def test_station_medallion_openlineage_jobs_define_exact_physical_edges():
-    lineage = yaml.safe_load((ROOT / "lineage" / "jobs.yaml").read_text())
-    jobs = {job["job_name"]: job for job in lineage["jobs"]}
-    expected_jobs = {
+def dataset_pairs(job, direction):
+    datasets = [
+        (dataset["namespace"], dataset["name"])
+        for dataset in job.get(direction, [])
+    ]
+    assert len(datasets) == len(set(datasets)), (
+        f"duplicate {direction} datasets in {job['job_name']}"
+    )
+    return set(datasets)
+
+
+def assert_contract_lineage(document, jobs):
+    lineage_jobs = json.loads(custom_properties(document)["lineageJob"])["datasets"]
+    assert set(lineage_jobs) == set(tables(document))
+    for dataset_name, references in lineage_jobs.items():
+        producer = jobs[references["producer"]]
+        assert ("iceberg://diffusion", dataset_name) in dataset_pairs(producer, "outputs")
+        for consumer_name in references["consumers"]:
+            consumer = jobs[consumer_name]
+            assert ("iceberg://diffusion", dataset_name) in dataset_pairs(consumer, "inputs")
+
+
+def expected_station_jobs():
+    return {
         "batch.station_ref_bronze": {
             "inputs": {("iceberg://warehouse", "dim.station")},
             "outputs": {("iceberg://diffusion", "bronze_ref.station_source")},
@@ -48,6 +70,10 @@ def test_station_medallion_openlineage_jobs_define_exact_physical_edges():
                 ("iceberg://diffusion", "dim_ref.station_alias"),
             },
         },
+        "batch.gold_ref_station_parametre": {
+            "inputs": {("iceberg://warehouse", "silver.observation_v2")},
+            "outputs": {("iceberg://diffusion", "gold_ref.station_parametre")},
+        },
         "batch.station_ref_gold": {
             "inputs": {
                 ("iceberg://diffusion", "dim_ref.station"),
@@ -61,14 +87,59 @@ def test_station_medallion_openlineage_jobs_define_exact_physical_edges():
         },
     }
 
-    for job_name, expected in expected_jobs.items():
+
+def test_station_medallion_openlineage_jobs_define_exact_physical_edges():
+    lineage = yaml.safe_load((ROOT / "lineage" / "jobs.yaml").read_text())
+    job_names = [job["job_name"] for job in lineage["jobs"]]
+    assert len(job_names) == len(set(job_names)), "duplicate OpenLineage job names"
+    jobs = {job["job_name"]: job for job in lineage["jobs"]}
+    for job_name, expected in expected_station_jobs().items():
         job = jobs[job_name]
         assert job["job_namespace"] == "batch://chom-poc-data"
         for direction, datasets in expected.items():
-            assert {
+            assert dataset_pairs(job, direction) == datasets
+
+
+def test_station_contract_storage_and_lineage_jobs_match_declared_graph():
+    lineage = yaml.safe_load((ROOT / "lineage" / "jobs.yaml").read_text())
+    job_names = [job["job_name"] for job in lineage["jobs"]]
+    assert len(job_names) == len(set(job_names)), "duplicate OpenLineage job names"
+    jobs = {job["job_name"]: job for job in lineage["jobs"]}
+
+    bronze = contract("bronze-ref-station.odcs.yaml")
+    silver = contract("silver-ref-station.odcs.yaml")
+    gold = contract("gold-ref.odcs.yaml")
+    assert bronze["servers"] == [{
+        "server": "diffusion-iceberg",
+        "type": "s3",
+        "environment": "production",
+        "location": "s3://chom-ic-lake-diffusion/bronze_ref",
+        "format": "iceberg",
+    }]
+    assert silver["servers"] == [{
+        "server": "diffusion-iceberg",
+        "type": "s3",
+        "environment": "production",
+        "location": "s3://chom-ic-lake-diffusion/silver_ref",
+        "format": "iceberg",
+    }]
+    for document in (bronze, silver, gold):
+        assert_contract_lineage(document, jobs)
+
+
+def test_lineage_forward_loads_all_station_jobs_with_declared_datasets():
+    declared = load_declared_datasets(str(ROOT / "lineage" / "jobs.yaml"))
+    for job_name, expected in expected_station_jobs().items():
+        loaded = declared[job_name]
+        for direction, expected_datasets in expected.items():
+            datasets = [
                 (dataset["namespace"], dataset["name"])
-                for dataset in job[direction]
-            } == datasets
+                for dataset in loaded[direction]
+            ]
+            assert len(datasets) == len(set(datasets)), (
+                f"duplicate loaded {direction} datasets in {job_name}"
+            )
+            assert set(datasets) == expected_datasets
 
 
 def test_station_medallion_contracts_expose_provenance_and_aliases():
@@ -118,6 +189,75 @@ def test_station_67128_governance_is_immutable_canonical_and_not_proximity_based
     assert alias_relation["quality"][0]["mustBeIn"] == ["obsolete_alias", "quarantine_redirect"]
 
 
+def test_silver_quality_policy_is_lintable_and_requires_executable_evidence():
+    silver_document = contract("silver-ref-station.odcs.yaml")
+    station = properties(tables(silver_document)["silver_ref.station"])
+    quality_status_rules = station["quality_status"]["quality"]
+    assert len(quality_status_rules) == 1
+    assert quality_status_rules[0]["rule"] == "validValues"
+    assert quality_status_rules[0]["mustBeIn"] == [
+        "canonical",
+        "alias_obsolete",
+        "quarantined",
+    ]
+    assert quality_status_rules[0]["severity"] == "error"
+
+    for document in (
+        contract("bronze-ref-station.odcs.yaml"),
+        silver_document,
+        contract("gold-ref.odcs.yaml"),
+    ):
+        for table in document["schema"]:
+            for prop in table["properties"]:
+                for rule in prop.get("quality", []):
+                    if rule["rule"] == "validValues":
+                        assert any(key.startswith("must") for key in rule), (
+                            "unconstrained validValues rule on "
+                            f"{table['physicalName']}.{prop['name']}"
+                        )
+
+    silver_properties = custom_properties(silver_document)
+    evidence_policy = json.loads(silver_properties["correctionEvidencePolicy"])
+    assert evidence_policy == {
+        "appliesWhenAny": [
+            {"qualityStatusIn": ["alias_obsolete"]},
+            {
+                "qualityFlagsContainAny": [
+                    "corrected_identity",
+                    "corrected_coordinates",
+                    "obsolete_identifier",
+                ]
+            },
+        ],
+        "requiredFields": [
+            "correction_rule_id",
+            "authority_uri",
+            "authority_checked_at",
+        ],
+        "onMissingStatus": "quarantined",
+    }
+    quality_execution = json.loads(silver_properties["qualityExecution"])
+    assert quality_execution == {
+        "pipeline": "station_reference_build.py",
+        "engine": "pipeline",
+        "territorialCheck": {
+            "geometryFormat": "GeoJSON",
+            "geometryDataset": "communes",
+            "coordinatePolicy": {
+                "approvedCorrection": "canonical",
+                "otherwise": "source",
+            },
+            "result": {
+                "name": "territorial_check_passed",
+                "type": "boolean",
+                "blocking": True,
+            },
+            "onFailureStatus": "quarantined",
+            "failClosed": True,
+        },
+    }
+
+
 def test_gold_station_contract_exposes_canonical_aliases_and_corrected_lineage():
     gold_document = contract("gold-ref.odcs.yaml")
     gold = tables(gold_document)
@@ -128,10 +268,6 @@ def test_gold_station_contract_exposes_canonical_aliases_and_corrected_lineage()
     alias = properties(gold["gold_ref.station_alias"])
     assert {"alias_ic_id", "canonical_ic_id", "relation"} <= alias.keys()
     assert alias["relation"]["quality"][0]["mustBeIn"] == ["obsolete_alias"]
-    assert gold_properties["lineage"] == (
-        "dim_ref.station + dim_ref.station_alias + silver.observation_v2 "
-        "-> gold_ref.station_parametre -> gold_ref.station"
-    )
     assert json.loads(gold_properties["station_67128_alias_resolution"]) == {
         "alias_ic_id": "67128",
         "canonical_ic_id": "61980",

@@ -28,10 +28,10 @@ tags:
   - iceberg
 
 servers:
-  - server: warehouse-iceberg
+  - server: diffusion-iceberg
     type: s3
     environment: production
-    location: iceberg://warehouse
+    location: s3://chom-ic-lake-diffusion/bronze_ref
     format: iceberg
 
 schema:
@@ -88,5 +88,8 @@ customProperties:
     value: append-only logique ; aucune capture historique n'est réécrite
   - property: lineage
     value: iceberg://warehouse/dim.station -> bronze_ref.station_source
+  - property: lineageJob
+    value: >-
+      {"datasets":{"bronze_ref.station_source":{"producer":"batch.station_ref_bronze","consumers":["batch.station_ref_silver"]}}}
   - property: station_67128_immutable_source
     value: ic_id=67128; latitude=-19.467; longitude=55.483; immutable=true
