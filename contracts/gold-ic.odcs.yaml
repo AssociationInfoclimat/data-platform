@@ -71,6 +71,18 @@ schema:
       - name: rr
         physicalType: DOUBLE
         description: Cumul de précipitation du jour (mm)
+      - name: n_obs
+        physicalType: BIGINT
+        description: >-
+          Nombre d'observations de température agrégées ce jour-là — toutes celles
+          du jour, plausibles ou non, rejets du contrôle qualité compris. C'est la
+          profondeur de preuve du tn/tx : un extrême calculé sur 24 observations et
+          un extrême calculé sur 2 ne se valent pas, et l'écart est massif selon
+          l'époque (médiane de 4 observations par jour en 1960, de 24 en 2025).
+          Attention : n_obs - n_obs_rejetees est un MAJORANT du nombre
+          d'observations effectivement retenues, pas ce nombre — une valeur hors
+          bornes physiques n'est comptée dans aucun des deux et n'est pas retenue.
+          Même définition que sur gold_statIC.journaliere.
       - name: n_obs_rejetees
         physicalType: BIGINT
         description: >-
@@ -122,6 +134,13 @@ schema:
       - name: nb_jours_gel
         physicalType: INTEGER
         description: Nombre de jours du mois avec tn < 0 °C
+      - name: n_obs
+        physicalType: BIGINT
+        description: >-
+          Somme des n_obs journaliers du mois : nombre total d'observations de
+          température agrégées, toutes celles du mois, plausibles ou non. Sert de
+          poids pour comparer des mois dont la densité de mesure diffère. Même
+          définition que sur gold_statIC.mensuelle.
 
   - name: records
     physicalName: gold_ic.records
