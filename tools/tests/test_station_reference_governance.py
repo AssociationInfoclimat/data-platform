@@ -23,6 +23,54 @@ def custom_properties(document):
     return {item["property"]: item["value"] for item in document["customProperties"]}
 
 
+def test_station_medallion_openlineage_jobs_define_exact_physical_edges():
+    lineage = yaml.safe_load((ROOT / "lineage" / "jobs.yaml").read_text())
+    jobs = {job["job_name"]: job for job in lineage["jobs"]}
+    expected_jobs = {
+        "batch.station_ref_bronze": {
+            "inputs": {("iceberg://warehouse", "dim.station")},
+            "outputs": {("iceberg://diffusion", "bronze_ref.station_source")},
+        },
+        "batch.station_ref_silver": {
+            "inputs": {("iceberg://diffusion", "bronze_ref.station_source")},
+            "outputs": {
+                ("iceberg://diffusion", "silver_ref.station"),
+                ("iceberg://diffusion", "silver_ref.station_alias"),
+            },
+        },
+        "batch.station_ref_dim": {
+            "inputs": {
+                ("iceberg://diffusion", "silver_ref.station"),
+                ("iceberg://diffusion", "silver_ref.station_alias"),
+            },
+            "outputs": {
+                ("iceberg://diffusion", "dim_ref.station"),
+                ("iceberg://diffusion", "dim_ref.station_alias"),
+            },
+        },
+        "batch.station_ref_gold": {
+            "inputs": {
+                ("iceberg://diffusion", "dim_ref.station"),
+                ("iceberg://diffusion", "dim_ref.station_alias"),
+                ("iceberg://diffusion", "gold_ref.station_parametre"),
+            },
+            "outputs": {
+                ("iceberg://diffusion", "gold_ref.station"),
+                ("iceberg://diffusion", "gold_ref.station_alias"),
+            },
+        },
+    }
+
+    for job_name, expected in expected_jobs.items():
+        job = jobs[job_name]
+        assert job["job_namespace"] == "batch://chom-poc-data"
+        for direction, datasets in expected.items():
+            assert {
+                (dataset["namespace"], dataset["name"])
+                for dataset in job[direction]
+            } == datasets
+
+
 def test_station_medallion_contracts_expose_provenance_and_aliases():
     bronze = tables(contract("bronze-ref-station.odcs.yaml"))["bronze_ref.station_source"]
     silver = tables(contract("silver-ref-station.odcs.yaml"))
