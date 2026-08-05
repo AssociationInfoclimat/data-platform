@@ -137,7 +137,13 @@ schema:
       - name: relation
         physicalType: TEXT
         required: true
-        description: Nature versionnée de la relation d'alias vers le code canonique.
+        description: Domaine gouverné de relation d'alias vers le code canonique.
+        quality:
+          - rule: validValues
+            description: Seule la relation obsolete_alias est admise dans Gold.
+            mustBeIn:
+              - obsolete_alias
+            severity: error
 
   - name: station_parametre
     physicalName: gold_ref.station_parametre
@@ -174,6 +180,10 @@ support:
 customProperties:
   - property: lineage
     value: dim_ref.station + dim_ref.station_alias + silver.observation_v2 -> gold_ref.station_parametre -> gold_ref.station
+  - property: station_67128_alias_resolution
+    value: '{"alias_ic_id":"67128","canonical_ic_id":"61980","relation":"obsolete_alias"}'
+  - property: publicationPolicy
+    value: '{"excludedQualityStatuses":["alias_obsolete","quarantined"],"publishedQualityStatuses":["canonical"]}'
   - property: dataLicense
     value: >-
       Référentiel multi-sources (réseau participatif StatIC Infoclimat + stations
