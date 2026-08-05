@@ -1,0 +1,157 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:silver-ref-station
+name: Silver référentiel stations — canonisation et alias
+version: 0.1.0
+status: active
+domain: referentiel
+dataProduct: ref-station
+
+description:
+  purpose: >-
+    Publier le référentiel station normalisé depuis Bronze, avec provenance,
+    décision de qualité et relations d'alias explicites.
+  usage: >-
+    Consommer silver_ref.station avec la règle de publication
+    quality_status == canonical ; joindre silver_ref.station_alias pour résoudre
+    les identifiants obsolètes.
+  limitations: >-
+    Les lignes quarantined et alias_obsolete ne sont pas publiables comme station
+    canonique. La correction est traçable, pas une réécriture de la source Bronze.
+
+tags:
+  - meteo
+  - referentiel
+  - stations
+  - silver
+  - iceberg
+
+servers:
+  - server: warehouse-iceberg
+    type: s3
+    environment: production
+    location: iceberg://warehouse
+    format: iceberg
+
+schema:
+  - name: station
+    physicalName: silver_ref.station
+    physicalType: table
+    description: >-
+      Référentiel station canonisé depuis Bronze. Les coordonnées sources sont
+      conservées, tandis que les coordonnées canoniques seules sont publiables ;
+      l'anomalie 67128 est mise en quarantaine ou liée par alias en Silver.
+    properties:
+      - name: ic_id
+        physicalType: TEXT
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 1
+        description: Identifiant de cette ligne de référentiel station.
+      - name: source_latitude
+        physicalType: DOUBLE
+        description: Latitude WGS84 observée dans Bronze, y compris une valeur erronée de 67128.
+        quality:
+          - rule: validValues
+            description: Borne WGS84 de latitude, -90 à 90 degrés.
+            mustBeGreaterOrEqualTo: -90
+            mustBeLessOrEqualTo: 90
+            severity: error
+      - name: source_longitude
+        physicalType: DOUBLE
+        description: Longitude WGS84 observée dans Bronze, y compris une valeur erronée de 67128.
+        quality:
+          - rule: validValues
+            description: Borne WGS84 de longitude, -180 à 180 degrés.
+            mustBeGreaterOrEqualTo: -180
+            mustBeLessOrEqualTo: 180
+            severity: error
+      - name: canonical_latitude
+        physicalType: DOUBLE
+        description: Latitude WGS84 validée pour publication lorsque quality_status == canonical.
+        quality:
+          - rule: validValues
+            description: Borne WGS84 de latitude, -90 à 90 degrés.
+            mustBeGreaterOrEqualTo: -90
+            mustBeLessOrEqualTo: 90
+            severity: error
+      - name: canonical_longitude
+        physicalType: DOUBLE
+        description: Longitude WGS84 validée pour publication lorsque quality_status == canonical.
+        quality:
+          - rule: validValues
+            description: Borne WGS84 de longitude, -180 à 180 degrés.
+            mustBeGreaterOrEqualTo: -180
+            mustBeLessOrEqualTo: 180
+            severity: error
+      - name: quality_status
+        physicalType: TEXT
+        required: true
+        description: >-
+          Décision de publication : canonical est publiable ; alias_obsolete est
+          un identifiant remplacé ; quarantined isole une ligne non fiable, dont
+          la coordonnée erronée de 67128 avant correction ou alias.
+      - name: quality_flags
+        physicalType: ARRAY
+        description: Drapeaux explicites motivant la décision qualité.
+      - name: correction_rule_id
+        physicalType: TEXT
+        description: Identifiant versionné de la règle de correction ou de quarantaine appliquée.
+      - name: authority_uri
+        physicalType: TEXT
+        description: URI de l'autorité ayant étayé l'identité ou la coordonnée canonique.
+      - name: authority_checked_at
+        physicalType: TIMESTAMP
+        description: Date et heure UTC de vérification de authority_uri.
+      - name: source_snapshot_id
+        physicalType: TEXT
+        required: true
+        description: Capture Bronze dont la ligne Silver est dérivée.
+      - name: ingest_run_id
+        physicalType: TEXT
+        required: true
+        description: Run ayant produit ou réconcilié la ligne Silver.
+
+  - name: station_alias
+    physicalName: silver_ref.station_alias
+    physicalType: table
+    description: >-
+      Relations d'identifiants obsolètes ou quarantined vers leur station
+      canonique ; la relation évite de perdre l'historique de résolution.
+    properties:
+      - name: alias_ic_id
+        physicalType: TEXT
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 1
+        description: Identifiant station alias, obsolète ou mis en quarantaine.
+      - name: canonical_ic_id
+        physicalType: TEXT
+        required: true
+        description: Identifiant station canonique à utiliser après résolution.
+      - name: relation
+        physicalType: TEXT
+        required: true
+        description: Nature de la relation d'alias, notamment alias_obsolete ou quarantined.
+      - name: correction_rule_id
+        physicalType: TEXT
+        required: true
+        description: Identifiant versionné de la règle ayant créé la relation.
+      - name: source_snapshot_id
+        physicalType: TEXT
+        description: Capture Bronze à l'origine de la relation.
+      - name: ingest_run_id
+        physicalType: TEXT
+        description: Run ayant créé la relation d'alias.
+
+team:
+  - username: pam
+    role: owner
+
+customProperties:
+  - property: source
+    value: bronze_ref.station_source
+  - property: publicationRule
+    value: quality_status == canonical
+  - property: lineage
+    value: bronze_ref.station_source -> silver_ref.station + silver_ref.station_alias
