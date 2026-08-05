@@ -68,3 +68,17 @@ def test_station_67128_governance_is_immutable_canonical_and_not_proximity_based
     }
     assert territorial_control["proximityCorrectionAllowed"] is False
     assert alias_relation["quality"][0]["mustBeIn"] == ["obsolete_alias", "quarantine_redirect"]
+
+
+def test_gold_station_contract_exposes_canonical_aliases_and_corrected_lineage():
+    gold_document = contract("gold-ref.odcs.yaml")
+    gold = tables(gold_document)
+
+    assert gold_document["version"] == "0.2.0"
+    assert properties(gold["gold_ref.station"])["aliases"]["physicalType"] == "ARRAY"
+    alias = properties(gold["gold_ref.station_alias"])
+    assert {"alias_ic_id", "canonical_ic_id", "relation"} <= alias.keys()
+    assert custom_properties(gold_document)["lineage"] == (
+        "dim_ref.station + dim_ref.station_alias + silver.observation_v2 "
+        "-> gold_ref.station_parametre -> gold_ref.station"
+    )

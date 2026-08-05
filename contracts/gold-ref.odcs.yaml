@@ -2,7 +2,7 @@ apiVersion: v3.0.2
 kind: DataContract
 id: urn:infoclimat:contract:gold-ref
 name: Gold référentiel stations (annuaire géolocalisé + réseau + activité par paramètre)
-version: 0.1.0
+version: 0.2.0
 status: draft
 domain: referentiel
 dataProduct: gold-ref
@@ -16,6 +16,9 @@ description:
     observation, volume). Remplace le feed live stations_xhr.php et les exports
     GeoJSON figés côté cartes.
   usage: Serving public via climato.chom.engineering /ref/*
+  limitations: >-
+    Les lignes Silver au statut quarantined n'entrent jamais dans Gold : seules
+    les stations canoniques et leurs relations d'alias résolues y sont diffusées.
 
 tags:
   - meteo
@@ -57,6 +60,11 @@ schema:
           indicatif OMM à 5 chiffres pour les synop (61980). Les stations StatIC
           n'ont AUCUNE forme unique (00006, STATIC0253, MNWERO090) : ne présumez
           d'aucun format, lisez la valeur.
+      - name: aliases
+        physicalType: ARRAY
+        description: >-
+          Codes historiques internes résolus vers ic_id. Ne pas utiliser pour
+          identifier une station : ic_id reste l'identifiant canonique.
       - name: mfid
         physicalType: TEXT
         description: NUM_POSTE Météo-France si la station est aussi référencée MF, sinon vide
@@ -108,6 +116,29 @@ schema:
         physicalType: TIMESTAMP
         description: Dernière observation, tous paramètres confondus
 
+  - name: station_alias
+    physicalName: gold_ref.station_alias
+    physicalType: table
+    description: >-
+      Relations d'identifiants historiques vers leur station Gold canonique.
+      Les alias permettent de résoudre les anciens codes sans diffuser les
+      lignes Silver quarantined.
+    properties:
+      - name: alias_ic_id
+        physicalType: TEXT
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 1
+        description: Code historique ou obsolète à résoudre.
+      - name: canonical_ic_id
+        physicalType: TEXT
+        required: true
+        description: ic_id canonique de gold_ref.station cible.
+      - name: relation
+        physicalType: TEXT
+        required: true
+        description: Nature versionnée de la relation d'alias vers le code canonique.
+
   - name: station_parametre
     physicalName: gold_ref.station_parametre
     physicalType: table
@@ -142,7 +173,7 @@ support:
 
 customProperties:
   - property: lineage
-    value: dim.station + silver.observation_v2 -> gold_ref.station_parametre -> gold_ref.station
+    value: dim_ref.station + dim_ref.station_alias + silver.observation_v2 -> gold_ref.station_parametre -> gold_ref.station
   - property: dataLicense
     value: >-
       Référentiel multi-sources (réseau participatif StatIC Infoclimat + stations
