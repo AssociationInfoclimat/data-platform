@@ -71,7 +71,10 @@ def expected_station_jobs():
             },
         },
         "batch.gold_ref_station_parametre": {
-            "inputs": {("iceberg://warehouse", "silver.observation_v2")},
+            "inputs": {
+                ("iceberg://warehouse", "silver.observation_v2"),
+                ("iceberg://diffusion", "dim_ref.station_alias"),
+            },
             "outputs": {("iceberg://diffusion", "gold_ref.station_parametre")},
         },
         "batch.station_ref_gold": {
@@ -268,6 +271,12 @@ def test_gold_station_contract_exposes_canonical_aliases_and_corrected_lineage()
     alias = properties(gold["gold_ref.station_alias"])
     assert {"alias_ic_id", "canonical_ic_id", "relation"} <= alias.keys()
     assert alias["relation"]["quality"][0]["mustBeIn"] == ["obsolete_alias"]
+    assert gold_properties["lineage"] == (
+        "silver.observation_v2 + dim_ref.station_alias "
+        "-> gold_ref.station_parametre ; "
+        "dim_ref.station + dim_ref.station_alias + gold_ref.station_parametre "
+        "-> gold_ref.station + gold_ref.station_alias"
+    )
     assert json.loads(gold_properties["station_67128_alias_resolution"]) == {
         "alias_ic_id": "67128",
         "canonical_ic_id": "61980",

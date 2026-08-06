@@ -180,7 +180,7 @@ support:
 
 customProperties:
   - property: lineage
-    value: silver.observation_v2 -> gold_ref.station_parametre ; dim_ref.station + dim_ref.station_alias + gold_ref.station_parametre -> gold_ref.station + gold_ref.station_alias
+    value: silver.observation_v2 + dim_ref.station_alias -> gold_ref.station_parametre ; dim_ref.station + dim_ref.station_alias + gold_ref.station_parametre -> gold_ref.station + gold_ref.station_alias
   - property: lineageJob
     value: >-
       {"datasets":{"gold_ref.station":{"producer":"batch.station_ref_gold","consumers":[]},"gold_ref.station_alias":{"producer":"batch.station_ref_gold","consumers":[]},"gold_ref.station_parametre":{"producer":"batch.gold_ref_station_parametre","consumers":["batch.station_ref_gold"]}}}

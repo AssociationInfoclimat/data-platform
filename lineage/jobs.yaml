@@ -48,6 +48,8 @@ jobs:
     inputs:
       - namespace: "iceberg://warehouse"
         name: silver.observation_v2
+      - namespace: "iceberg://diffusion"
+        name: dim_ref.station_alias
     outputs:
       - namespace: "iceberg://diffusion"
         name: gold_ref.station_parametre
