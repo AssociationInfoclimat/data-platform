@@ -1,9 +1,74 @@
 # Mapping pipelines inventoriés → jobs OpenLineage (prépare l'instrumentation du lineage)
 # job_namespace + job_name = identité OpenLineage ; pipeline = id dans inventory/pipelines.yaml
-# Généré par script Python depuis pipelines.yaml le 2026-06-05.
-# Seuls les pipelines status:actif (231) sont inclus.
+# Généré par script Python depuis pipelines.yaml le 2026-06-05, puis complété
+# par les jobs batch contractualisés hors inventaire d'exécution.
+# Les pipelines inventoriés inclus sont ceux au status:actif (231).
 version: 1
 jobs:
+  - pipeline: batch.station_ref_bronze
+    job_namespace: "batch://chom-poc-data"
+    job_name: batch.station_ref_bronze
+    priority_t2: haute
+    inputs:
+      - namespace: "iceberg://warehouse"
+        name: dim.station
+    outputs:
+      - namespace: "iceberg://diffusion"
+        name: bronze_ref.station_source
+  - pipeline: batch.station_ref_silver
+    job_namespace: "batch://chom-poc-data"
+    job_name: batch.station_ref_silver
+    priority_t2: haute
+    inputs:
+      - namespace: "iceberg://diffusion"
+        name: bronze_ref.station_source
+    outputs:
+      - namespace: "iceberg://diffusion"
+        name: silver_ref.station
+      - namespace: "iceberg://diffusion"
+        name: silver_ref.station_alias
+  - pipeline: batch.station_ref_dim
+    job_namespace: "batch://chom-poc-data"
+    job_name: batch.station_ref_dim
+    priority_t2: haute
+    inputs:
+      - namespace: "iceberg://diffusion"
+        name: silver_ref.station
+      - namespace: "iceberg://diffusion"
+        name: silver_ref.station_alias
+    outputs:
+      - namespace: "iceberg://diffusion"
+        name: dim_ref.station
+      - namespace: "iceberg://diffusion"
+        name: dim_ref.station_alias
+  - pipeline: batch.gold_ref_station_parametre
+    job_namespace: "batch://chom-poc-data"
+    job_name: batch.gold_ref_station_parametre
+    priority_t2: haute
+    inputs:
+      - namespace: "iceberg://warehouse"
+        name: silver.observation_v2
+      - namespace: "iceberg://diffusion"
+        name: dim_ref.station_alias
+    outputs:
+      - namespace: "iceberg://diffusion"
+        name: gold_ref.station_parametre
+  - pipeline: batch.station_ref_gold
+    job_namespace: "batch://chom-poc-data"
+    job_name: batch.station_ref_gold
+    priority_t2: haute
+    inputs:
+      - namespace: "iceberg://diffusion"
+        name: dim_ref.station
+      - namespace: "iceberg://diffusion"
+        name: dim_ref.station_alias
+      - namespace: "iceberg://diffusion"
+        name: gold_ref.station_parametre
+    outputs:
+      - namespace: "iceberg://diffusion"
+        name: gold_ref.station
+      - namespace: "iceberg://diffusion"
+        name: gold_ref.station_alias
   - pipeline: kestra.system.failure-alert-discord
     job_namespace: "kestra://infoclimat"
     job_name: kestra.system.failure-alert-discord

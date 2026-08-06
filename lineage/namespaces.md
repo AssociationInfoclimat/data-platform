@@ -14,6 +14,8 @@ jamais bloquante) + forwarder `tools/lineage_forward.py` → backend Marquez sel
 | `mariadb://V5_climato` | MariaDB climatologie | `climato_journaliere_auto` |
 | `mariadb://mf_data` | MariaDB données MF (fallback) | `mf_data` |
 | `timescaledb://infoclimat` | TimescaleDB | `Infrahoraire`, `InfrahoraireTempsReel`, `Horaire` |
+| `iceberg://warehouse` | Entrepôt Iceberg source | `dim.station` |
+| `iceberg://diffusion` | Entrepôt Iceberg de diffusion | `bronze_ref.station_source`, `silver_ref.station`, `gold_ref.station` |
 | `file://datastore` | Stockage fichiers partagé (datastore) | `tiles/...`, `opendata/exports/...` |
 | `file://srx-modeles-2` | Chemins host-locaux srx-modeles-2 | `modeles/AROME/`, `modeles/GFS/` |
 | `file://modeles` | Vue NFS du stockage modèles | `modeles.infoclimat.net` |
@@ -35,6 +37,7 @@ jamais bloquante) + forwarder `tools/lineage_forward.py` → backend Marquez sel
 | `api://infoclimat` | `<section>.<action>` | `opendata-v2.export`, `mobile-api.station` |
 | `webhook://infoclimat` | `<reseau>.uplink` | `liveobjects.uplink`, `ttn.uplink` |
 | `daemon://infoclimat` | `<service>.<role>` | `station-autonome.udp-server`, `python-climate-services.pluviometrie` |
+| `batch://chom-poc-data` | `batch.<domaine>_<étape>` | `batch.station_ref_bronze`, `batch.gold_ref_station_parametre`, `batch.station_ref_gold` |
 
 ## Règles
 

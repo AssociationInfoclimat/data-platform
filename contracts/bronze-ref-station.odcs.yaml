@@ -1,0 +1,95 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:bronze-ref-station
+name: Bronze référentiel stations — source legacy immuable
+version: 0.1.0
+status: active
+domain: referentiel
+dataProduct: ref-station
+
+description:
+  purpose: >-
+    Conserver, sans correction métier, chaque capture du référentiel legacy
+    iceberg://warehouse/dim.station avant sa normalisation en Silver.
+  usage: >-
+    Table append-only logique, une ligne par (source_snapshot_id, ic_id). Les
+    consommateurs de correction et d'audit lisent la capture identifiée par
+    source_snapshot_id, jamais une ligne écrasée.
+  limitations: >-
+    Les coordonnées et identifiants sont bruts : la mauvaise coordonnée de la
+    station 67128 est volontairement conservée en Bronze pour assurer la preuve
+    de provenance et ne doit pas être utilisée pour publier une station.
+
+tags:
+  - meteo
+  - referentiel
+  - stations
+  - bronze
+  - iceberg
+
+servers:
+  - server: diffusion-iceberg
+    type: s3
+    environment: production
+    location: s3://chom-ic-lake-diffusion/bronze_ref
+    format: iceberg
+
+schema:
+  - name: station_source
+    physicalName: bronze_ref.station_source
+    physicalType: table
+    description: >-
+      Capture append-only du référentiel legacy iceberg://warehouse/dim.station,
+      une ligne par (source_snapshot_id, ic_id), y compris les coordonnées
+      erronées de 67128/-19.467/55.483, qui restent des valeurs source
+      immuables et auditables.
+    properties:
+      - name: source_snapshot_id
+        physicalType: TEXT
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 1
+        description: Identifiant immuable de la capture source legacy.
+      - name: ingest_run_id
+        physicalType: TEXT
+        required: true
+        description: Identifiant du run qui a écrit la capture Bronze.
+      - name: ic_id
+        physicalType: TEXT
+        required: true
+        primaryKey: true
+        primaryKeyPosition: 2
+        description: Identifiant station brut issu de dim.station.
+      - name: latitude
+        physicalType: DOUBLE
+        description: Latitude WGS84 brute, sans correction ; 67128 peut contenir sa mauvaise coordonnée source.
+      - name: longitude
+        physicalType: DOUBLE
+        description: Longitude WGS84 brute, sans correction ; 67128 peut contenir sa mauvaise coordonnée source.
+      - name: station_name
+        physicalType: TEXT
+        description: Libellé station brut issu de dim.station.
+      - name: source_payload
+        physicalType: JSON
+        description: Enregistrement source complet, conservé pour audit et replay.
+    quality:
+      - rule: uniqueness
+        description: Une capture ne contient qu'une ligne par couple (source_snapshot_id, ic_id).
+        severity: error
+
+team:
+  - username: pam
+    role: owner
+
+customProperties:
+  - property: source
+    value: iceberg://warehouse/dim.station
+  - property: writeMode
+    value: append-only logique ; aucune capture historique n'est réécrite
+  - property: lineage
+    value: iceberg://warehouse/dim.station -> bronze_ref.station_source
+  - property: lineageJob
+    value: >-
+      {"datasets":{"bronze_ref.station_source":{"producer":"batch.station_ref_bronze","consumers":["batch.station_ref_silver"]}}}
+  - property: station_67128_immutable_source
+    value: ic_id=67128; latitude=-19.467; longitude=55.483; immutable=true
