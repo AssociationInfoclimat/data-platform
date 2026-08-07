@@ -1,0 +1,99 @@
+{
+  "contentSha256": "sha256:5910c785e5eab04313aa4c5dbc8e73124f2e8f44229372678a648c6253a8da66",
+  "manifestVersion": "station-reference.schema/v1",
+  "sourceContracts": {
+    "bronze-ref-station.odcs.yaml": "0.2.0",
+    "gold-ref.odcs.yaml": "0.2.1",
+    "silver-ref-station.odcs.yaml": "0.2.0"
+  },
+  "tables": {
+    "bronze_ref.station_source": {
+      "fields": {
+        "ic_id": {"physicalType": "TEXT", "required": true},
+        "ingest_run_id": {"physicalType": "TEXT", "required": true},
+        "ingested_at": {"physicalType": "TIMESTAMP", "required": true},
+        "latitude": {"physicalType": "DOUBLE", "required": false},
+        "longitude": {"physicalType": "DOUBLE", "required": false},
+        "source_catalog": {"physicalType": "TEXT", "required": true},
+        "source_relation": {"physicalType": "TEXT", "required": true},
+        "source_snapshot_id": {"physicalType": "TEXT", "required": true},
+        "source_station_id": {"physicalType": "TEXT", "required": true}
+      }
+    },
+    "gold_ref.station": {
+      "fields": {
+        "aliases": {"physicalType": "ARRAY", "required": false},
+        "altitude": {"physicalType": "INTEGER", "required": false},
+        "departement": {"physicalType": "TEXT", "required": false},
+        "derniere_activite": {"physicalType": "TIMESTAMP", "required": false},
+        "dh_ouverture": {"physicalType": "TIMESTAMP", "required": false},
+        "genre": {"physicalType": "TEXT", "required": false},
+        "ic_id": {"physicalType": "TEXT", "required": true},
+        "latitude": {"physicalType": "DOUBLE", "required": true},
+        "libelle": {"physicalType": "TEXT", "required": false},
+        "libelle_source": {"physicalType": "TEXT", "required": false},
+        "longitude": {"physicalType": "DOUBLE", "required": true},
+        "mfid": {"physicalType": "TEXT", "required": false},
+        "ouverte": {"physicalType": "BOOLEAN", "required": false},
+        "parametres_mesures": {"physicalType": "ARRAY", "required": false},
+        "pays": {"physicalType": "TEXT", "required": false},
+        "publiable": {"physicalType": "BOOLEAN", "required": true},
+        "station_uid": {"physicalType": "TEXT", "required": true},
+        "type_poste": {"physicalType": "TEXT", "required": false}
+      }
+    },
+    "gold_ref.station_alias": {
+      "fields": {
+        "alias_ic_id": {"physicalType": "TEXT", "required": true},
+        "canonical_ic_id": {"physicalType": "TEXT", "required": true},
+        "relation": {"physicalType": "TEXT", "required": true}
+      },
+      "served": false
+    },
+    "gold_ref.station_parametre": {
+      "fields": {
+        "derniere_obs": {"physicalType": "TIMESTAMP", "required": false},
+        "n_obs": {"physicalType": "BIGINT", "required": false},
+        "parametre": {"physicalType": "TEXT", "required": true},
+        "premiere_obs": {"physicalType": "TIMESTAMP", "required": false},
+        "station_uid": {"physicalType": "TEXT", "required": true}
+      }
+    },
+    "silver_ref.station": {
+      "fields": {
+        "aliases": {"physicalType": "ARRAY", "required": false},
+        "authority_checked_at": {"physicalType": "TIMESTAMP", "required": false},
+        "authority_uri": {"physicalType": "TEXT", "required": false},
+        "canonical_ic_id": {"physicalType": "TEXT", "required": false},
+        "canonical_latitude": {"physicalType": "DOUBLE", "required": false},
+        "canonical_longitude": {"physicalType": "DOUBLE", "required": false},
+        "canonical_station_uid": {"physicalType": "TEXT", "required": false},
+        "correction_rule_id": {"physicalType": "TEXT", "required": false},
+        "ic_id": {"physicalType": "TEXT", "required": true},
+        "ingest_run_id": {"physicalType": "TEXT", "required": true},
+        "ingested_at": {"physicalType": "TIMESTAMP", "required": true},
+        "quality_flags": {"physicalType": "ARRAY", "required": false},
+        "quality_status": {"physicalType": "TEXT", "required": true},
+        "source_catalog": {"physicalType": "TEXT", "required": true},
+        "source_latitude": {"physicalType": "DOUBLE", "required": false},
+        "source_longitude": {"physicalType": "DOUBLE", "required": false},
+        "source_relation": {"physicalType": "TEXT", "required": true},
+        "source_snapshot_id": {"physicalType": "TEXT", "required": true},
+        "source_station_id": {"physicalType": "TEXT", "required": true},
+        "station_uid_source": {"physicalType": "TEXT", "required": false}
+      }
+    },
+    "silver_ref.station_alias": {
+      "fields": {
+        "alias_ic_id": {"physicalType": "TEXT", "required": true},
+        "alias_station_uid": {"physicalType": "TEXT", "required": true},
+        "canonical_ic_id": {"physicalType": "TEXT", "required": true},
+        "canonical_station_uid": {"physicalType": "TEXT", "required": true},
+        "correction_rule_id": {"physicalType": "TEXT", "required": true},
+        "ingest_run_id": {"physicalType": "TEXT", "required": true},
+        "relation": {"physicalType": "TEXT", "required": true},
+        "source_snapshot_id": {"physicalType": "TEXT", "required": true}
+      }
+    }
+  }
+}

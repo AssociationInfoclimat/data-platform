@@ -1,9 +1,11 @@
 import json
+import hashlib
 from pathlib import Path
 
 import yaml
 
 from tools.lineage_forward import load_declared_datasets
+from tools.export_station_reference_schema import build_manifest
 
 
 ROOT = Path(__file__).parents[2]
@@ -23,6 +25,10 @@ def properties(table):
 
 def custom_properties(document):
     return {item["property"]: item["value"] for item in document["customProperties"]}
+
+
+def table_custom_properties(table):
+    return {item["property"]: item["value"] for item in table.get("customProperties", [])}
 
 
 def dataset_pairs(job, direction):
@@ -159,6 +165,45 @@ def test_station_medallion_contracts_expose_provenance_and_aliases():
                for value in ("canonical", "alias_obsolete", "quarantined"))
 
 
+def test_station_reference_manifest_is_a_versioned_export_of_odcs_contracts():
+    manifest_path = ROOT / "contracts" / "station-reference.schema.json"
+    manifest = json.loads(manifest_path.read_text())
+    assert manifest["manifestVersion"] == "station-reference.schema/v1"
+    assert manifest["sourceContracts"] == {
+        "bronze-ref-station.odcs.yaml": "0.2.0",
+        "silver-ref-station.odcs.yaml": "0.2.0",
+        "gold-ref.odcs.yaml": "0.2.1",
+    }
+    assert manifest == build_manifest(ROOT)
+    assert manifest["tables"]["gold_ref.station_alias"]["served"] is False
+
+    exported = {}
+    for contract_name in manifest["sourceContracts"]:
+        document = contract(contract_name)
+        assert document["version"] == manifest["sourceContracts"][contract_name]
+        for table_name, table in tables(document).items():
+            if table_name in manifest["tables"]:
+                exported[table_name] = {
+                    prop["name"]: {
+                        "physicalType": prop["physicalType"],
+                        "required": bool(prop.get("required", False)),
+                    }
+                    for prop in table["properties"]
+                }
+    assert exported == {
+        table_name: table["fields"]
+        for table_name, table in manifest["tables"].items()
+    }
+    payload = {
+        key: manifest[key]
+        for key in ("manifestVersion", "sourceContracts", "tables")
+    }
+    digest = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    assert manifest["contentSha256"] == f"sha256:{digest}"
+
+
 def test_station_67128_governance_is_immutable_canonical_and_not_proximity_based():
     bronze_document = contract("bronze-ref-station.odcs.yaml")
     silver_document = contract("silver-ref-station.odcs.yaml")
@@ -266,7 +311,7 @@ def test_gold_station_contract_exposes_canonical_aliases_and_corrected_lineage()
     gold = tables(gold_document)
     gold_properties = custom_properties(gold_document)
 
-    assert gold_document["version"] == "0.2.0"
+    assert gold_document["version"] == "0.2.1"
     assert properties(gold["gold_ref.station"])["aliases"]["physicalType"] == "ARRAY"
     alias = properties(gold["gold_ref.station_alias"])
     assert {"alias_ic_id", "canonical_ic_id", "relation"} <= alias.keys()
@@ -286,3 +331,9 @@ def test_gold_station_contract_exposes_canonical_aliases_and_corrected_lineage()
         "excludedQualityStatuses": ["alias_obsolete", "quarantined"],
         "publishedQualityStatuses": ["canonical"],
     }
+
+
+def test_gold_station_alias_is_governed_as_an_internal_non_served_crosswalk():
+    gold = tables(contract("gold-ref.odcs.yaml"))
+
+    assert table_custom_properties(gold["gold_ref.station_alias"])["served"] is False

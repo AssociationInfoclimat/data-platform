@@ -28,6 +28,20 @@ SCHEMA_URL = "https://openlineage.io/spec/2-0-2/OpenLineage.json#/definitions/Ru
 ERROR_FACET_SCHEMA = "https://openlineage.io/spec/facets/1-0-0/ErrorMessageRunFacet.json"
 DEFAULT_NAMESPACE = "cron://infoclimat"
 DEFAULT_SPOOL = "/var/spool/lineage/events.jsonl"
+DEFAULT_EVIDENCE = ""
+EVIDENCE_ENV = "LINEAGE_EVIDENCE_PATH"
+EVIDENCE_FACET = "infoclimat_station_reference"
+EVIDENCE_FACET_SCHEMA = "https://openlineage.io/spec/2-0-2/OpenLineage.json#/definitions/BaseFacet"
+MAX_EVIDENCE_BYTES = 64 * 1024
+EVIDENCE_KEYS = {
+    "schema_version",
+    "input_snapshot_ids",
+    "output_snapshot_ids",
+    "ingest_run_id",
+    "status_counts",
+    "flag_counts",
+    "registry_version",
+}
 
 HELP_TEXT = f"""\
 Usage: python3 lineage_run.py --job <nom> [options] -- <commande> [args…]
@@ -39,6 +53,7 @@ Options (--flag=value ou --flag value) :
   --job <nom>          Nom du job (cf. data-platform/lineage/jobs.yaml), requis
   --namespace <ns>     Namespace du job (défaut : {DEFAULT_NAMESPACE})
   --spool <chemin>     Fichier JSONL de spool (défaut : {DEFAULT_SPOOL})
+  --evidence <chemin>  JSON métier borné, lu après la commande (ou {EVIDENCE_ENV})
   --help               Affiche cette aide
 
 Tout ce qui suit `--` est la commande à exécuter, lancée avec les stdio
@@ -51,8 +66,19 @@ data-platform/lineage/examples/run-event-complete.json.
 
 def parse_cli_args(argv: list) -> tuple:
     """Sépare argv en (options, commande) autour du premier `--`."""
-    options = {"job": "", "namespace": DEFAULT_NAMESPACE, "spool": DEFAULT_SPOOL, "help": False}
-    flags_with_value = {"--job": "job", "--namespace": "namespace", "--spool": "spool"}
+    options = {
+        "job": "",
+        "namespace": DEFAULT_NAMESPACE,
+        "spool": DEFAULT_SPOOL,
+        "evidence": os.environ.get(EVIDENCE_ENV, DEFAULT_EVIDENCE),
+        "help": False,
+    }
+    flags_with_value = {
+        "--job": "job",
+        "--namespace": "namespace",
+        "--spool": "spool",
+        "--evidence": "evidence",
+    }
     command = []
     index = 0
     while index < len(argv):
@@ -125,6 +151,77 @@ def process_facet(command: list, exit_code: int = None, duration: float = None) 
     return facet
 
 
+def _bounded_string(value, field: str, limit: int = 512) -> str:
+    if not isinstance(value, str) or not value or len(value) > limit:
+        raise ValueError(f"{field} must be a non-empty string of at most {limit} characters")
+    return value
+
+
+def _bounded_string_map(value, field: str, integer_values: bool = False) -> dict:
+    if not isinstance(value, dict) or len(value) > 32:
+        raise ValueError(f"{field} must be an object with at most 32 entries")
+    result = {}
+    for key, item in value.items():
+        key = _bounded_string(key, f"{field} key", 256)
+        if integer_values:
+            if not isinstance(item, int) or isinstance(item, bool) or item < 0:
+                raise ValueError(f"{field}.{key} must be a non-negative integer")
+        else:
+            item = _bounded_string(item, f"{field}.{key}", 256)
+        result[key] = item
+    return result
+
+
+def load_evidence(path: str) -> dict:
+    """Charge la preuve métier bornée sans jamais exposer de lignes ou secrets."""
+    if not path:
+        return {}
+    evidence_path = Path(path)
+    if evidence_path.stat().st_size > MAX_EVIDENCE_BYTES:
+        raise ValueError(f"evidence exceeds {MAX_EVIDENCE_BYTES} bytes")
+    document = json.loads(evidence_path.read_text(encoding="utf-8"))
+    if not isinstance(document, dict) or set(document) != EVIDENCE_KEYS:
+        raise ValueError("evidence must contain only the documented station-reference keys")
+    if document["schema_version"] != "1.0":
+        raise ValueError("unsupported evidence schema_version")
+    return {
+        "schema_version": "1.0",
+        "input_snapshot_ids": _bounded_string_map(
+            document["input_snapshot_ids"], "input_snapshot_ids"
+        ),
+        "output_snapshot_ids": _bounded_string_map(
+            document["output_snapshot_ids"], "output_snapshot_ids"
+        ),
+        "ingest_run_id": _bounded_string(document["ingest_run_id"], "ingest_run_id"),
+        "status_counts": _bounded_string_map(
+            document["status_counts"], "status_counts", integer_values=True
+        ),
+        "flag_counts": _bounded_string_map(
+            document["flag_counts"], "flag_counts", integer_values=True
+        ),
+        "registry_version": _bounded_string(
+            document["registry_version"], "registry_version"
+        ),
+    }
+
+
+def evidence_facet(path: str) -> dict:
+    if not path:
+        return {}
+    try:
+        evidence = load_evidence(path)
+    except Exception as error:  # noqa: BLE001 — preuve non bloquante comme le spool
+        print(f"lineage_run: preuve métier ignorée ({error})", file=sys.stderr)
+        return {}
+    return {
+        EVIDENCE_FACET: {
+            "_producer": PRODUCER,
+            "_schemaURL": EVIDENCE_FACET_SCHEMA,
+            **evidence,
+        }
+    }
+
+
 def main(argv: list) -> int:
     try:
         options, command = parse_cli_args(argv)
@@ -147,7 +244,10 @@ def main(argv: list) -> int:
     started = time.monotonic()
     error_message = ""
     try:
-        exit_code = subprocess.run(command).returncode  # stdio hérités du cron
+        command_env = os.environ.copy()
+        if options["evidence"]:
+            command_env[EVIDENCE_ENV] = options["evidence"]
+        exit_code = subprocess.run(command, env=command_env).returncode  # stdio hérités du cron
     except OSError as error:  # commande introuvable / non exécutable
         exit_code = 127
         error_message = str(error)
@@ -155,6 +255,7 @@ def main(argv: list) -> int:
     duration = time.monotonic() - started
 
     facets = {"infoclimat_process": process_facet(command, exit_code, duration)}
+    facets.update(evidence_facet(options["evidence"]))
     if exit_code == 0:
         emit(spool, build_event("COMPLETE", run_id, namespace, job, facets))
     else:
