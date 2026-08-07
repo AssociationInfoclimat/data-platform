@@ -1,4 +1,5 @@
 import json
+import hashlib
 from pathlib import Path
 
 import yaml
@@ -157,6 +158,43 @@ def test_station_medallion_contracts_expose_provenance_and_aliases():
     assert {"alias_ic_id", "canonical_ic_id", "relation", "correction_rule_id"} <= alias.keys()
     assert all(value in station["quality_status"]["description"]
                for value in ("canonical", "alias_obsolete", "quarantined"))
+
+
+def test_station_reference_manifest_is_a_versioned_export_of_odcs_contracts():
+    manifest_path = ROOT / "contracts" / "station-reference.schema.json"
+    manifest = json.loads(manifest_path.read_text())
+    assert manifest["manifestVersion"] == "station-reference.schema/v1"
+    assert manifest["sourceContracts"] == {
+        "bronze-ref-station.odcs.yaml": "0.2.0",
+        "silver-ref-station.odcs.yaml": "0.2.0",
+        "gold-ref.odcs.yaml": "0.2.0",
+    }
+
+    exported = {}
+    for contract_name in manifest["sourceContracts"]:
+        document = contract(contract_name)
+        assert document["version"] == manifest["sourceContracts"][contract_name]
+        for table_name, table in tables(document).items():
+            if table_name in manifest["tables"]:
+                exported[table_name] = {
+                    prop["name"]: {
+                        "physicalType": prop["physicalType"],
+                        "required": bool(prop.get("required", False)),
+                    }
+                    for prop in table["properties"]
+                }
+    assert exported == {
+        table_name: table["fields"]
+        for table_name, table in manifest["tables"].items()
+    }
+    payload = {
+        key: manifest[key]
+        for key in ("manifestVersion", "sourceContracts", "tables")
+    }
+    digest = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    assert manifest["contentSha256"] == f"sha256:{digest}"
 
 
 def test_station_67128_governance_is_immutable_canonical_and_not_proximity_based():

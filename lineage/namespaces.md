@@ -51,6 +51,11 @@ jamais bloquante) + forwarder `tools/lineage_forward.py` → backend Marquez sel
 4. Le champ `producer` vaut `https://github.com/infoclimat/site-infoclimat` (versionné).
 5. Les pipelines contractualisés référencent leur job via la customProperty `lineageJob`
    du contrat ODCS.
+6. Les cinq jobs `station_ref` peuvent joindre au seul événement terminal le facet
+   custom `infoclimat_station_reference`. Son JSON `1.0`, borné à 64 KiB, contient
+   uniquement les snapshot IDs d'entrée/sortie, l'`ingest_run_id`, les comptes de
+   statuts/flags et la version content-addressed du registre. Les lignes brutes,
+   chemins de secrets et credentials y sont interdits.
 
 ## Pipelines prioritaires à instrumenter
 

@@ -30,6 +30,13 @@ récurrent (cron / Kestra) qui publiera son résultat.
 | `check_dual_source.py [--check]` | Couverture/comptes MariaDB ↔ TimescaleDB par station/jour (cibles `audits/dual-source-targets.yaml`) | 2 agrégats bornés par fenêtre, colonnes indexées des deux côtés |
 | `volumetrie_audit.py` | Inventaire de volumétrie des bases | lecture `information_schema` |
 
+`lineage_run.py` accepte aussi `--evidence <fichier>` (ou
+`LINEAGE_EVIDENCE_PATH`). Après la commande, il valide un JSON borné à 64 KiB
+contenant uniquement les snapshot IDs, l'`ingest_run_id`, les comptes de statuts
+et flags et la version du registre. Cette preuve est jointe au facet terminal
+`infoclimat_station_reference`; une preuve absente ou invalide reste non
+bloquante et aucune ligne brute ou secret n'est admis.
+
 Prérequis Python : `pip install pymysql 'psycopg[binary]' pyyaml 'datacontract-cli[postgres,mysql]'`.
 
 ### Pièges connus
