@@ -17,6 +17,13 @@ CONTRACTS = (
 MANIFEST_VERSION = "station-reference.schema/v1"
 
 
+def custom_property(item: dict, name: str):
+    for prop in item.get("customProperties", []):
+        if prop.get("property") == name:
+            return prop.get("value")
+    return None
+
+
 def build_manifest(root: Path) -> dict:
     source_contracts = {}
     tables = {}
@@ -24,7 +31,7 @@ def build_manifest(root: Path) -> dict:
         document = yaml.safe_load((root / "contracts" / name).read_text())
         source_contracts[name] = document["version"]
         for table in document["schema"]:
-            tables[table["physicalName"]] = {
+            exported_table = {
                 "fields": {
                     prop["name"]: {
                         "physicalType": prop["physicalType"],
@@ -33,6 +40,10 @@ def build_manifest(root: Path) -> dict:
                     for prop in table["properties"]
                 }
             }
+            served = custom_property(table, "served")
+            if served is not None:
+                exported_table["served"] = served
+            tables[table["physicalName"]] = exported_table
     payload = {
         "manifestVersion": MANIFEST_VERSION,
         "sourceContracts": source_contracts,

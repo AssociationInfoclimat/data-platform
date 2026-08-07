@@ -5,6 +5,7 @@ from pathlib import Path
 import yaml
 
 from tools.lineage_forward import load_declared_datasets
+from tools.export_station_reference_schema import build_manifest
 
 
 ROOT = Path(__file__).parents[2]
@@ -24,6 +25,10 @@ def properties(table):
 
 def custom_properties(document):
     return {item["property"]: item["value"] for item in document["customProperties"]}
+
+
+def table_custom_properties(table):
+    return {item["property"]: item["value"] for item in table.get("customProperties", [])}
 
 
 def dataset_pairs(job, direction):
@@ -167,8 +172,10 @@ def test_station_reference_manifest_is_a_versioned_export_of_odcs_contracts():
     assert manifest["sourceContracts"] == {
         "bronze-ref-station.odcs.yaml": "0.2.0",
         "silver-ref-station.odcs.yaml": "0.2.0",
-        "gold-ref.odcs.yaml": "0.2.0",
+        "gold-ref.odcs.yaml": "0.2.1",
     }
+    assert manifest == build_manifest(ROOT)
+    assert manifest["tables"]["gold_ref.station_alias"]["served"] is False
 
     exported = {}
     for contract_name in manifest["sourceContracts"]:
@@ -304,7 +311,7 @@ def test_gold_station_contract_exposes_canonical_aliases_and_corrected_lineage()
     gold = tables(gold_document)
     gold_properties = custom_properties(gold_document)
 
-    assert gold_document["version"] == "0.2.0"
+    assert gold_document["version"] == "0.2.1"
     assert properties(gold["gold_ref.station"])["aliases"]["physicalType"] == "ARRAY"
     alias = properties(gold["gold_ref.station_alias"])
     assert {"alias_ic_id", "canonical_ic_id", "relation"} <= alias.keys()
@@ -324,3 +331,9 @@ def test_gold_station_contract_exposes_canonical_aliases_and_corrected_lineage()
         "excludedQualityStatuses": ["alias_obsolete", "quarantined"],
         "publishedQualityStatuses": ["canonical"],
     }
+
+
+def test_gold_station_alias_is_governed_as_an_internal_non_served_crosswalk():
+    gold = tables(contract("gold-ref.odcs.yaml"))
+
+    assert table_custom_properties(gold["gold_ref.station_alias"])["served"] is False

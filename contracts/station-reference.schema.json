@@ -1,9 +1,9 @@
 {
-  "contentSha256": "sha256:d02750d2bc9f78e1ff63c0f811e1f26fc9d0b86cf8597acc5578e4183c207ac4",
+  "contentSha256": "sha256:5910c785e5eab04313aa4c5dbc8e73124f2e8f44229372678a648c6253a8da66",
   "manifestVersion": "station-reference.schema/v1",
   "sourceContracts": {
     "bronze-ref-station.odcs.yaml": "0.2.0",
-    "gold-ref.odcs.yaml": "0.2.0",
+    "gold-ref.odcs.yaml": "0.2.1",
     "silver-ref-station.odcs.yaml": "0.2.0"
   },
   "tables": {
@@ -47,7 +47,8 @@
         "alias_ic_id": {"physicalType": "TEXT", "required": true},
         "canonical_ic_id": {"physicalType": "TEXT", "required": true},
         "relation": {"physicalType": "TEXT", "required": true}
-      }
+      },
+      "served": false
     },
     "gold_ref.station_parametre": {
       "fields": {
