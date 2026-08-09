@@ -83,6 +83,16 @@ def expected_station_jobs():
             },
             "outputs": {("iceberg://diffusion", "gold_ref.station_parametre")},
         },
+        "batch.station_observation_coverage": {
+            "inputs": {
+                ("iceberg://diffusion", "gold_ref.station_parametre"),
+                ("iceberg://diffusion", "dim_ref.station"),
+                ("iceberg://diffusion", "dim_ref.station_alias"),
+            },
+            "outputs": {
+                ("iceberg://diffusion", "gold_ref.station_observation_residual"),
+            },
+        },
         "batch.station_ref_gold": {
             "inputs": {
                 ("iceberg://diffusion", "dim_ref.station"),
