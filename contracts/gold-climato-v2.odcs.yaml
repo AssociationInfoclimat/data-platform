@@ -196,6 +196,32 @@ schema:
       - name: derniere_obs
         physicalType: DATE
         description: Dernier jour mesuré de ce mois calendaire (tn ou tx renseigné)
+      - name: txx_max_n_obs
+        physicalType: BIGINT
+        description: >-
+          Nombre d'observations de température du jour où txx_max est atteint.
+          Avec txx_max_n_obs_rejetees, permet de qualifier la densité du jour du
+          record : au moins 8 observations retenues (n_obs - n_obs_rejetees)
+          correspondent à un extrême quotidien.
+      - name: tnn_min_n_obs
+        physicalType: BIGINT
+        description: >-
+          Nombre d'observations de température du jour où tnn_min est atteint.
+          Avec tnn_min_n_obs_rejetees, permet de qualifier la densité du jour du
+          record : au moins 8 observations retenues (n_obs - n_obs_rejetees)
+          correspondent à un extrême quotidien.
+      - name: txx_max_n_obs_rejetees
+        physicalType: BIGINT
+        description: >-
+          Observations du jour où txx_max est atteint, écartées par le contrôle
+          qualité des pics de température. À soustraire de txx_max_n_obs pour
+          lire la densité retenue du jour du record.
+      - name: tnn_min_n_obs_rejetees
+        physicalType: BIGINT
+        description: >-
+          Observations du jour où tnn_min est atteint, écartées par le contrôle
+          qualité des pics de température. À soustraire de tnn_min_n_obs pour
+          lire la densité retenue du jour du record.
 
   - name: itn
     physicalName: gold_v2.itn
