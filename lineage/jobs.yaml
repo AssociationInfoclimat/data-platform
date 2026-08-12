@@ -45,15 +45,17 @@ jobs:
     job_namespace: "batch://chom-poc-data"
     job_name: batch.silver_v2_temporal_backfill
     priority_t2: haute
+    # Vérifié sur infoclimat-labs/chom-poc-data@d0be025c (scripts/silver_v2_temporal_backfill.py) :
+    # retro_remplir() ne lit AUCUNE table bronze.mf_* ni dim.station — il charge et
+    # scanne silver.observation_v2 lui-même (iceberg_scan(table.metadata_location))
+    # avant de le réécrire par overwrite(), et relit silver.observation_v2_quarantine
+    # (catalog.load_table(QUARANTINE_TABLE) dans compter_quarantaine_coeur) pour
+    # recompter sa preuve avant=temporalisées+quarantinées après chaque écriture.
     inputs:
       - namespace: "iceberg://warehouse"
-        name: bronze.mf_horaire
+        name: silver.observation_v2
       - namespace: "iceberg://warehouse"
-        name: bronze.mf_infrahoraire
-      - namespace: "iceberg://warehouse"
-        name: bronze.mf_quotidienne
-      - namespace: "iceberg://warehouse"
-        name: dim.station
+        name: silver.observation_v2_quarantine
     outputs:
       - namespace: "iceberg://warehouse"
         name: silver.observation_v2
@@ -63,15 +65,27 @@ jobs:
     job_namespace: "batch://chom-poc-data"
     job_name: batch.catchup_silver_delta
     priority_t2: haute
+    # Vérifié sur infoclimat-labs/chom-poc-data@d0be025c (scripts/catchup_silver_delta.py,
+    # run_mf() + silver_mf.FAMILLES) : une famille MF par table bronze, jamais bundlées —
+    # mf_horaire -> bronze.mf_horaire (source mf-h), mf_infrahoraire -> bronze.mf_infrahoraire
+    # (source mf-i), mf_quotidienne -> bronze.mf_quotidienne (source mf-q). dim.station
+    # alimente le crosswalk mfid (parquet_paths). Le job relit aussi silver.observation_v2
+    # (curseur_source_mf, watermark par station) et silver.observation_v2_quarantine
+    # (curseur_quarantine_mf) avant chaque append — auto-lecture réelle, pas seulement
+    # une sortie.
     inputs:
       - namespace: "iceberg://warehouse"
-        name: bronze.mf_horaire
+        name: bronze.mf_horaire  # famille mf-h
       - namespace: "iceberg://warehouse"
-        name: bronze.mf_infrahoraire
+        name: bronze.mf_infrahoraire  # famille mf-i
       - namespace: "iceberg://warehouse"
-        name: bronze.mf_quotidienne
+        name: bronze.mf_quotidienne  # famille mf-q
       - namespace: "iceberg://warehouse"
         name: dim.station
+      - namespace: "iceberg://warehouse"
+        name: silver.observation_v2
+      - namespace: "iceberg://warehouse"
+        name: silver.observation_v2_quarantine
     outputs:
       - namespace: "iceberg://warehouse"
         name: silver.observation_v2
@@ -89,6 +103,75 @@ jobs:
     outputs:
       - namespace: "iceberg://diffusion"
         name: gold_ref.station_parametre
+  - pipeline: batch.gold_dataclimat_quotidienne
+    job_namespace: "batch://chom-poc-data"
+    job_name: batch.gold_dataclimat_quotidienne
+    priority_t2: haute
+    # Vérifié sur infoclimat-labs/chom-poc-data@d0be025c (scripts/gold_dataclimat_quotidienne.py) :
+    # silver.observation_v2 filtré source='mf-q' -> gold_dataclimat.quotidienne (diffusion).
+    inputs:
+      - namespace: "iceberg://warehouse"
+        name: silver.observation_v2
+    outputs:
+      - namespace: "iceberg://diffusion"
+        name: gold_dataclimat.quotidienne
+  - pipeline: batch.gold_v2_journaliere
+    job_namespace: "batch://chom-poc-data"
+    job_name: batch.gold_v2_journaliere
+    priority_t2: haute
+    # Vérifié sur infoclimat-labs/chom-poc-data@d0be025c (scripts/gold_v2_journaliere.py).
+    inputs:
+      - namespace: "iceberg://warehouse"
+        name: silver.observation_v2
+      - namespace: "iceberg://diffusion"
+        name: gold_qc.pic_temperature
+    outputs:
+      - namespace: "iceberg://diffusion"
+        name: gold_v2.journaliere
+  - pipeline: batch.gold_ic_journaliere
+    job_namespace: "batch://chom-poc-data"
+    job_name: batch.gold_ic_journaliere
+    priority_t2: haute
+    # Vérifié sur infoclimat-labs/chom-poc-data@d0be025c (scripts/gold_ic_journaliere.py) :
+    # silver.observation_v2 filtré source LIKE '%-ic' -> gold_ic.journaliere (diffusion).
+    inputs:
+      - namespace: "iceberg://warehouse"
+        name: silver.observation_v2
+      - namespace: "iceberg://diffusion"
+        name: gold_qc.pic_temperature
+    outputs:
+      - namespace: "iceberg://diffusion"
+        name: gold_ic.journaliere
+  - pipeline: batch.gold_statIC_journaliere
+    job_namespace: "batch://chom-poc-data"
+    job_name: batch.gold_statIC_journaliere
+    priority_t2: haute
+    # Vérifié sur infoclimat-labs/chom-poc-data@d0be025c (scripts/gold_statIC_journaliere.py) :
+    # silver.observation_v2 filtré source='static-ic' -> gold_statIC.journaliere (diffusion).
+    inputs:
+      - namespace: "iceberg://warehouse"
+        name: silver.observation_v2
+      - namespace: "iceberg://diffusion"
+        name: gold_qc.pic_temperature
+    outputs:
+      - namespace: "iceberg://diffusion"
+        name: gold_statIC.journaliere
+  - pipeline: batch.gold_canicule_station_saison
+    job_namespace: "batch://chom-poc-data"
+    job_name: batch.gold_canicule_station_saison
+    priority_t2: haute
+    # Vérifié sur infoclimat-labs/chom-poc-data@d0be025c (scripts/gold_canicule_station_saison.py) :
+    # silver.observation_v2 + gold_canicule.station_insee (crosswalk) -> gold_canicule.station_saison.
+    inputs:
+      - namespace: "iceberg://warehouse"
+        name: silver.observation_v2
+      - namespace: "iceberg://diffusion"
+        name: gold_canicule.station_insee
+      - namespace: "iceberg://diffusion"
+        name: gold_qc.pic_temperature
+    outputs:
+      - namespace: "iceberg://diffusion"
+        name: gold_canicule.station_saison
   - pipeline: batch.station_observation_coverage
     job_namespace: "batch://chom-poc-data"
     job_name: batch.station_observation_coverage

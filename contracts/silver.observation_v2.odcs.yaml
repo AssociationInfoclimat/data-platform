@@ -3,7 +3,7 @@ kind: DataContract
 id: urn:infoclimat:contract:silver-observation-v2
 name: Silver observation v2 (dataset Iceberg réellement servi)
 version: 0.1.0
-status: draft
+status: active
 domain: observations
 dataProduct: silver-observation-v2
 
@@ -33,11 +33,20 @@ tags:
   - schema-canonique
 
 servers:
-  - server: warehouse-iceberg
-    type: s3
+  - server: lakekeeper-warehouse-ic
+    type: custom
     environment: production
-    location: iceberg://warehouse/silver.observation_v2
+    catalog: chom
+    warehouse: ic
     format: iceberg
+    description: >-
+      Catalogue REST Lakekeeper (pyiceberg RestCatalog "chom", warehouse "ic" —
+      infoclimat-labs/chom-poc-data@d0be025c, scripts/remote_catalog.py).
+      Endpoint S3 et bucket physiques injectés par l'environnement d'exécution
+      (AWS_ENDPOINT_URL/AWS_ACCESS_KEY_ID), non fixés dans le code et donc non
+      vérifiables depuis ce dépôt gouverné : aucun serveur "warehouse-iceberg" ni
+      bucket S3 concret n'existe. "iceberg://warehouse" (lineage/jobs.yaml) est
+      l'identité de namespace OpenLineage de ce catalogue, pas une URI physique.
 
 schema:
   - name: observation
@@ -50,14 +59,20 @@ schema:
       - name: station_uid
         physicalType: TEXT
         required: true
+        primaryKey: true
+        primaryKeyPosition: 1
         description: UID interne de la station observée.
       - name: dh_utc
         physicalType: TIMESTAMP
         required: true
+        primaryKey: true
+        primaryKeyPosition: 2
         description: Instant UTC réel ; les producteurs MF convertissent leur heure locale contrôlée.
       - name: parametre
         physicalType: TEXT
         required: true
+        primaryKey: true
+        primaryKeyPosition: 3
         description: Clé du vocabulaire de paramètre (catalog/parametres.yaml).
       - name: valeur
         physicalType: DOUBLE
@@ -71,13 +86,20 @@ schema:
       - name: source
         physicalType: TEXT
         required: true
+        primaryKey: true
+        primaryKeyPosition: 4
         description: >-
           Identifiant de source (ex. mf-h, mf-i, mf-q, synop-ic, static-ic, metar-ic,
           bouees-ic).
       - name: version_obs
         physicalType: INTEGER
         required: true
-        description: Version de la ligne d'observation.
+        description: >-
+          Version de la ligne d'observation ; N'EST PAS partie de la clé métier
+          (station_uid, dh_utc, parametre, source) — elle disambigue les révisions
+          successives d'une même clé, sans contrainte d'unicité imposée par le
+          moteur Iceberg (POC, aucune vérification automatique croisant les
+          sources n'existe côté producteur).
       - name: ingest_run_id
         physicalType: TEXT
         required: true
@@ -109,6 +131,15 @@ schema:
       - rule: dst_is_diagnostic
         description: Une heure MF ambiguë ou inexistante déclenche un arrêt fail-closed du lot amont.
         severity: error
+      - rule: business_key_declared_not_enforced
+        description: >-
+          Clé métier déclarée = (station_uid, dh_utc, parametre, source) ;
+          version_obs disambigue les révisions d'une même clé. Iceberg n'impose
+          aucune contrainte d'unicité : cette clé est une déclaration de contrat,
+          pas une garantie vérifiée par un moteur — aucune preuve de dédoublonnage
+          croisé entre sources (ex. mf-h vs synop-ic sur la même station physique)
+          n'existe côté producteur à d0be025c.
+        severity: warning
 
 team:
   - username: pam
@@ -121,15 +152,25 @@ support:
 
 customProperties:
   - property: source
-    value: bronze.mf_horaire + bronze.mf_infrahoraire + bronze.mf_quotidienne + dim.station
+    value: >-
+      bronze.mf_horaire (mf-h) + bronze.mf_infrahoraire (mf-i) + bronze.mf_quotidienne
+      (mf-q) + dim.station, lus exclusivement par batch.catchup_silver_delta.
+      batch.silver_v2_temporal_backfill ne lit aucun Bronze : il rejoue silver.observation_v2
+      lui-même (cf. lineage/jobs.yaml).
   - property: lineage
     value: >-
-      bronze.mf_horaire + bronze.mf_infrahoraire + bronze.mf_quotidienne + dim.station
-      -> silver.observation_v2 (station à fuseau contrôlé) ou
-      silver.observation_v2_quarantine (station sans_controle, #176)
+      batch.catchup_silver_delta : bronze.mf_horaire (mf-h) + bronze.mf_infrahoraire (mf-i)
+      + bronze.mf_quotidienne (mf-q) + dim.station + auto-lecture silver.observation_v2
+      (curseur par station) + auto-lecture silver.observation_v2_quarantine
+      (curseur_quarantine_mf) -> silver.observation_v2 (station à fuseau contrôlé) ou
+      silver.observation_v2_quarantine (station sans_controle, #176), append. |
+      batch.silver_v2_temporal_backfill : auto-lecture silver.observation_v2 (coeur
+      légataire, jamais Bronze) + auto-lecture silver.observation_v2_quarantine
+      (recompte de preuve) -> silver.observation_v2 (overwrite borné) et
+      silver.observation_v2_quarantine (écrite en premier).
   - property: lineageJob
     value: >-
-      {"datasets":{"silver.observation_v2":{"producers":["batch.silver_v2_temporal_backfill","batch.catchup_silver_delta"],"consumers":["batch.gold_ref_station_parametre"]}}}
+      {"datasets":{"silver.observation_v2":{"producers":["batch.silver_v2_temporal_backfill","batch.catchup_silver_delta"],"consumers":["batch.gold_ref_station_parametre","batch.gold_dataclimat_quotidienne","batch.gold_v2_journaliere","batch.gold_ic_journaliere","batch.gold_statIC_journaliere","batch.gold_canicule_station_saison"]}}}
   - property: dataLicense
     value: >-
       Données Météo-France (Licence Ouverte Etalab 2.0) et sources IC internes
