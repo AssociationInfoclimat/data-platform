@@ -1,0 +1,186 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:silver-observation-v2-quarantine
+name: Silver observation v2 — quarantaine fuseau non contrôlé
+version: 0.1.0
+status: active
+domain: observations
+dataProduct: silver-observation-v2
+
+description:
+  purpose: >-
+    Quarantaine explicite, traçable et rejouable des observations dont la station est
+    sans_controle au moment du rétro-remplissage borné (infoclimat-labs/chom-poc-data#79)
+    ou du writer incrémental (#176). Documente ce qui a été RETIRÉ de
+    silver.observation_v2, pas une source active — cohérente avec la politique
+    quarantined_unresolved déjà appliquée par #83 (batch.station_observation_coverage).
+  usage: >-
+    Dataset interne de traçabilité (quarantine_reason, decision_id, quarantined_run_id,
+    quarantined_at) : jamais lu par le serving ni par un pipeline Gold. Il EST en
+    revanche relu opérationnellement par les deux mêmes jobs Silver qui l'écrivent
+    (infoclimat-labs/chom-poc-data@d0be025c) : batch.catchup_silver_delta y lit le
+    curseur par station déjà quarantinée (curseur_quarantine_mf, fusionné au curseur
+    Bronze pour éviter une re-quarantaine en double) et batch.silver_v2_temporal_backfill
+    y recompte sa preuve avant=temporalisées+quarantinées après chaque écriture — deux
+    auto-lectures internes, distinctes d'une consommation Gold/serving.
+  limitations: >-
+    Jamais lu par le serving ni par Gold — aucun consommateur Gold/serving n'est déclaré
+    pour ce dataset (cf. lineageJob.consumers pour les deux auto-lectures Silver
+    opérationnelles réelles). Une station qui redevient contrôlée après sa quarantaine
+    n'est pas rejouée automatiquement depuis cette table (limite assumée #176) ; sa
+    réintégration dans silver.observation_v2 est un geste explicite hors périmètre,
+    comme tout UPDATE/MERGE/DELETE sur silver.observation_v2.
+
+tags:
+  - meteo
+  - observations
+  - meteofrance
+  - silver
+  - iceberg
+  - quarantaine
+
+servers:
+  - server: lakekeeper-warehouse-ic
+    type: custom
+    environment: production
+    catalog: chom
+    warehouse: ic
+    format: iceberg
+    description: >-
+      Catalogue REST Lakekeeper (pyiceberg RestCatalog "chom", warehouse "ic" —
+      infoclimat-labs/chom-poc-data@d0be025c, scripts/remote_catalog.py).
+      Endpoint S3 et bucket physiques injectés par l'environnement d'exécution
+      (AWS_ENDPOINT_URL/AWS_ACCESS_KEY_ID), non fixés dans le code et donc non
+      vérifiables depuis ce dépôt gouverné : aucun serveur "warehouse-iceberg" ni
+      bucket S3 concret n'existe. "iceberg://warehouse" (lineage/jobs.yaml) est
+      l'identité de namespace OpenLineage de ce catalogue, pas une URI physique.
+
+schema:
+  - name: observation_quarantine
+    physicalName: silver.observation_v2_quarantine
+    physicalType: table
+    description: >-
+      Une ligne par observation retirée de silver.observation_v2 parce que sa station
+      est sans_controle (#78) au moment de l'écriture, additive uniquement.
+    properties:
+      - name: station_uid
+        physicalType: TEXT
+        required: true
+        description: UID interne de la station observée.
+      - name: dh_source_local
+        physicalType: TIMESTAMP
+        required: true
+        description: >-
+          Heure civile locale telle que portée par la source (Bronze) ; jamais convertie
+          en UTC, faute de fuseau IANA versionné pour cette station.
+      - name: parametre
+        physicalType: TEXT
+        required: true
+        description: Clé du vocabulaire de paramètre (catalog/parametres.yaml).
+      - name: valeur
+        physicalType: DOUBLE
+        description: Valeur mesurée, en unité canonique du vocabulaire.
+      - name: duree_s
+        physicalType: INTEGER
+        description: Durée d'intégration de la mesure, en secondes.
+      - name: qc_flag
+        physicalType: TEXT
+        description: Drapeau de contrôle qualité amont.
+      - name: source
+        physicalType: TEXT
+        required: true
+        description: Identifiant de source MF (mf-h, mf-i, mf-q).
+      - name: version_obs
+        physicalType: INTEGER
+        required: true
+        description: Version de la ligne d'observation.
+      - name: ingest_run_id
+        physicalType: TEXT
+        required: true
+        description: ingest_run_id d'origine de l'observation legacy, jamais réémis.
+      - name: quarantine_reason
+        physicalType: TEXT
+        required: true
+        description: Motif de la mise en quarantaine (station_sans_controle_timezone).
+      - name: decision_id
+        physicalType: TEXT
+        required: true
+        description: >-
+          "policy:mf_timezone_quarantine/v1" — décision de politique, pas une décision
+          station par station comme le registre sourcé de #83.
+      - name: quarantined_run_id
+        physicalType: TEXT
+        required: true
+        description: Identifie le run (#79 borné ou #176 incrémental) qui a écrit la ligne.
+      - name: quarantined_at
+        physicalType: TIMESTAMP
+        required: true
+        description: Instant UTC d'écriture de la ligne en quarantaine.
+    quality:
+      - rule: never_served
+        description: >-
+          Aucun contrat serving/Gold ne lit cette table (cf. lineageJob.consumers :
+          seuls batch.catchup_silver_delta et batch.silver_v2_temporal_backfill —
+          les deux mêmes producteurs Silver — la relisent, pour leur curseur/preuve
+          opérationnels, jamais pour du serving) ; une ligne présente ici correspond à
+          une observation RETIRÉE de silver.observation_v2 (station sans_controle) pour
+          (station_uid, parametre, source) et son instant source dh_source_local — le
+          seul champ d'horodatage réel de ce schéma, non converti en UTC faute de fuseau
+          IANA versionné pour cette station.
+        severity: error
+      - rule: replayable_by_predicate
+        description: >-
+          Le rétro-remplissage borné écrit par overwrite(source, coeur année×famille) ;
+          le writer incrémental complète par append filtré sur un curseur par station
+          dans le domaine source (jamais dh_utc Silver) — même garantie d'absence de
+          doublon des deux côtés.
+        severity: error
+      - rule: no_automatic_reintegration
+        description: >-
+          Une station qui devient contrôlée après sa quarantaine n'est PAS rejouée
+          automatiquement depuis cette table (limite assumée #176).
+        severity: warning
+      - rule: identity_and_uniqueness_not_established
+        description: >-
+          Ce contrat NE déclare AUCUN primaryKey, à l'image de silver.observation_v2.
+          Aucune clé de ligne unique n'est établie côté producteur à d0be025c : ni
+          (station_uid, dh_source_local, parametre, source) ni une variante incluant
+          version_obs (les writers vus assignent seulement version_obs=1). C'est un POC
+          append-only : l'identité/unicité de ligne est une question ouverte, pas une
+          garantie de ce contrat.
+        severity: warning
+
+team:
+  - username: pam
+    role: owner
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+customProperties:
+  - property: source
+    value: >-
+      bronze.mf_horaire (mf-h) + bronze.mf_infrahoraire (mf-i) + bronze.mf_quotidienne
+      (mf-q) + dim.station, lus exclusivement par batch.catchup_silver_delta ;
+      lignes retirées de silver.observation_v2, jamais une source active.
+  - property: lineage
+    value: >-
+      batch.catchup_silver_delta : bronze.mf_horaire (mf-h) + bronze.mf_infrahoraire (mf-i)
+      + bronze.mf_quotidienne (mf-q) + dim.station -> silver.observation_v2_quarantine
+      (station sans_controle, #176), append ; relit aussi cette table (curseur_quarantine_mf)
+      pour ne pas re-quarantiner deux fois la même ligne. |
+      batch.silver_v2_temporal_backfill : écrit silver.observation_v2_quarantine EN PREMIER
+      (overwrite borné, aucun Bronze lu) puis relit son propre écrit pour recompter sa preuve.
+  - property: lineageJob
+    value: >-
+      {"datasets":{"silver.observation_v2_quarantine":{"producers":["batch.silver_v2_temporal_backfill","batch.catchup_silver_delta"],"consumers":["batch.silver_v2_temporal_backfill","batch.catchup_silver_delta"]}}}
+  - property: dataLicense
+    value: >-
+      Données Météo-France (Licence Ouverte Etalab 2.0) ; dataset interne de
+      traçabilité, jamais redistribué (never_served).
+  - property: retroCompatLayer
+    value: N/A — pipeline Iceberg POC (infoclimat-labs/chom-poc-data), pas de couche PHP dual-source.
+  - property: issues
+    value: infoclimat-labs/chom-poc-data#79, #83, #176, #178

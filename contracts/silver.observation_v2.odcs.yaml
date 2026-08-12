@@ -1,0 +1,181 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:silver-observation-v2
+name: Silver observation v2 (dataset Iceberg réellement servi)
+version: 0.1.0
+status: active
+domain: observations
+dataProduct: silver-observation-v2
+
+description:
+  purpose: >-
+    Table Iceberg canonique des observations (IC + Météo-France), unpivotée depuis
+    Bronze et servie aux pipelines Gold. infoclimat-labs/chom-poc-data#79 l'étend
+    de façon additive avec un jour civil de station et son fuseau IANA versionné ;
+    aucune table observation_v3 ni reconstruction complète n'est autorisée.
+  usage: >-
+    Consommer dh_utc (instant UTC réel) pour toute agrégation ; jour_climatologique_local
+    et tz_iana ne sont exploitables que par paire atomique, pour les usages qui ont besoin
+    du jour civil de la station plutôt que du jour UTC.
+  limitations: >-
+    Une station sans fuseau contrôlé (sans_controle) n'est jamais écrite ici avec un
+    fuseau deviné : ses observations sont retirées de ce dataset et publiées dans
+    silver.observation_v2_quarantine (infoclimat-labs/chom-poc-data#176), sans bloquer
+    la migration du reste du lot. jour_climatologique_local et tz_iana restent null pour
+    toute ligne antérieure au rétro-remplissage #79.
+
+tags:
+  - meteo
+  - observations
+  - meteofrance
+  - silver
+  - iceberg
+  - schema-canonique
+
+servers:
+  - server: lakekeeper-warehouse-ic
+    type: custom
+    environment: production
+    catalog: chom
+    warehouse: ic
+    format: iceberg
+    description: >-
+      Catalogue REST Lakekeeper (pyiceberg RestCatalog "chom", warehouse "ic" —
+      infoclimat-labs/chom-poc-data@d0be025c, scripts/remote_catalog.py).
+      Endpoint S3 et bucket physiques injectés par l'environnement d'exécution
+      (AWS_ENDPOINT_URL/AWS_ACCESS_KEY_ID), non fixés dans le code et donc non
+      vérifiables depuis ce dépôt gouverné : aucun serveur "warehouse-iceberg" ni
+      bucket S3 concret n'existe. "iceberg://warehouse" (lineage/jobs.yaml) est
+      l'identité de namespace OpenLineage de ce catalogue, pas une URI physique.
+
+schema:
+  - name: observation
+    physicalName: silver.observation_v2
+    physicalType: table
+    description: >-
+      Observation unpivotée (une ligne par station × instant × paramètre), triée et
+      partitionnée par mois de dh_utc.
+    properties:
+      - name: station_uid
+        physicalType: TEXT
+        required: true
+        description: UID interne de la station observée.
+      - name: dh_utc
+        physicalType: TIMESTAMP
+        required: true
+        description: Instant UTC réel ; les producteurs MF convertissent leur heure locale contrôlée.
+      - name: parametre
+        physicalType: TEXT
+        required: true
+        description: Clé du vocabulaire de paramètre (catalog/parametres.yaml).
+      - name: valeur
+        physicalType: DOUBLE
+        description: Valeur mesurée, en unité canonique du vocabulaire.
+      - name: duree_s
+        physicalType: INTEGER
+        description: Durée d'intégration de la mesure, en secondes.
+      - name: qc_flag
+        physicalType: TEXT
+        description: Drapeau de contrôle qualité amont.
+      - name: source
+        physicalType: TEXT
+        required: true
+        description: >-
+          Identifiant de source (ex. mf-h, mf-i, mf-q, synop-ic, static-ic, metar-ic,
+          bouees-ic).
+      - name: version_obs
+        physicalType: INTEGER
+        required: true
+        description: >-
+          Version de la ligne d'observation. Les writers vus à d0be025c (ex.
+          catchup_silver_delta.py:586-607) assignent uniquement version_obs=1 : rien
+          côté producteur ne prouve qu'il disambigue effectivement des révisions
+          coexistantes d'une même (station_uid, dh_utc, parametre, source). Le canonique
+          append-only porte déjà des doublons connus, explicitement signalés par des
+          consommateurs Gold (gold_v2_journaliere.py:46-54).
+      - name: ingest_run_id
+        physicalType: TEXT
+        required: true
+        description: Run ayant produit ou fait progresser cette ligne.
+      - name: jour_climatologique_local
+        physicalType: DATE
+        required: false
+        description: >-
+          Jour civil de station matérialisé avec tz_iana. Null seulement avant le
+          rétro-remplissage #79 ; jamais calculé par défaut pour une station en
+          quarantaine (#176).
+      - name: tz_iana
+        physicalType: TEXT
+        required: false
+        description: >-
+          Fuseau IANA versionné ayant servi au jour local ; paire atomique avec
+          jour_climatologique_local.
+    quality:
+      - rule: temporal_pair_is_atomic
+        description: jour_climatologique_local et tz_iana sont tous deux null ou tous deux renseignés.
+        severity: error
+      - rule: controlled_timezone_only
+        description: >-
+          Les stations sans_controle ne sont jamais écrites avec un fuseau deviné :
+          leurs observations sont retirées de ce dataset et publiées dans
+          silver.observation_v2_quarantine (#176), sans bloquer la migration du reste
+          du lot.
+        severity: error
+      - rule: dst_is_diagnostic
+        description: Une heure MF ambiguë ou inexistante déclenche un arrêt fail-closed du lot amont.
+        severity: error
+      - rule: identity_and_uniqueness_not_established
+        description: >-
+          Ce contrat NE déclare AUCUN primaryKey et n'affirme aucune clé de ligne
+          unique : à d0be025c, aucun writer producteur ne prouve l'unicité de
+          (station_uid, dh_utc, parametre, source), avec ou sans version_obs — les
+          writers vus assignent seulement version_obs=1 (catchup_silver_delta.py:586-607),
+          et le canonique append-only porte déjà des doublons connus, explicitement
+          signalés par des consommateurs Gold (gold_v2_journaliere.py:46-54). Iceberg
+          n'impose de toute façon aucune contrainte d'unicité. C'est un POC append-only :
+          l'identité/unicité de ligne est une question ouverte, pas une garantie de ce
+          contrat.
+        severity: warning
+
+team:
+  - username: pam
+    role: owner
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+customProperties:
+  - property: source
+    value: >-
+      bronze.synop (synop-ic) + bronze.static (static-ic) + bronze.metar (metar-ic) +
+      bronze.bouees (bouees-ic) + bronze.mf_horaire (mf-h) + bronze.mf_infrahoraire
+      (mf-i) + bronze.mf_quotidienne (mf-q) + dim.station, lus exclusivement par
+      batch.catchup_silver_delta.
+      batch.silver_v2_temporal_backfill ne lit aucun Bronze : il rejoue silver.observation_v2
+      lui-même (cf. lineage/jobs.yaml).
+  - property: lineage
+    value: >-
+      batch.catchup_silver_delta : bronze.synop (synop-ic) + bronze.static (static-ic) +
+      bronze.metar (metar-ic) + bronze.bouees (bouees-ic) + bronze.mf_horaire (mf-h) +
+      bronze.mf_infrahoraire (mf-i) + bronze.mf_quotidienne (mf-q) + dim.station +
+      auto-lecture silver.observation_v2 (curseur par station) + auto-lecture silver.observation_v2_quarantine
+      (curseur_quarantine_mf) -> silver.observation_v2 (station à fuseau contrôlé) ou
+      silver.observation_v2_quarantine (station sans_controle, #176), append. |
+      batch.silver_v2_temporal_backfill : auto-lecture silver.observation_v2 (coeur
+      légataire, jamais Bronze) + auto-lecture silver.observation_v2_quarantine
+      (recompte de preuve) -> silver.observation_v2 (overwrite borné) et
+      silver.observation_v2_quarantine (écrite en premier).
+  - property: lineageJob
+    value: >-
+      {"datasets":{"silver.observation_v2":{"producers":["batch.silver_v2_temporal_backfill","batch.catchup_silver_delta"],"consumers":["batch.gold_ref_station_parametre","batch.gold_dataclimat_quotidienne","batch.gold_v2_journaliere","batch.gold_ic_journaliere","batch.gold_statIC_journaliere","batch.gold_canicule_station_saison","batch.gold_qc_pics"]}}}
+  - property: dataLicense
+    value: >-
+      Données Météo-France (Licence Ouverte Etalab 2.0) et sources IC internes
+      (synop/static/metar/bouées), politique opendata IC ; cf. contrats sources
+      (infrahoraire-mf, static-stations-obs, synop-metar-reseau-etranger).
+  - property: retroCompatLayer
+    value: N/A — pipeline Iceberg POC (infoclimat-labs/chom-poc-data), pas de couche PHP dual-source.
+  - property: issues
+    value: infoclimat-labs/chom-poc-data#79, #176, #178
