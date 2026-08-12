@@ -1,0 +1,141 @@
+apiVersion: v3.0.2
+kind: DataContract
+id: urn:infoclimat:contract:silver-observation-v2
+name: Silver observation v2 (dataset Iceberg réellement servi)
+version: 0.1.0
+status: draft
+domain: observations
+dataProduct: silver-observation-v2
+
+description:
+  purpose: >-
+    Table Iceberg canonique des observations (IC + Météo-France), unpivotée depuis
+    Bronze et servie aux pipelines Gold. infoclimat-labs/chom-poc-data#79 l'étend
+    de façon additive avec un jour civil de station et son fuseau IANA versionné ;
+    aucune table observation_v3 ni reconstruction complète n'est autorisée.
+  usage: >-
+    Consommer dh_utc (instant UTC réel) pour toute agrégation ; jour_climatologique_local
+    et tz_iana ne sont exploitables que par paire atomique, pour les usages qui ont besoin
+    du jour civil de la station plutôt que du jour UTC.
+  limitations: >-
+    Une station sans fuseau contrôlé (sans_controle) n'est jamais écrite ici avec un
+    fuseau deviné : ses observations sont retirées de ce dataset et publiées dans
+    silver.observation_v2_quarantine (infoclimat-labs/chom-poc-data#176), sans bloquer
+    la migration du reste du lot. jour_climatologique_local et tz_iana restent null pour
+    toute ligne antérieure au rétro-remplissage #79.
+
+tags:
+  - meteo
+  - observations
+  - meteofrance
+  - silver
+  - iceberg
+  - schema-canonique
+
+servers:
+  - server: warehouse-iceberg
+    type: s3
+    environment: production
+    location: iceberg://warehouse/silver.observation_v2
+    format: iceberg
+
+schema:
+  - name: observation
+    physicalName: silver.observation_v2
+    physicalType: table
+    description: >-
+      Observation unpivotée (une ligne par station × instant × paramètre), triée et
+      partitionnée par mois de dh_utc.
+    properties:
+      - name: station_uid
+        physicalType: TEXT
+        required: true
+        description: UID interne de la station observée.
+      - name: dh_utc
+        physicalType: TIMESTAMP
+        required: true
+        description: Instant UTC réel ; les producteurs MF convertissent leur heure locale contrôlée.
+      - name: parametre
+        physicalType: TEXT
+        required: true
+        description: Clé du vocabulaire de paramètre (catalog/parametres.yaml).
+      - name: valeur
+        physicalType: DOUBLE
+        description: Valeur mesurée, en unité canonique du vocabulaire.
+      - name: duree_s
+        physicalType: INTEGER
+        description: Durée d'intégration de la mesure, en secondes.
+      - name: qc_flag
+        physicalType: TEXT
+        description: Drapeau de contrôle qualité amont.
+      - name: source
+        physicalType: TEXT
+        required: true
+        description: >-
+          Identifiant de source (ex. mf-h, mf-i, mf-q, synop-ic, static-ic, metar-ic,
+          bouees-ic).
+      - name: version_obs
+        physicalType: INTEGER
+        required: true
+        description: Version de la ligne d'observation.
+      - name: ingest_run_id
+        physicalType: TEXT
+        required: true
+        description: Run ayant produit ou fait progresser cette ligne.
+      - name: jour_climatologique_local
+        physicalType: DATE
+        required: false
+        description: >-
+          Jour civil de station matérialisé avec tz_iana. Null seulement avant le
+          rétro-remplissage #79 ; jamais calculé par défaut pour une station en
+          quarantaine (#176).
+      - name: tz_iana
+        physicalType: TEXT
+        required: false
+        description: >-
+          Fuseau IANA versionné ayant servi au jour local ; paire atomique avec
+          jour_climatologique_local.
+    quality:
+      - rule: temporal_pair_is_atomic
+        description: jour_climatologique_local et tz_iana sont tous deux null ou tous deux renseignés.
+        severity: error
+      - rule: controlled_timezone_only
+        description: >-
+          Les stations sans_controle ne sont jamais écrites avec un fuseau deviné :
+          leurs observations sont retirées de ce dataset et publiées dans
+          silver.observation_v2_quarantine (#176), sans bloquer la migration du reste
+          du lot.
+        severity: error
+      - rule: dst_is_diagnostic
+        description: Une heure MF ambiguë ou inexistante déclenche un arrêt fail-closed du lot amont.
+        severity: error
+
+team:
+  - username: pam
+    role: owner
+
+support:
+  - channel: data
+    tool: email
+    url: mailto:pamahe@proton.me
+
+customProperties:
+  - property: source
+    value: bronze.mf_horaire + bronze.mf_infrahoraire + bronze.mf_quotidienne + dim.station
+  - property: lineage
+    value: >-
+      bronze.mf_horaire + bronze.mf_infrahoraire + bronze.mf_quotidienne + dim.station
+      -> silver.observation_v2 (station à fuseau contrôlé) ou
+      silver.observation_v2_quarantine (station sans_controle, #176)
+  - property: lineageJob
+    value: >-
+      {"datasets":{"silver.observation_v2":{"producers":["batch.silver_v2_temporal_backfill","batch.catchup_silver_delta"],"consumers":["batch.gold_ref_station_parametre"]}}}
+  - property: dataLicense
+    value: >-
+      Données Météo-France (Licence Ouverte Etalab 2.0) et sources IC internes
+      (synop/static/metar/bouées), politique opendata IC ; cf. contrats sources
+      (infrahoraire-mf, static-stations-obs, synop-metar-reseau-etranger).
+  - property: retroCompatLayer
+    value: N/A — pipeline Iceberg POC (infoclimat-labs/chom-poc-data), pas de couche PHP dual-source.
+  - property: issues
+    value: infoclimat-labs/chom-poc-data#79, #176, #178

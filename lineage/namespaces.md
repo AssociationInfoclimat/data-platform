@@ -14,7 +14,7 @@ jamais bloquante) + forwarder `tools/lineage_forward.py` → backend Marquez sel
 | `mariadb://V5_climato` | MariaDB climatologie | `climato_journaliere_auto` |
 | `mariadb://mf_data` | MariaDB données MF (fallback) | `mf_data` |
 | `timescaledb://infoclimat` | TimescaleDB | `Infrahoraire`, `InfrahoraireTempsReel`, `Horaire` |
-| `iceberg://warehouse` | Entrepôt Iceberg source | `dim.station` |
+| `iceberg://warehouse` | Entrepôt Iceberg source | `dim.station`, `bronze.mf_horaire`, `silver.observation_v2`, `silver.observation_v2_quarantine` |
 | `iceberg://diffusion` | Entrepôt Iceberg de diffusion | `bronze_ref.station_source`, `silver_ref.station`, `gold_ref.station` |
 | `file://datastore` | Stockage fichiers partagé (datastore) | `tiles/...`, `opendata/exports/...` |
 | `file://srx-modeles-2` | Chemins host-locaux srx-modeles-2 | `modeles/AROME/`, `modeles/GFS/` |

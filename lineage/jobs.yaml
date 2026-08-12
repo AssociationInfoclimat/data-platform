@@ -41,6 +41,42 @@ jobs:
         name: dim_ref.station
       - namespace: "iceberg://diffusion"
         name: dim_ref.station_alias
+  - pipeline: batch.silver_v2_temporal_backfill
+    job_namespace: "batch://chom-poc-data"
+    job_name: batch.silver_v2_temporal_backfill
+    priority_t2: haute
+    inputs:
+      - namespace: "iceberg://warehouse"
+        name: bronze.mf_horaire
+      - namespace: "iceberg://warehouse"
+        name: bronze.mf_infrahoraire
+      - namespace: "iceberg://warehouse"
+        name: bronze.mf_quotidienne
+      - namespace: "iceberg://warehouse"
+        name: dim.station
+    outputs:
+      - namespace: "iceberg://warehouse"
+        name: silver.observation_v2
+      - namespace: "iceberg://warehouse"
+        name: silver.observation_v2_quarantine
+  - pipeline: batch.catchup_silver_delta
+    job_namespace: "batch://chom-poc-data"
+    job_name: batch.catchup_silver_delta
+    priority_t2: haute
+    inputs:
+      - namespace: "iceberg://warehouse"
+        name: bronze.mf_horaire
+      - namespace: "iceberg://warehouse"
+        name: bronze.mf_infrahoraire
+      - namespace: "iceberg://warehouse"
+        name: bronze.mf_quotidienne
+      - namespace: "iceberg://warehouse"
+        name: dim.station
+    outputs:
+      - namespace: "iceberg://warehouse"
+        name: silver.observation_v2
+      - namespace: "iceberg://warehouse"
+        name: silver.observation_v2_quarantine
   - pipeline: batch.gold_ref_station_parametre
     job_namespace: "batch://chom-poc-data"
     job_name: batch.gold_ref_station_parametre
