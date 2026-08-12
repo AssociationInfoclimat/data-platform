@@ -65,15 +65,29 @@ jobs:
     job_namespace: "batch://chom-poc-data"
     job_name: batch.catchup_silver_delta
     priority_t2: haute
-    # Vérifié sur infoclimat-labs/chom-poc-data@d0be025c (scripts/catchup_silver_delta.py,
-    # run_mf() + silver_mf.FAMILLES) : une famille MF par table bronze, jamais bundlées —
+    # Vérifié sur infoclimat-labs/chom-poc-data@d0be025c (scripts/catchup_silver_delta.py) :
+    # main() exécute par défaut LES DEUX branches run_ic() et run_mf() sous une seule
+    # identité de job (pas de sélecteur en invocation de production, deploy/catchup_all.sh:59-66) —
+    # ce graphe déclare donc l'union des arêtes physiques des deux branches, pas seulement MF.
+    # run_ic() (lignes 358-383) : une famille IC par table bronze, FAMILLES = ("synop",
+    # "static", "metar", "bouees") (ligne 82) — bronze.synop (source synop-ic), bronze.static
+    # (source static-ic), bronze.metar (source metar-ic), bronze.bouees (source bouees-ic).
+    # run_mf() (silver_mf.FAMILLES) : une famille MF par table bronze, jamais bundlées —
     # mf_horaire -> bronze.mf_horaire (source mf-h), mf_infrahoraire -> bronze.mf_infrahoraire
     # (source mf-i), mf_quotidienne -> bronze.mf_quotidienne (source mf-q). dim.station
-    # alimente le crosswalk mfid (parquet_paths). Le job relit aussi silver.observation_v2
-    # (curseur_source_mf, watermark par station) et silver.observation_v2_quarantine
-    # (curseur_quarantine_mf) avant chaque append — auto-lecture réelle, pas seulement
-    # une sortie.
+    # alimente le crosswalk ic_id/mfid (parquet_paths) pour les deux branches. Le job relit
+    # aussi silver.observation_v2 (curseur par station, watermark) et
+    # silver.observation_v2_quarantine (curseur_quarantine_mf) avant chaque append —
+    # auto-lecture réelle, pas seulement une sortie.
     inputs:
+      - namespace: "iceberg://warehouse"
+        name: bronze.synop  # famille IC synop-ic
+      - namespace: "iceberg://warehouse"
+        name: bronze.static  # famille IC static-ic
+      - namespace: "iceberg://warehouse"
+        name: bronze.metar  # famille IC metar-ic
+      - namespace: "iceberg://warehouse"
+        name: bronze.bouees  # famille IC bouees-ic
       - namespace: "iceberg://warehouse"
         name: bronze.mf_horaire  # famille mf-h
       - namespace: "iceberg://warehouse"
@@ -172,6 +186,23 @@ jobs:
     outputs:
       - namespace: "iceberg://diffusion"
         name: gold_canicule.station_saison
+  - pipeline: batch.gold_qc_pics
+    job_namespace: "batch://chom-poc-data"
+    job_name: batch.gold_qc_pics
+    priority_t2: haute
+    # Vérifié sur infoclimat-labs/chom-poc-data@d0be025c (scripts/gold_qc_pics.py, mode
+    # --publier, lignes 151-188) : charge directement warehouse_catalog().load_table
+    # ("silver.observation_v2") (meta, ligne 151) pour dériver l'histogramme/climato de
+    # garde, puis écrit write_iceberg(diffusion_catalog(), "gold_qc.pic_temperature", ...)
+    # (ligne 229). Ce job producteur de gold_qc.pic_temperature est aussi la source lue
+    # comme entrée par gold_v2_journaliere/gold_ic_journaliere/gold_statIC_journaliere/
+    # gold_canicule_station_saison (cf. leurs inputs gold_qc.pic_temperature ci-dessus).
+    inputs:
+      - namespace: "iceberg://warehouse"
+        name: silver.observation_v2
+    outputs:
+      - namespace: "iceberg://diffusion"
+        name: gold_qc.pic_temperature
   - pipeline: batch.station_observation_coverage
     job_namespace: "batch://chom-poc-data"
     job_name: batch.station_observation_coverage

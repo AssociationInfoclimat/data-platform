@@ -45,6 +45,9 @@ PRODUCER_QUARANTINE_TYPES = {
 # Consommateurs Gold réels de silver.observation_v2, vérifiés sur
 # infoclimat-labs/chom-poc-data@d0be025c : chacun charge
 # warehouse_catalog().load_table("silver.observation_v2") (meta = silver.metadata_location).
+# batch.gold_qc_pics (gold_qc_pics.py:151) est un consommateur direct au même titre que
+# les autres — il n'a simplement pas de contrat ODCS distinct pour son propre dataset
+# gold_qc.pic_temperature (hors périmètre de cette correction).
 GOLD_CONSUMERS_OF_CANONICAL = {
     "batch.gold_ref_station_parametre",
     "batch.gold_dataclimat_quotidienne",
@@ -52,6 +55,7 @@ GOLD_CONSUMERS_OF_CANONICAL = {
     "batch.gold_ic_journaliere",
     "batch.gold_statIC_journaliere",
     "batch.gold_canicule_station_saison",
+    "batch.gold_qc_pics",
 }
 
 # Auto-lectures Silver réelles de silver.observation_v2_quarantine : ni l'une ni l'autre
@@ -114,10 +118,19 @@ def expected_observation_jobs():
             },
         },
         "batch.catchup_silver_delta": {
-            # run_mf() lit chaque famille bronze séparément (silver_mf.FAMILLES) et
-            # relit silver.observation_v2 (curseur) + silver.observation_v2_quarantine
-            # (curseur_quarantine_mf) avant tout append (catchup_silver_delta.py).
+            # main() exécute par défaut LES DEUX branches run_ic() ET run_mf() sous une
+            # seule identité de job — deploy/catchup_all.sh appelle le script sans
+            # sélecteur (lignes 59-66) donc l'invocation de production ne les sépare pas.
+            # run_ic() lit chaque famille bronze IC séparément (FAMILLES = ("synop",
+            # "static", "metar", "bouees"), ligne 82) ; run_mf() lit chaque famille bronze
+            # MF séparément (silver_mf.FAMILLES). Les deux relisent silver.observation_v2
+            # (curseur) + silver.observation_v2_quarantine (curseur_quarantine_mf) avant
+            # tout append (catchup_silver_delta.py).
             "inputs": {
+                (warehouse, "bronze.synop"),
+                (warehouse, "bronze.static"),
+                (warehouse, "bronze.metar"),
+                (warehouse, "bronze.bouees"),
                 (warehouse, "bronze.mf_horaire"),
                 (warehouse, "bronze.mf_infrahoraire"),
                 (warehouse, "bronze.mf_quotidienne"),
@@ -130,6 +143,17 @@ def expected_observation_jobs():
                 (warehouse, "silver.observation_v2_quarantine"),
             },
         },
+    }
+
+
+def expected_gold_qc_pics_job():
+    """Arête physique réelle de batch.gold_qc_pics, vérifiée sur chom-poc-data@d0be025c
+    (scripts/gold_qc_pics.py, mode --publier, lignes 151-229) : lit directement
+    silver.observation_v2 (warehouse_catalog) et écrit gold_qc.pic_temperature
+    (diffusion_catalog) — le consommateur direct que l'oracle local précédent omettait."""
+    return {
+        "inputs": {("iceberg://warehouse", "silver.observation_v2")},
+        "outputs": {("iceberg://diffusion", "gold_qc.pic_temperature")},
     }
 
 
@@ -182,26 +206,27 @@ def test_silver_observation_v2_schema_matches_producer_types_exactly():
     assert fields["dh_utc"]["required"] is True
 
 
-def test_silver_observation_v2_declares_its_business_key_explicitly():
-    """primaryKey/primaryKeyPosition explicites sur (station_uid, dh_utc, parametre,
-    source) ; version_obs disambigue les révisions et n'est PAS dans la clé."""
-    canonical = tables(contract("silver.observation_v2.odcs.yaml"))["silver.observation_v2"]
-    fields = properties(canonical)
-    expected_key = {
-        "station_uid": 1,
-        "dh_utc": 2,
-        "parametre": 3,
-        "source": 4,
-    }
-    for name, position in expected_key.items():
-        assert fields[name].get("primaryKey") is True, f"{name} should be primaryKey"
-        assert fields[name].get("primaryKeyPosition") == position
+def test_silver_observation_v2_declares_no_primary_key_and_documents_why():
+    """La source à d0be025c ne tranche pas l'unicité de ligne : les writers vus
+    (catchup_silver_delta.py:586-607) assignent seulement version_obs=1, et le
+    canonique append-only porte déjà des doublons connus signalés par des
+    consommateurs Gold (gold_v2_journaliere.py:46-54). Un primaryKey serait donc une
+    assertion d'identité non établie côté producteur : ce contrat n'en déclare aucun
+    et documente explicitement le POC append-only via une règle de qualité dédiée."""
+    canonical = contract("silver.observation_v2.odcs.yaml")
+    table = tables(canonical)["silver.observation_v2"]
+    fields = properties(table)
+    assert not any(field.get("primaryKey") for field in fields.values()), (
+        "silver.observation_v2 should not assert any primaryKey: row identity/"
+        "uniqueness is not established by the producer at d0be025c"
+    )
+    assert not any("primaryKeyPosition" in field for field in fields.values())
 
-    key_fields = {
-        name for name, field in fields.items() if field.get("primaryKey") is True
-    }
-    assert key_fields == set(expected_key)
-    assert fields["version_obs"].get("primaryKey", False) is False
+    rules = {rule["rule"]: rule for rule in table["quality"]}
+    assert "identity_and_uniqueness_not_established" in rules
+    description = rules["identity_and_uniqueness_not_established"]["description"]
+    assert "primaryKey" in description
+    assert "version_obs=1" in description
 
 
 def test_silver_observation_v2_quarantine_schema_matches_producer_types_exactly():
@@ -219,6 +244,36 @@ def test_silver_observation_v2_quarantine_schema_matches_producer_types_exactly(
         "quarantined_run_id", "quarantined_at",
     ):
         assert fields[required_field]["required"] is True
+
+
+def test_silver_observation_v2_quarantine_declares_no_primary_key_and_documents_why():
+    """Comme silver.observation_v2, aucune clé de ligne unique n'est établie côté
+    producteur à d0be025c : ce contrat ne déclare aucun primaryKey et documente
+    explicitement le POC append-only via une règle de qualité dédiée."""
+    quarantine = contract("silver.observation_v2_quarantine.odcs.yaml")
+    table = tables(quarantine)["silver.observation_v2_quarantine"]
+    fields = properties(table)
+    assert not any(field.get("primaryKey") for field in fields.values()), (
+        "silver.observation_v2_quarantine should not assert any primaryKey: row "
+        "identity/uniqueness is not established by the producer at d0be025c"
+    )
+    assert not any("primaryKeyPosition" in field for field in fields.values())
+
+    rules = {rule["rule"]: rule for rule in table["quality"]}
+    assert "identity_and_uniqueness_not_established" in rules
+    assert "primaryKey" in rules["identity_and_uniqueness_not_established"]["description"]
+
+
+def test_silver_observation_v2_quarantine_never_served_rule_uses_the_real_field():
+    """La règle never_served doit citer dh_source_local — le champ réel de ce schéma
+    (jamais dh_utc, qui n'existe pas ici : la quarantaine n'a pas de fuseau IANA
+    versionné pour convertir en UTC)."""
+    quarantine = contract("silver.observation_v2_quarantine.odcs.yaml")
+    table = tables(quarantine)["silver.observation_v2_quarantine"]
+    rules = {rule["rule"]: rule for rule in table["quality"]}
+    description = rules["never_served"]["description"]
+    assert "dh_source_local" in description
+    assert "dh_utc" not in description
 
 
 def test_silver_observation_v2_servers_never_claim_an_unsourced_s3_bucket():
@@ -255,6 +310,20 @@ def test_bronze_mf_to_silver_lineage_jobs_define_exact_physical_edges():
             assert dataset_pairs(job, direction) == datasets, (
                 f"{job_name}.{direction}: {dataset_pairs(job, direction)} != {datasets}"
             )
+
+
+def test_gold_qc_pics_job_defines_exact_physical_edges():
+    """batch.gold_qc_pics doit être déclaré comme un job réel du graphe, avec exactement
+    les arêtes physiques vérifiées côté source (silver.observation_v2 en entrée,
+    gold_qc.pic_temperature en sortie) — pas une omission comme au tour précédent."""
+    jobs = load_jobs()
+    job = jobs["batch.gold_qc_pics"]
+    assert job["job_namespace"] == "batch://chom-poc-data"
+    expected = expected_gold_qc_pics_job()
+    for direction, datasets in expected.items():
+        assert dataset_pairs(job, direction) == datasets, (
+            f"batch.gold_qc_pics.{direction}: {dataset_pairs(job, direction)} != {datasets}"
+        )
 
 
 def test_lineage_forward_loads_bronze_mf_to_silver_jobs_with_declared_datasets():

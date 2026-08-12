@@ -122,9 +122,11 @@ schema:
           Aucun contrat serving/Gold ne lit cette table (cf. lineageJob.consumers :
           seuls batch.catchup_silver_delta et batch.silver_v2_temporal_backfill —
           les deux mêmes producteurs Silver — la relisent, pour leur curseur/preuve
-          opérationnels, jamais pour du serving) ; une ligne présente ici est absente
-          de silver.observation_v2 pour la même clé métier (station_uid, dh_utc,
-          parametre, source) au même instant.
+          opérationnels, jamais pour du serving) ; une ligne présente ici correspond à
+          une observation RETIRÉE de silver.observation_v2 (station sans_controle) pour
+          (station_uid, parametre, source) et son instant source dh_source_local — le
+          seul champ d'horodatage réel de ce schéma, non converti en UTC faute de fuseau
+          IANA versionné pour cette station.
         severity: error
       - rule: replayable_by_predicate
         description: >-
@@ -137,6 +139,15 @@ schema:
         description: >-
           Une station qui devient contrôlée après sa quarantaine n'est PAS rejouée
           automatiquement depuis cette table (limite assumée #176).
+        severity: warning
+      - rule: identity_and_uniqueness_not_established
+        description: >-
+          Ce contrat NE déclare AUCUN primaryKey, à l'image de silver.observation_v2.
+          Aucune clé de ligne unique n'est établie côté producteur à d0be025c : ni
+          (station_uid, dh_source_local, parametre, source) ni une variante incluant
+          version_obs (les writers vus assignent seulement version_obs=1). C'est un POC
+          append-only : l'identité/unicité de ligne est une question ouverte, pas une
+          garantie de ce contrat.
         severity: warning
 
 team:
