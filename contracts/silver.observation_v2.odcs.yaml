@@ -149,15 +149,18 @@ support:
 customProperties:
   - property: source
     value: >-
-      bronze.mf_horaire (mf-h) + bronze.mf_infrahoraire (mf-i) + bronze.mf_quotidienne
-      (mf-q) + dim.station, lus exclusivement par batch.catchup_silver_delta.
+      bronze.synop (synop-ic) + bronze.static (static-ic) + bronze.metar (metar-ic) +
+      bronze.bouees (bouees-ic) + bronze.mf_horaire (mf-h) + bronze.mf_infrahoraire
+      (mf-i) + bronze.mf_quotidienne (mf-q) + dim.station, lus exclusivement par
+      batch.catchup_silver_delta.
       batch.silver_v2_temporal_backfill ne lit aucun Bronze : il rejoue silver.observation_v2
       lui-même (cf. lineage/jobs.yaml).
   - property: lineage
     value: >-
-      batch.catchup_silver_delta : bronze.mf_horaire (mf-h) + bronze.mf_infrahoraire (mf-i)
-      + bronze.mf_quotidienne (mf-q) + dim.station + auto-lecture silver.observation_v2
-      (curseur par station) + auto-lecture silver.observation_v2_quarantine
+      batch.catchup_silver_delta : bronze.synop (synop-ic) + bronze.static (static-ic) +
+      bronze.metar (metar-ic) + bronze.bouees (bouees-ic) + bronze.mf_horaire (mf-h) +
+      bronze.mf_infrahoraire (mf-i) + bronze.mf_quotidienne (mf-q) + dim.station +
+      auto-lecture silver.observation_v2 (curseur par station) + auto-lecture silver.observation_v2_quarantine
       (curseur_quarantine_mf) -> silver.observation_v2 (station à fuseau contrôlé) ou
       silver.observation_v2_quarantine (station sans_controle, #176), append. |
       batch.silver_v2_temporal_backfill : auto-lecture silver.observation_v2 (coeur

@@ -192,14 +192,17 @@ jobs:
     priority_t2: haute
     # Vérifié sur infoclimat-labs/chom-poc-data@d0be025c (scripts/gold_qc_pics.py, mode
     # --publier, lignes 151-188) : charge directement warehouse_catalog().load_table
-    # ("silver.observation_v2") (meta, ligne 151) pour dériver l'histogramme/climato de
-    # garde, puis écrit write_iceberg(diffusion_catalog(), "gold_qc.pic_temperature", ...)
-    # (ligne 229). Ce job producteur de gold_qc.pic_temperature est aussi la source lue
+    # ("silver.observation_v2") (meta, ligne 151) et warehouse_catalog().load_table
+    # ("qc.pic_candidat") pour dériver l'histogramme/climato de garde, puis écrit
+    # write_iceberg(diffusion_catalog(), "gold_qc.pic_temperature", ...) (ligne 229).
+    # Ce job producteur de gold_qc.pic_temperature est aussi la source lue
     # comme entrée par gold_v2_journaliere/gold_ic_journaliere/gold_statIC_journaliere/
     # gold_canicule_station_saison (cf. leurs inputs gold_qc.pic_temperature ci-dessus).
     inputs:
       - namespace: "iceberg://warehouse"
         name: silver.observation_v2
+      - namespace: "iceberg://warehouse"
+        name: qc.pic_candidat
     outputs:
       - namespace: "iceberg://diffusion"
         name: gold_qc.pic_temperature

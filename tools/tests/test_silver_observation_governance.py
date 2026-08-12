@@ -65,6 +65,13 @@ SILVER_SELF_READERS_OF_QUARANTINE = {
     "batch.catchup_silver_delta",
 }
 
+IC_BRONZE_INPUTS = {
+    "bronze.synop",
+    "bronze.static",
+    "bronze.metar",
+    "bronze.bouees",
+}
+
 
 def contract(name):
     return yaml.safe_load((ROOT / "contracts" / name).read_text())
@@ -149,10 +156,13 @@ def expected_observation_jobs():
 def expected_gold_qc_pics_job():
     """Arête physique réelle de batch.gold_qc_pics, vérifiée sur chom-poc-data@d0be025c
     (scripts/gold_qc_pics.py, mode --publier, lignes 151-229) : lit directement
-    silver.observation_v2 (warehouse_catalog) et écrit gold_qc.pic_temperature
-    (diffusion_catalog) — le consommateur direct que l'oracle local précédent omettait."""
+    silver.observation_v2 et qc.pic_candidat (warehouse_catalog) et écrit
+    gold_qc.pic_temperature (diffusion_catalog)."""
     return {
-        "inputs": {("iceberg://warehouse", "silver.observation_v2")},
+        "inputs": {
+            ("iceberg://warehouse", "silver.observation_v2"),
+            ("iceberg://warehouse", "qc.pic_candidat"),
+        },
         "outputs": {("iceberg://diffusion", "gold_qc.pic_temperature")},
     }
 
@@ -314,8 +324,8 @@ def test_bronze_mf_to_silver_lineage_jobs_define_exact_physical_edges():
 
 def test_gold_qc_pics_job_defines_exact_physical_edges():
     """batch.gold_qc_pics doit être déclaré comme un job réel du graphe, avec exactement
-    les arêtes physiques vérifiées côté source (silver.observation_v2 en entrée,
-    gold_qc.pic_temperature en sortie) — pas une omission comme au tour précédent."""
+    les arêtes physiques vérifiées côté source (silver.observation_v2 et
+    qc.pic_candidat en entrée, gold_qc.pic_temperature en sortie)."""
     jobs = load_jobs()
     job = jobs["batch.gold_qc_pics"]
     assert job["job_namespace"] == "batch://chom-poc-data"
@@ -324,6 +334,17 @@ def test_gold_qc_pics_job_defines_exact_physical_edges():
         assert dataset_pairs(job, direction) == datasets, (
             f"batch.gold_qc_pics.{direction}: {dataset_pairs(job, direction)} != {datasets}"
         )
+
+
+def test_silver_observation_v2_source_and_lineage_enumerate_ic_bronze_inputs():
+    """Les deux textes contractuels doivent refléter les entrées IC de run_ic(),
+    déjà déclarées dans batch.catchup_silver_delta du graphe physique."""
+    canonical = contract("silver.observation_v2.odcs.yaml")
+    props = custom_properties(canonical)
+    for property_name in ("source", "lineage"):
+        value = props[property_name]
+        for dataset_name in IC_BRONZE_INPUTS:
+            assert dataset_name in value, f"{property_name} omet {dataset_name}"
 
 
 def test_lineage_forward_loads_bronze_mf_to_silver_jobs_with_declared_datasets():
