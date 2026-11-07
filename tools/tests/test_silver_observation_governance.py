@@ -178,8 +178,8 @@ def test_silver_observation_v2_contracts_are_valid_odcs_and_keep_v2_identity():
     canonical = contract("silver.observation_v2.odcs.yaml")
     quarantine = contract("silver.observation_v2_quarantine.odcs.yaml")
 
-    assert canonical["apiVersion"] == "v3.0.2"
-    assert quarantine["apiVersion"] == "v3.0.2"
+    assert canonical["apiVersion"] == "v3.1.0"
+    assert quarantine["apiVersion"] == "v3.1.0"
     assert canonical["id"] == "urn:infoclimat:contract:silver-observation-v2"
     assert quarantine["id"] == "urn:infoclimat:contract:silver-observation-v2-quarantine"
 
