@@ -31,7 +31,7 @@ servers:
     type: s3
     environment: production
     location: s3://chom-ic-lake-diffusion/silver_ref
-    format: iceberg
+    format: parquet
 
 schema:
   - name: station
@@ -204,6 +204,8 @@ team:
     role: owner
 
 customProperties:
+  - property: tableFormat
+    value: iceberg
   - property: source
     value: bronze_ref.station_source
   - property: publicationRule

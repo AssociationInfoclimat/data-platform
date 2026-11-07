@@ -27,7 +27,7 @@ servers:
     type: s3
     environment: production
     location: s3://chom-ic-lake-diffusion/gold_canicule
-    format: iceberg
+    format: parquet
 schema:
   - name: station_insee
     physicalName: gold_canicule.station_insee
@@ -102,6 +102,8 @@ support:
     tool: email
     url: mailto:pamahe@proton.me
 customProperties:
+  - property: tableFormat
+    value: iceberg
   - property: lineage
     value: gold_ref.station + communes IGN + INSEE COG -> gold_canicule.station_insee ; silver.observation_v2 + gold_canicule.station_insee -> gold_canicule.station_saison -> gold_canicule.territoire_saison ; gold_canicule.station_insee + communes IGN -> gold_canicule.commune_couverture (rayon 25 km)
   - property: dataLicense

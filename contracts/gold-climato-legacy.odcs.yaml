@@ -26,7 +26,7 @@ servers:
     type: s3
     environment: production
     location: s3://chom-ic-lake-diffusion/gold_legacy
-    format: iceberg
+    format: parquet
 
 schema:
   - name: mensuelle
@@ -120,6 +120,8 @@ support:
     url: mailto:pamahe@proton.me
 
 customProperties:
+  - property: tableFormat
+    value: iceberg
   - property: lineage
     value: bronze.mf_mensuelle -> gold_legacy.mensuelle
   - property: dataLicense

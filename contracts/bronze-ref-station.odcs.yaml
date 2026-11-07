@@ -32,7 +32,7 @@ servers:
     type: s3
     environment: production
     location: s3://chom-ic-lake-diffusion/bronze_ref
-    format: iceberg
+    format: parquet
 
 schema:
   - name: station_source
@@ -92,6 +92,8 @@ team:
     role: owner
 
 customProperties:
+  - property: tableFormat
+    value: iceberg
   - property: source
     value: iceberg://warehouse/dim.station
   - property: writeMode
