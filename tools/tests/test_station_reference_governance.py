@@ -133,16 +133,17 @@ def test_station_contract_storage_and_lineage_jobs_match_declared_graph():
         "type": "s3",
         "environment": "production",
         "location": "s3://chom-ic-lake-diffusion/bronze_ref",
-        "format": "iceberg",
+        "format": "parquet",
     }]
     assert silver["servers"] == [{
         "server": "diffusion-iceberg",
         "type": "s3",
         "environment": "production",
         "location": "s3://chom-ic-lake-diffusion/silver_ref",
-        "format": "iceberg",
+        "format": "parquet",
     }]
     for document in (bronze, silver, gold):
+        assert custom_properties(document)["tableFormat"] == "iceberg"
         assert_contract_lineage(document, jobs)
 
 
