@@ -221,8 +221,6 @@ schema:
             description: Vent en m/s — record mondial de rafale ≈ 113 m/s, vent moyen en deçà
             mustBeGreaterOrEqualTo: 0
             mustBeLessOrEqualTo: 120
-            mustBeGreaterOrEqualTo: 0
-            mustBeLessOrEqualTo: 120
             severity: error
       - name: fxi10
         physicalType: REAL

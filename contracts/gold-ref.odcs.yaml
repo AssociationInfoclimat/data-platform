@@ -1,4 +1,4 @@
-apiVersion: v3.0.2
+apiVersion: v3.1.0
 kind: DataContract
 id: urn:infoclimat:contract:gold-ref
 name: Gold référentiel stations (annuaire géolocalisé + réseau + activité par paramètre)

@@ -1,4 +1,4 @@
-apiVersion: v3.0.2
+apiVersion: v3.1.0
 kind: DataContract
 id: urn:infoclimat:contract:silver-observation-v2
 name: Silver observation v2 (dataset Iceberg réellement servi)

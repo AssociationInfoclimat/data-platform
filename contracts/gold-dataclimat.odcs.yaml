@@ -1,4 +1,4 @@
-apiVersion: v3.0.2
+apiVersion: v3.1.0
 kind: DataContract
 id: urn:infoclimat:contract:gold-dataclimat
 name: Gold dataclimat (drop-in dataclimat.fr / Data For Good)

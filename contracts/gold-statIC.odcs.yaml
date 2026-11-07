@@ -1,4 +1,4 @@
-apiVersion: v3.0.2
+apiVersion: v3.1.0
 kind: DataContract
 id: urn:infoclimat:contract:gold-statIC
 name: Gold StatIC (climato du réseau participatif Infoclimat)

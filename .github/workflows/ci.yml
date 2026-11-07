@@ -15,7 +15,7 @@ jobs:
         with:
           python-version: "3.10"
       - name: Installer datacontract-cli
-        run: pip install --quiet datacontract-cli
+        run: pip install --quiet datacontract-cli==1.2.9
       - name: Lint des contrats
         run: |
           for contract in contracts/*.odcs.yaml; do
