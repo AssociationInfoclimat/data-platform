@@ -1,4 +1,4 @@
-apiVersion: v3.1.0
+apiVersion: v3.0.2
 kind: DataContract
 id: urn:infoclimat:contract:silver-ref-station
 name: Silver référentiel stations — canonisation et alias
@@ -31,7 +31,7 @@ servers:
     type: s3
     environment: production
     location: s3://chom-ic-lake-diffusion/silver_ref
-    format: iceberg
+    format: parquet
 
 schema:
   - name: station
@@ -204,6 +204,8 @@ team:
     role: owner
 
 customProperties:
+  - property: tableFormat
+    value: iceberg
   - property: source
     value: bronze_ref.station_source
   - property: publicationRule

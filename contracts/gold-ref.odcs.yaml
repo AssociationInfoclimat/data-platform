@@ -1,4 +1,4 @@
-apiVersion: v3.1.0
+apiVersion: v3.0.2
 kind: DataContract
 id: urn:infoclimat:contract:gold-ref
 name: Gold référentiel stations (annuaire géolocalisé + réseau + activité par paramètre)
@@ -34,7 +34,7 @@ servers:
     type: s3
     environment: production
     location: s3://chom-ic-lake-diffusion/gold_ref
-    format: iceberg
+    format: parquet
 
 schema:
   - name: station
@@ -182,6 +182,8 @@ support:
     url: mailto:pamahe@proton.me
 
 customProperties:
+  - property: tableFormat
+    value: iceberg
   - property: lineage
     value: silver.observation_v2 + dim_ref.station_alias -> gold_ref.station_parametre ; dim_ref.station + dim_ref.station_alias + gold_ref.station_parametre -> gold_ref.station + gold_ref.station_alias
   - property: lineageJob
