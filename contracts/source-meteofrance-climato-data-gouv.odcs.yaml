@@ -2,7 +2,7 @@ apiVersion: v3.0.2
 kind: DataContract
 id: urn:infoclimat:contract:source-meteofrance-climato-data-gouv
 name: Source Météo-France — Climatologie archives open data (meteo.data.gouv.fr)
-version: 1.0.0
+version: 1.1.0
 status: active
 domain: climato
 tags: [source, meteofrance]
@@ -10,7 +10,13 @@ tags: [source, meteofrance]
 description:
   purpose: Archives climatologiques open data (Licence Ouverte Etalab 2.0), sans auth.
   usage: Ingéré par telechargement-climatologie-meteo-data-gouv → tables timescaledb.
-  limitations: Bucket distinct du bucket AROME PNT.
+  limitations: >-
+    Bucket distinct du bucket AROME PNT. Les labels horaires et six minutes
+    sont UTC en métropole et FU fixe outre-mer, distinct de l’heure civile
+    IANA ; ils exigent une conversion source qualifiée avant usage comme
+    instants UTC. La date quotidienne officielle et les fenêtres radiatives
+    UTC/temps solaire vrai ont des conventions propres, à conserver séparément.
+    Source : https://meteofrance.s3.sbg.io.cloud.ovh.net/data/synchro_ftp/BASE/A_LIRE_Heure.csv.
 
 servers:
   - server: meteofrance-climato-data-gouv
@@ -30,7 +36,11 @@ schema:
       - name: AAAAMMJJHH
         physicalType: TIMESTAMP
         unit: "—"
-        description: "clé temporelle (selon fréquence : AAAAMMJJ, AAAAMM)"
+        description: >-
+          Label temporel source, selon fréquence AAAAMMJJHH, AAAAMMJJHHMN,
+          AAAAMMJJ ou AAAAMM. Pour h/i : UTC en métropole, FU fixe outre-mer,
+          notamment UTC−4 à SPM, UTC+11 en Nouvelle-Calédonie et UTC−10 aux
+          Marquises ; ce label seul ne constitue pas un instant UTC outre-mer.
       - name: RR
         physicalType: REAL
         unit: mm

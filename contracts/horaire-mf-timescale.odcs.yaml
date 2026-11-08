@@ -2,7 +2,7 @@ apiVersion: v3.0.2
 kind: DataContract
 id: urn:infoclimat:contract:horaire-mf-timescale
 name: Observations horaires Météo-France
-version: 0.1.0
+version: 0.2.0
 status: active # validé contre la prod le 2026-06-12 (datacontract test)
 domain: observations
 dataProduct: observations-temps-reel
@@ -16,9 +16,14 @@ description:
   usage: >-
     Lecture via la couche dual-source du monolithe (include/MeteoFrance/combined.php,
     quotidiennes/climato : climato/mgetData.php) — TimescaleDB prioritaire, fallback
-    MySQL mf_data. `Horaire` : clé temporelle AAAAMMJJHH (UTC), une colonne par paramètre
+    MySQL mf_data. `Horaire` : label source AAAAMMJJHH, une colonne par paramètre
     avec son indicateur qualité Q* associé. `HoraireTempsReel` : clé validity_time,
-    partition 31 j.
+    partition 31 j. Les labels historiques des archives sont UTC en métropole et
+    en FU (fuseau fixe Météo-France) outre-mer : ils ne sont pas des instants UTC
+    du seul fait de leur stockage en TIMESTAMPTZ. Le FU source est distinct du
+    fuseau civil IANA. Les dates quotidiennes officielles MF gardent leur propre
+    définition ; les fenêtres UTC/temps solaire vrai des paramètres radiatifs ne
+    se confondent pas avec l’horloge du label commun.
   limitations: >-
     Couverture limitée au réseau Météo-France (pas de StatIC). Le flux temps réel et
     l'historique partagent les conventions météo usuelles (°C, hPa, m/s ; vérifié en
@@ -26,6 +31,10 @@ description:
     Ingestion gérée hors monolithe (socle dataclimat) par les repos
     telechargement-climatologie-meteo-data-gouv (Horaire) et
     telechargement-climatologie-portail-api-meteofrance (HoraireTempsReel) — cf. customProperties.sourceRepo.
+    Convention primaire des archives :
+    https://meteofrance.s3.sbg.io.cloud.ovh.net/data/synchro_ftp/BASE/A_LIRE_Heure.csv.
+    La qualification du label et des fenêtres d’agrégation doit être conservée
+    séparément ; une convention source fixe n’est pas une règle DST civile.
 
 tags:
   - meteo
@@ -58,7 +67,12 @@ schema:
       - name: AAAAMMJJHH
         physicalType: TIMESTAMPTZ
         required: true
-        description: Date et heure de la mesure (UTC), clé temporelle de l'hypertable
+        description: >-
+          Label calendrier de l’archive horaire MF, clé temporelle de l’hypertable.
+          UTC en métropole, FU fixe outre-mer (notamment UTC−4 à SPM, UTC+11 en
+          Nouvelle-Calédonie, UTC−10 aux Marquises). Une conversion source
+          qualifiée est requise avant de produire un instant UTC ; le type
+          TIMESTAMPTZ ne prouve pas que cette conversion a eu lieu.
       - name: RR1
         physicalType: REAL
         description: Précipitations sur 1 h (mm) — indicateur qualité QRR1
